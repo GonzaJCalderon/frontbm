@@ -1,5 +1,4 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
 import api from '../axiosConfig';
 
 // Acción de registro de usuario
@@ -19,7 +18,7 @@ export const register = createAsyncThunk(
 export const login = createAsyncThunk('auth/login', async ({ email, password, rolTemporal }, { rejectWithValue }) => {
     try {
         console.log('Datos enviados al backend:', { email, password, rolTemporal });
-        const response = await axios.post('/usuarios/login', { email, password, rolTemporal });
+        const response = await api.post('/usuarios/login', { email, password, rolTemporal });
         console.log('Respuesta del backend:', response.data); // Verifica la respuesta
         return response.data;
     } catch (error) {
@@ -33,7 +32,7 @@ export const logout = createAsyncThunk(
     'auth/logout',
     async (_, thunkAPI) => {
         try {
-            await axios.post('http://localhost:5000/logout');
+            await api.post('/logout'); // Cambia a usar la instancia de api
             // Elimina el rol del usuario de localStorage
             localStorage.removeItem('userRole');
             localStorage.removeItem('token');
