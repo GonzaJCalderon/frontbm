@@ -1,20 +1,19 @@
 // src/redux/actions/search.js
-import axios from 'axios';
+import api from '../axiosConfig'; // Asegúrate de que esta ruta sea correcta
 
 export const searchItems = (term) => async (dispatch) => {
     try {
-        const response = await axios.get(`http://localhost:5000/search?nombre=${term}`);
-        console.log('Search Results:', response.data); // Verifica los datos recibidos
+        const response = await api.get(`/search?nombre=${term}`); // Usa la instancia de Axios
+        console.log('Search Results:', response.data);
         dispatch({
             type: 'SEARCH_ITEMS_SUCCESS',
-            payload: response.data, // Asegúrate de que esto tenga la estructura correcta
+            payload: response.data,
         });
     } catch (error) {
-        console.error('Search Error:', error); // Maneja errores
+        console.error('Search Error:', error);
         dispatch({
             type: 'SEARCH_ITEMS_ERROR',
             payload: error.message,
         });
     }
 };
-
