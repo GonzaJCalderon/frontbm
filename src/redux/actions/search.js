@@ -1,10 +1,9 @@
-// src/redux/actions/search.js
-import api from '../axiosConfig'; 
-
+import axios from '../axiosConfig';
+import api from '../axiosConfig';
 
 export const searchItems = (term) => async (dispatch) => {
     try {
-        const response = await api.get(`/search?nombre=${term}`); // Usa la instancia de Axios
+        const response = await api.get(`/search?nombre=${term}`);
         console.log('Search Results:', response.data);
         dispatch({
             type: 'SEARCH_ITEMS_SUCCESS',
