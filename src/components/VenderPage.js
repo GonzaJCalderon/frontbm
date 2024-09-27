@@ -135,7 +135,10 @@ const VenderForm = () => {
           <Select
             placeholder="Selecciona un bien"
             value={selectedItem} // Asegúrate de que el valor del Select sea el correcto
-            onChange={value => setSelectedItem(value)}
+            onChange={value => {
+              setSelectedItem(value);
+              form.setFieldsValue({ bien: value }); // Actualiza el valor del formulario
+            }}
             showSearch
             filterOption={false}
             onSearch={value => setSearch(value)}
