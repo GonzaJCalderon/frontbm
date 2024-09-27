@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchUsuarios, deleteUsuario,fetchTransaccionesByAdmin } from '../redux/actions/usuarios'; 
-
 import { useNavigate } from 'react-router-dom';
 import { notification, message, Button } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
@@ -18,7 +17,7 @@ const UsuarioList = () => {
 
     const handleViewDetails = async (user) => {
         try {
-            await dispatch(fetchTransaccionesByAdmin(user.id)); // Usa la acción Redux para obtener transacciones
+            await dispatch(fetchTransaccionesByAdmin(user.id)); 
             navigate(`/admin/operaciones/${user.id}`);
         } catch (error) {
             console.error(error);

@@ -165,7 +165,7 @@ export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {
 
     try {
         const token = getToken();
-        const response = await axios.get(`/bienes/transacciones/trazabilidad/${bienUuid}`, {
+        const response = await axios.get(`/bienes/trazabilidad/${bienUuid}`, {
             headers: {
                 Authorization: `Bearer ${token}`
             }
