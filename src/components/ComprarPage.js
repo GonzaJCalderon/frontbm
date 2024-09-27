@@ -52,12 +52,10 @@ const ComprarPage = () => {
   // Filtrar bienes por tipo
   const bienesTipos = [...new Set(items.map(bien => bien.tipo))];
 
-  // Filtrar marcas basadas en el tipo seleccionado
   const marcasDisponibles = items
     .filter(bien => bien.tipo === selectedTipo)
     .map(bien => bien.marca);
 
-  // Filtrar modelos basados en la marca seleccionada
   const modelosDisponibles = items
     .filter(bien => bien.tipo === selectedTipo && bien.marca === selectedMarca)
     .map(bien => bien.modelo);
@@ -132,94 +130,94 @@ const ComprarPage = () => {
   const handleFinishStep2 = async () => {
     const token = localStorage.getItem('token');
     const userData = JSON.parse(localStorage.getItem('userData'));
-  
-    if (!userData) {
-        return notification.error({
-            message: 'Error',
-            description: 'No se ha encontrado el comprador en el localStorage.',
-        });
-    }
-  
-    const compradorId = userData.id;
-  
-    const bienesData = bienesDinamicos.map(bien => ({
-        id: bien.id,
-        descripcion: bien.descripcion, // Asegúrate de que este campo se esté pasando correctamente
-        precio: bien.precio,
-        tipo: selectedTipo,
-        marca: selectedMarca,
-        modelo: selectedModelo,
-        fotos: bien.fotos.map(file => file.originFileObj),
-        vendedorId: formValues.vendedorId,
-        vendedorNombre: formValues.vendedorNombre,
-        vendedorEmail: formValues.vendedorEmail,
-        vendedorDniCuit: formValues.vendedorDniCuit,
-        vendedorDireccion: formValues.vendedorDireccion,
-        fecha: new Date().toISOString(),
-        metodoPago: form.getFieldValue('metodoPago'),
-        cantidad: bien.cantidad || 1 // Asegúrate de que la cantidad se esté asignando
-    }));
-  
-    try {
-        // Registrar los bienes
-        for (const bien of bienesData) {
-            await dispatch(addBien(bien));
-        }
-  
-        setNewBienDetails(bienesData);
-        setIsModalOpen(true);
-    } catch (error) {
-        message.error(error.response?.data?.message || 'Error al registrar el bien.');
-    }
-};
 
-const handleConfirm = async () => {
-    if (!newBienDetails || newBienDetails.length === 0) {
-        console.error('No hay detalles de bienes para registrar');
-        return;
+    if (!userData) {
+      return notification.error({
+        message: 'Error',
+        description: 'No se ha encontrado el comprador en el localStorage.',
+      });
     }
-  
+
+    const compradorId = userData.id;
+
+    const bienesData = bienesDinamicos.map(bien => ({
+      id: bien.id,
+      descripcion: bien.descripcion, // Asegúrate de que este campo se esté pasando correctamente
+      precio: bien.precio,
+      tipo: selectedTipo,
+      marca: selectedMarca,
+      modelo: selectedModelo,
+      fotos: bien.fotos.map(file => file.originFileObj),
+      vendedorId: formValues.vendedorId,
+      vendedorNombre: formValues.vendedorNombre,
+      vendedorEmail: formValues.vendedorEmail,
+      vendedorDniCuit: formValues.vendedorDniCuit,
+      vendedorDireccion: formValues.vendedorDireccion,
+      fecha: new Date().toISOString(),
+      metodoPago: form.getFieldValue('metodoPago'),
+      cantidad: bien.cantidad || 1 // Asegúrate de que la cantidad se esté asignando
+    }));
+
+    try {
+      // Registrar los bienes
+      for (const bien of bienesData) {
+        await dispatch(addBien(bien));
+      }
+
+      setNewBienDetails(bienesData);
+      setIsModalOpen(true);
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Error al registrar el bien.');
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!newBienDetails || newBienDetails.length === 0) {
+      console.error('No hay detalles de bienes para registrar');
+      return;
+    }
+
     const userData = JSON.parse(localStorage.getItem('userData'));
     const compradorId = userData ? userData.id : null;
-  
+
     if (!compradorId) {
-        console.error('No se ha encontrado compradorId en localStorage');
-        return;
+      console.error('No se ha encontrado compradorId en localStorage');
+      return;
     }
-  
+
     try {
-        for (const bien of newBienDetails) {
-            const compraData = {
-                fecha: bien.fecha || new Date().toISOString(),
-                precio: bien.precio,
-                cantidad: bien.cantidad || 1,
-                compradorId: compradorId,
-                vendedorId: bien.vendedorId,
-                bienId: bien.id,
-                estado: bien.estado || 'pendiente',
-                metodoPago: form.getFieldValue('metodoPago') || bien.metodoPago,
-                tipo: bien.tipo,
-                marca: bien.marca,
-                modelo: bien.modelo,
-                descripcion: bien.descripcion // Asegúrate de que la descripción se incluya aquí
-            };
-  
-            console.log('Datos enviados a registrarCompra:', compraData);
-            await dispatch(registrarCompra(compraData));
-        }
-  
-        notification.success({
-            message: 'Compra Registrada',
-            description: 'La compra ha sido registrada con éxito.',
-        });
-  
-        setIsModalOpen(false);
-        navigate('/userdashboard');
+      for (const bien of newBienDetails) {
+        const compraData = {
+          fecha: bien.fecha || new Date().toISOString(),
+          precio: bien.precio,
+          cantidad: bien.cantidad || 1,
+          compradorId: compradorId,
+          vendedorId: bien.vendedorId,
+          bienId: bien.id,
+          estado: bien.estado || 'pendiente',
+          metodoPago: form.getFieldValue('metodoPago') || bien.metodoPago,
+          tipo: bien.tipo,
+          marca: bien.marca,
+          modelo: bien.modelo,
+          descripcion: bien.descripcion // Asegúrate de que la descripción se incluya aquí
+        };
+
+        console.log('Datos enviados a registrarCompra:', compraData);
+        await dispatch(registrarCompra(compraData));
+      }
+
+      notification.success({
+        message: 'Compra Registrada',
+        description: 'La compra ha sido registrada con éxito.',
+      });
+
+      setIsModalOpen(false);
+      navigate('/userdashboard');
     } catch (error) {
-        console.error('Error al registrar los bienes:', error);
-        message.error('Error al registrar los bienes. Por favor, inténtalo de nuevo.');
+      console.error('Error al registrar los bienes:', error);
+      message.error('Error al registrar los bienes. Por favor, inténtalo de nuevo.');
     }
-};
+  };
 
 
 
@@ -392,23 +390,25 @@ const handleConfirm = async () => {
                   label="Marca"
                   rules={[{ required: true, message: 'Por favor seleccione la marca' }]}
                 >
-                  <Select onChange={setSelectedMarca}>
+                  <Select onChange={setSelectedMarca} disabled={!selectedTipo}>
                     {marcasDisponibles.map(marca => (
                       <Option key={marca} value={marca}>{marca}</Option>
                     ))}
                   </Select>
                 </Form.Item>
+
                 <Form.Item
                   name="bienModelo"
                   label="Modelo"
                   rules={[{ required: true, message: 'Por favor seleccione el modelo' }]}
                 >
-                  <Select onChange={setSelectedModelo}>
+                  <Select onChange={setSelectedModelo} disabled={!selectedMarca}>
                     {modelosDisponibles.map(modelo => (
                       <Option key={modelo} value={modelo}>{modelo}</Option>
                     ))}
                   </Select>
                 </Form.Item>
+
                 <Form.Item
                   name="bienStock"
                   label="Cantidad"
@@ -418,6 +418,7 @@ const handleConfirm = async () => {
                 </Form.Item>
               </>
             )}
+
 
             {bienesDinamicos.map((bien, index) => (
               <div key={bien.id} style={{ border: '1px solid #d9d9d9', padding: '10px', marginBottom: '10px' }}>
@@ -481,7 +482,7 @@ const handleConfirm = async () => {
 
       <Modal
         title="Confirmación de Compra"
-        visible={isModalOpen}
+        open={isModalOpen}
         onOk={handleConfirm}
         onCancel={() => setIsModalOpen(false)}
         okText="Confirmar"
