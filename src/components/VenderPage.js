@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Select, Spin, message, Modal, Space, Typography } from 'antd';
+import { Form, Input, Button, Select, Spin, message, Modal, Typography } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchBienes } from '../redux/actions/bienes';
 import { registrarVenta } from '../redux/actions/stockActions';
@@ -51,11 +51,11 @@ const VenderForm = () => {
   }, [search, stockItems]);
 
   const handleFinish = (values) => {
-    setFormValues(values);
-    const selectedStockItem = stockItems.find(item => item.id === selectedItem);
-    if (!selectedStockItem) {
-      console.error('El bien seleccionado no se encontró en stockItems:', selectedItem);
+    if (!selectedItem) {
+      message.error('Por favor, selecciona un bien.');
+      return;
     }
+    setFormValues(values);
     setIsModalOpen(true);
   };
 
@@ -79,6 +79,7 @@ const VenderForm = () => {
     if (success) {
       message.success('Venta registrada con éxito.');
       form.resetFields();
+      setSelectedItem(null); // Reset selected item after success
     } else if (error) {
       message.error('Error al registrar la venta.');
     }
@@ -133,6 +134,7 @@ const VenderForm = () => {
         >
           <Select
             placeholder="Selecciona un bien"
+            value={selectedItem} // Asegúrate de que el valor del Select sea el correcto
             onChange={value => setSelectedItem(value)}
             showSearch
             filterOption={false}
