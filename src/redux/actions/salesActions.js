@@ -1,4 +1,5 @@
 import axios from 'axios';
+import axios from '../axiosConfig';
 
 export const ADD_SALE = 'ADD_SALE';
 export const FETCH_SALES = 'FETCH_SALES';

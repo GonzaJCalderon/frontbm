@@ -1,5 +1,6 @@
 // src/redux/actions/search.js
-import api from '../axiosConfig'; // Asegúrate de que esta ruta sea correcta
+import api from '../axiosConfig'; 
+
 
 export const searchItems = (term) => async (dispatch) => {
     try {
