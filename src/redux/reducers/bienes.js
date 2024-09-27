@@ -13,7 +13,8 @@ import {
     FETCH_BIENES,
     FETCH_TRAZABILIDAD_REQUEST,
     FETCH_TRAZABILIDAD_SUCCESS,
-    FETCH_TRAZABILIDAD_ERROR
+    FETCH_TRAZABILIDAD_ERROR, 
+  
 } from '../actions/actionTypes';
 
 const initialState = {
