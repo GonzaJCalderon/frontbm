@@ -1,4 +1,4 @@
-import api from './axiosConfig'; // Importa tu instancia de Axios
+import api from '../axiosConfig'; // Importa tu instancia de Axios
 import { 
     UPDATE_STOCK, 
     FETCH_USUARIO_COMPRAS_VENTAS_REQUEST, 
