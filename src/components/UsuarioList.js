@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchUsuarios, deleteUsuario } from '../redux/actions/usuarios'; 
+import { fetchTransaccionesByAdmin } from '../redux/actions/transacciones'; // Asegúrate de que esta línea esté importando correctamente tu acción
 import { useNavigate } from 'react-router-dom';
 import { notification, message, Button } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
@@ -17,14 +18,7 @@ const UsuarioList = () => {
 
     const handleViewDetails = async (user) => {
         try {
-            const response = await fetch(`/bienes/transacciones/usuario/${user.id}`);
-            if (!response.ok) {
-                const errorMessage = await response.text(); // Obtener el mensaje de error del servidor
-                throw new Error(`Error al obtener las operaciones: ${errorMessage}`);
-            }
-            const operaciones = await response.json();
-            console.log(operaciones); // Para ver los datos devueltos
-            message.success('Operaciones cargadas con éxito');
+            await dispatch(fetchTransaccionesByAdmin(user.id)); // Usa la acción Redux para obtener transacciones
             navigate(`/admin/operaciones/${user.id}`);
         } catch (error) {
             console.error(error);
@@ -113,7 +107,7 @@ const UsuarioList = () => {
                                     <td className="p-2 border-b">{user.email}</td>
                                     <td className="p-2 border-b flex space-x-2">
                                         <Button
-                                            onClick={() => handleViewDetails(user)}
+                                            onClick={() => handleViewDetails(user)} // Usa la acción al hacer clic
                                             className="bg-green-500 text-white rounded hover:bg-green-600 text-sm"
                                         >
                                             Ver Operaciones
