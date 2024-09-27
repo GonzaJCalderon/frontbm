@@ -1,9 +1,10 @@
+
+import axios from 'axios';
 import axios from '../axiosConfig';
-import api from '../axiosConfig';
 
 export const searchItems = (term) => async (dispatch) => {
     try {
-        const response = await api.get(`/search?nombre=${term}`);
+        const response = await axios.get(`/search?nombre=${term}`);
         console.log('Search Results:', response.data);
         dispatch({
             type: 'SEARCH_ITEMS_SUCCESS',
