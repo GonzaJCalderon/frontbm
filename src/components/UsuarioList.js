@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUsuarios, deleteUsuario } from '../redux/actions/usuarios'; 
-import { fetchTransaccionesByAdmin } from '../redux/actions/transacciones'; // Asegúrate de que esta línea esté importando correctamente tu acción
+import { fetchUsuarios, deleteUsuario,fetchTransaccionesByAdmin } from '../redux/actions/usuarios'; 
+
 import { useNavigate } from 'react-router-dom';
 import { notification, message, Button } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
