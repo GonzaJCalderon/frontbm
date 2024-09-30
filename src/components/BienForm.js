@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addBien, fetchBienes } from '../redux/actions/bienes';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Spin } from 'antd'; 
+import { Alert, Spin } from 'antd';
 import '../assets/css/registerBienStyles.css';
 
 const BienForm = () => {
@@ -14,13 +14,13 @@ const BienForm = () => {
     const [buscarBien, setBuscarBien] = useState('');
     const [isFetching, setIsFetching] = useState(false);
     const [loading, setLoading] = useState(false); // Para manejar el estado de carga de la solicitud
-    
+
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const userData = JSON.parse(localStorage.getItem('userData'));
     const userId = userData?.id;
-    
+
 
     // Selectores de Redux
     const bienesUsuario = useSelector(state => state.bienes.items);
@@ -85,49 +85,50 @@ const BienForm = () => {
     const handlePrev = () => {
         if (currentStep > 1) setCurrentStep(prevStep => prevStep - 1);
     };
-    
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-    
+
         const userData = JSON.parse(localStorage.getItem('userData'));
         const userId = userData?.id;
-    
+
+        // Verifica si hay un ID de usuario válido
         if (!userId) {
             alert('ID del usuario no encontrado. Por favor, inicia sesión nuevamente.');
             return;
         }
-    
+
         setLoading(true);
-    
+
         try {
             const formData = new FormData();
             formData.append('vendedorId', userId);
             formData.append('fecha', new Date().toISOString());
-            
+
+            // Itera sobre cada bien y añade sus propiedades a formData
             bienes.forEach((bien) => {
-              formData.append('descripcion', bien.descripcion);
-              formData.append('precio', bien.precio);
-              formData.append('tipo', bien.tipo);
-              formData.append('marca', bien.marca);
-              formData.append('modelo', bien.modelo);
-              formData.append('stock', bien.cantidad);
-              
-              // Asegúrate de que el nombre del campo sea 'fotos'
-              bien.fotos.forEach((foto) => {
-                formData.append('fotos', foto);
-              });
+                formData.append('descripcion', bien.descripcion);
+                formData.append('precio', bien.precio);
+                formData.append('tipo', bien.tipo);
+                formData.append('marca', bien.marca);
+                formData.append('modelo', bien.modelo);
+                formData.append('stock', bien.cantidad);
+
+                // Asegúrate de que el nombre del campo sea 'fotos'
+                bien.fotos.forEach((foto) => {
+                    formData.append('fotos', foto); // 'fotos' debe coincidir con lo que espera tu backend
+                });
             });
-            
-            
-    
-            // Log para verificar datos
+
+            // Log para verificar los datos enviados
             for (const [key, value] of formData.entries()) {
                 console.log(`${key}:`, value);
             }
-    
+
             // Llamar a la acción para agregar el bien
             await dispatch(addBien(formData));
-    
+
+            // Redireccionar al usuario después de registrar los bienes
             navigate('/userdashboard', { state: { formData: bienes } });
         } catch (err) {
             console.error('Error al enviar bienes:', err);
@@ -136,9 +137,9 @@ const BienForm = () => {
             setLoading(false);
         }
     };
-    
-    
-    
+
+
+
 
     const handleBuscarBien = (e) => {
         setBuscarBien(e.target.value);

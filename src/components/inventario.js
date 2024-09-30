@@ -102,8 +102,18 @@ const Inventario = () => {
             title: 'Foto', 
             dataIndex: 'foto', 
             key: 'foto', 
-            render: text => text ? <Image src={text} width={50} preview={false} /> : 'No disponible'
+            render: text => (
+                text ? (
+                    <Image
+                        src={`http://localhost:5000/uploads/${text}`}
+                        width={50}
+                        preview={false}
+                        onError={(e) => { e.target.src = 'ruta/a/imagen/por/defecto.jpg'; }}
+                    />
+                ) : 'No disponible'
+            )
         },
+        
         {
             title: 'Tipo', 
             dataIndex: 'tipo', 
@@ -135,6 +145,7 @@ const Inventario = () => {
             render: text => text || 'N/A'
         }
     ];
+    
 
     return (
         <div>
