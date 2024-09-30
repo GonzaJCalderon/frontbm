@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addBien, fetchBienes } from '../redux/actions/bienes';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Spin } from 'antd'; // Importa los componentes de Ant Design
+import { Alert, Spin } from 'antd'; 
 import '../assets/css/registerBienStyles.css';
 
 const BienForm = () => {

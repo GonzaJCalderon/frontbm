@@ -120,22 +120,33 @@ export const updateBien = (id, bienData) => async dispatch => {
 };
 
 // Acción para registrar una venta
+// Acción para registrar una venta
 export const registrarVenta = (ventaData) => async (dispatch) => {
     try {
+        // Log para verificar los datos que se envían
+        console.log('Datos de venta que se envían al backend:', ventaData);
+        
         const token = getToken();
-        const response = await axios.post('/vender', ventaData, {
+        const response = await axios.post('bienes/vender', ventaData, {
             headers: { Authorization: `Bearer ${token}` }
         });
+
+        // Log para verificar la respuesta del backend
+        console.log('Respuesta del backend:', response.data);
 
         dispatch({ type: REGISTRAR_VENTA_EXITO, payload: response.data });
         dispatch({ type: UPDATE_STOCK, payload: response.data.bien });
     } catch (error) {
+        // Log para verificar el error en caso de que ocurra
+        console.error('Error al registrar la venta:', error.response ? error.response.data : error.message);
+        
         dispatch({
             type: REGISTRAR_VENTA_ERROR,
             payload: error.response ? error.response.data : error.message
         });
     }
 };
+
 
 // Acción para registrar una compra
 export const registrarCompra = (compraData) => async (dispatch) => {
