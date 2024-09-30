@@ -337,11 +337,26 @@ const ComprarPage = () => {
                     <Option value="camaraFotografica">Cámara Fotográfica</Option>
                     <Option value="tv">TV</Option>
                     <Option value="equipoAudio">Equipo de Audio</Option>
-                    <Option value="telefonoMovil">Teléfono Móvil</Option>
+                    <Option value="telefonoMovil">Teléfono Móvil</Option> {/* Aquí está el tipo de bien relevante */}
                     <Option value="tablet">Tablet</Option>
                     <Option value="laptop">Laptop</Option>
                   </Select>
                 </Form.Item>
+
+                {/* Campo condicional para IMEI solo si el tipo de bien es teléfono móvil */}
+                {/* {selectedTipo === 'telefonoMovil' && (
+                  <Form.Item
+                    name="imei"
+                    label="IMEI (15 dígitos)"
+                    rules={[
+                      { required: true, message: 'Por favor ingrese el IMEI' },
+                      { len: 15, message: 'El IMEI debe tener exactamente 15 dígitos' },
+                      { pattern: /^\d+$/, message: 'El IMEI solo debe contener números' }
+                    ]}
+                  >
+                    <Input maxLength={15} placeholder="Ingrese el IMEI de 15 dígitos" />
+                  </Form.Item>
+                )} */}
 
                 <Form.Item
                   name="bienMarca"
@@ -419,7 +434,7 @@ const ComprarPage = () => {
               </>
             )}
 
-
+            {/* Agregar IMEI para cada bien dinámico si es teléfono móvil */}
             {bienesDinamicos.map((bien, index) => (
               <div key={bien.id} style={{ border: '1px solid #d9d9d9', padding: '10px', marginBottom: '10px' }}>
                 <Title level={4}>Bien #{bien.bienNumero}</Title>
@@ -442,6 +457,26 @@ const ComprarPage = () => {
                     onChange={e => handleBienChange(index, 'descripcion', e.target.value)}
                   />
                 </Form.Item>
+
+                {/* Mostrar el campo IMEI para cada bien si el tipo es teléfono móvil */}
+                {selectedTipo === 'telefonoMovil' && (
+                  <Form.Item
+                    label="IMEI (15 dígitos)"
+                    rules={[
+                      { required: true, message: 'Por favor ingrese el IMEI' },
+                      { len: 15, message: 'El IMEI debe tener exactamente 15 dígitos' },
+                      { pattern: /^\d+$/, message: 'El IMEI solo debe contener números' }
+                    ]}
+                  >
+                    <Input
+                      maxLength={15}
+                      value={bien.imei}
+                      onChange={e => handleBienChange(index, 'imei', e.target.value)}
+                      placeholder="Ingrese el IMEI de 15 dígitos"
+                    />
+                  </Form.Item>
+                )}
+
                 <Form.Item
                   label="Fotos"
                 >
@@ -479,6 +514,7 @@ const ComprarPage = () => {
           </Form>
         </>
       )}
+
 
       <Modal
         title="Confirmación de Compra"
