@@ -14,10 +14,13 @@ const BienForm = () => {
     const [buscarBien, setBuscarBien] = useState('');
     const [isFetching, setIsFetching] = useState(false);
     const [loading, setLoading] = useState(false); // Para manejar el estado de carga de la solicitud
+    
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const userId = JSON.parse(localStorage.getItem('userData'))?.userId;
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    const userId = userData?.id;
+    
 
     // Selectores de Redux
     const bienesUsuario = useSelector(state => state.bienes.items);
@@ -82,41 +85,60 @@ const BienForm = () => {
     const handlePrev = () => {
         if (currentStep > 1) setCurrentStep(prevStep => prevStep - 1);
     };
-
+    
     const handleSubmit = async (e) => {
         e.preventDefault();
+    
+        const userData = JSON.parse(localStorage.getItem('userData'));
+        const userId = userData?.id;
+    
         if (!userId) {
-            console.error('ID del usuario no encontrado.');
+            alert('ID del usuario no encontrado. Por favor, inicia sesión nuevamente.');
             return;
         }
-
-        setLoading(true); // Inicia el estado de carga
-
+    
+        setLoading(true);
+    
         try {
-            console.log('Bienes a enviar:', bienes);
-            for (const bien of bienes) {
-                if (bien.tipo === 'telefono_movil') {
-                    const imeis = bien.imei.split(',').map(imei => imei.trim());
-                    if (imeis.length !== bien.cantidad) {
-                        alert('La cantidad de IMEIs debe coincidir con la cantidad de teléfonos móviles.');
-                        return;
-                    }
-                    if (imeis.some(imei => imei.length !== 15)) {
-                        alert('Todos los IMEIs deben tener 15 dígitos.');
-                        return;
-                    }
-                }
-                await dispatch(addBien({ ...bien, userId }));
+            const formData = new FormData();
+            formData.append('vendedorId', userId);
+            formData.append('fecha', new Date().toISOString());
+            
+            bienes.forEach((bien) => {
+              formData.append('descripcion', bien.descripcion);
+              formData.append('precio', bien.precio);
+              formData.append('tipo', bien.tipo);
+              formData.append('marca', bien.marca);
+              formData.append('modelo', bien.modelo);
+              formData.append('stock', bien.cantidad);
+              
+              // Asegúrate de que el nombre del campo sea 'fotos'
+              bien.fotos.forEach((foto) => {
+                formData.append('fotos', foto);
+              });
+            });
+            
+            
+    
+            // Log para verificar datos
+            for (const [key, value] of formData.entries()) {
+                console.log(`${key}:`, value);
             }
-
-            navigate('/success', { state: { formData: bienes } });
+    
+            // Llamar a la acción para agregar el bien
+            await dispatch(addBien(formData));
+    
+            navigate('/userdashboard', { state: { formData: bienes } });
         } catch (err) {
             console.error('Error al enviar bienes:', err);
             alert('Error al registrar los bienes.');
         } finally {
-            setLoading(false); // Finaliza el estado de carga
+            setLoading(false);
         }
     };
+    
+    
+    
 
     const handleBuscarBien = (e) => {
         setBuscarBien(e.target.value);

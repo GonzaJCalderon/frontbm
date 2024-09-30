@@ -75,6 +75,7 @@ export const addBien = (bienData) => async dispatch => {
         const token = getToken();
         const response = await axios.post('/bienes', bienData, {
             headers: {
+                'Content-Type': 'multipart/form-data', // Esto es importante para FormData
                 Authorization: `Bearer ${token}`
             }
         });
@@ -89,6 +90,7 @@ export const addBien = (bienData) => async dispatch => {
         return { error: error.response ? error.response.data : error.message };
     }
 };
+
 
 // Acción para obtener los detalles de un bien específico
 export const fetchBienDetails = (bienId) => async (dispatch) => {
