@@ -18,9 +18,9 @@ const Inventario = () => {
     const navigate = useNavigate();
     const [reload, setReload] = useState(false);
     const [filteredItems, setFilteredItems] = useState([]); // Para manejar el filtrado de bienes
-    const [searchTerm, setSearchTerm] = useState(''); // Para manejar el término de búsqueda
     const { items, error, loading } = useSelector(state => state.bienes);
 
+    // Cargar bienes al montar el componente
     useEffect(() => {
         const userData = JSON.parse(localStorage.getItem('userData'));
         const userId = userData?.id;
@@ -32,6 +32,7 @@ const Inventario = () => {
         }
     }, [dispatch, reload]);
 
+    // Actualizar la lista filtrada cuando cambian los bienes
     useEffect(() => {
         setFilteredItems(items); // Inicialmente, mostrar todos los bienes
     }, [items]);
@@ -64,19 +65,22 @@ const Inventario = () => {
         setReload(!reload); // Alternar el estado para recargar
     };
 
+    // Manejo de errores
     if (error) {
         return <Alert message="Error" description={error} type="error" />;
     }
 
+    // Mostrar indicador de carga
     if (loading) {
         return <Spin tip="Cargando..." />;
     }
 
+    // Mensaje cuando no hay bienes disponibles
     if (!items.length) {
         return <div>No hay bienes disponibles.</div>;
     }
 
-    // Definición de las columnas con ordenación por fecha
+    // Definición de las columnas de la tabla
     const columns = [
         {
             title: 'Descripción', 
@@ -105,15 +109,17 @@ const Inventario = () => {
             render: text => (
                 text ? (
                     <Image
-                        src={`http://localhost:5000/uploads/${text}`}
+                        src={`http://localhost:5000/uploads/${text}`} // URL de la imagen
                         width={50}
                         preview={false}
-                        onError={(e) => { e.target.src = 'ruta/a/imagen/por/defecto.jpg'; }}
+                        onError={(e) => { 
+                            e.target.src = 'ruta/a/imagen/por/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
+                        }}
+                        alt="Imagen del bien" // Mejora la accesibilidad
                     />
                 ) : 'No disponible'
             )
         },
-        
         {
             title: 'Tipo', 
             dataIndex: 'tipo', 
@@ -145,7 +151,6 @@ const Inventario = () => {
             render: text => text || 'N/A'
         }
     ];
-    
 
     return (
         <div>

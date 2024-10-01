@@ -147,7 +147,21 @@ const BienForm = () => {
 
     const handleSelectBien = (value) => {
         const bienSeleccionado = bienesUsuario.find(bien => bien.id === value);
-        setBienSeleccionado(bienSeleccionado);
+        if (bienSeleccionado) {
+            setBienSeleccionado(bienSeleccionado);
+            // Aquí actualizas los campos del formulario con los datos del bien seleccionado
+            setBienes((prevBienes) => {
+                return prevBienes.map(bien => ({
+                    ...bien,
+                    marca: bienSeleccionado.marca,
+                    modelo: bienSeleccionado.modelo,
+                    descripcion: bienSeleccionado.descripcion,
+                    precio: bienSeleccionado.precio,
+                    imei: bienSeleccionado.imei,
+                    tipo: bienSeleccionado.tipo // Asegúrate de que también se copie el tipo
+                }));
+            });
+        }
     };
 
     const renderStep = () => {
@@ -294,6 +308,7 @@ const BienForm = () => {
                                 </div>
                             </div>
                         )}
+
                         {tipoBien === 'nuevo' && bienes.map((bien, index) => (
                             <div key={index} className="mb-4">
                                 <h3 className="text-lg font-semibold mb-2">Bien {index + 1}</h3>
@@ -337,6 +352,7 @@ const BienForm = () => {
                                                 value={bien.marca}
                                                 onChange={(e) => handleBienChange(index, e)}
                                                 className="w-full px-4 py-2 border rounded"
+                                                required // Hacer este campo obligatorio
                                             />
                                         </div>
                                         <div className="mb-2">
@@ -347,6 +363,7 @@ const BienForm = () => {
                                                 value={bien.modelo}
                                                 onChange={(e) => handleBienChange(index, e)}
                                                 className="w-full px-4 py-2 border rounded"
+                                                required // Hacer este campo obligatorio
                                             />
                                         </div>
                                         <div className="mb-2">
@@ -356,6 +373,7 @@ const BienForm = () => {
                                                 value={bien.descripcion}
                                                 onChange={(e) => handleBienChange(index, e)}
                                                 className="w-full px-4 py-2 border rounded"
+                                                required // Hacer este campo obligatorio
                                             />
                                         </div>
                                         <div className="mb-2">
@@ -366,6 +384,7 @@ const BienForm = () => {
                                                 value={bien.precio}
                                                 onChange={(e) => handleBienChange(index, e)}
                                                 className="w-full px-4 py-2 border rounded"
+                                                required // Hacer este campo obligatorio
                                             />
                                         </div>
                                         <div className="mb-2">
@@ -377,6 +396,7 @@ const BienForm = () => {
                                                 min="1"
                                                 onChange={(e) => handleBienChange(index, e)}
                                                 className="w-full px-4 py-2 border rounded"
+                                                required // Hacer este campo obligatorio
                                             />
                                         </div>
                                         <div className="mb-2">
@@ -393,6 +413,7 @@ const BienForm = () => {
                                 )}
                             </div>
                         ))}
+
                         <div className="flex justify-between">
                             <button
                                 type="button"
