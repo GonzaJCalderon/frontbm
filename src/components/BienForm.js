@@ -1,490 +1,192 @@
 import React, { useState, useEffect } from 'react';
+import { Form, Input, InputNumber, Button, Select, Upload, message, notification, Typography } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { addBien, fetchBienes } from '../redux/actions/bienes';
+import { ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Spin } from 'antd';
-import '../assets/css/registerBienStyles.css';
 
-const BienForm = () => {
-    const [currentStep, setCurrentStep] = useState(1);
-    const [totalBienes, setTotalBienes] = useState(1);
-    const [bienes, setBienes] = useState([]);
-    const [tipoBien, setTipoBien] = useState('nuevo'); // 'nuevo' o 'en_stock'
-    const [bienSeleccionado, setBienSeleccionado] = useState(null);
-    const [buscarBien, setBuscarBien] = useState('');
-    const [isFetching, setIsFetching] = useState(false);
-    const [loading, setLoading] = useState(false); // Para manejar el estado de carga de la solicitud
+const { Option } = Select;
+const { Title } = Typography;
 
+// Genera un UUID
+const generateUUID = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+};
 
+// Obtiene datos del usuario desde localStorage
+const getUserData = () => {
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+        try {
+            return JSON.parse(userData);
+        } catch (error) {
+            console.error('Error al parsear userData:', error);
+            return null;
+        }
+    }
+    return null;
+};
+
+const RegistrarBienPage = () => {
+    const [form] = Form.useForm();
+    const [fileList, setFileList] = useState([]);
+    const [selectedTipo, setSelectedTipo] = useState(null);
+    const [selectedMarca, setSelectedMarca] = useState('');
+    const [selectedModelo, setSelectedModelo] = useState('');
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    const userId = userData?.id;
+    const { items } = useSelector(state => state.bienes);
 
-
-    // Selectores de Redux
-    const bienesUsuario = useSelector(state => state.bienes.items);
-    const error = useSelector(state => state.bienes.error);
+    const bienesTipos = [...new Set(items.map(bien => bien.tipo))];
 
     useEffect(() => {
-        if (tipoBien === 'en_stock' && userId) {
-            setIsFetching(true);
-            dispatch(fetchBienes(userId))
-                .finally(() => setIsFetching(false));
-        }
-    }, [tipoBien, dispatch, userId]);
-
-    useEffect(() => {
-        if (tipoBien === 'nuevo') {
-            setBienes(Array.from({ length: totalBienes }, () => ({
-                tipo: '',
-                cantidad: 1,
-                marca: '',
-                modelo: '',
-                descripcion: '',
-                precio: '',
-                imei: '',
-                fotos: []
-            })));
-        }
-    }, [tipoBien, totalBienes]);
-
-    useEffect(() => {
-        if (bienSeleccionado) {
-            setBienes(prevBienes => prevBienes.map(bien => ({
-                ...bien,
-                marca: bienSeleccionado.marca,
-                modelo: bienSeleccionado.modelo,
-                descripcion: bienSeleccionado.descripcion,
-                precio: bienSeleccionado.precio,
-                imei: bienSeleccionado.imei
-            })));
-        }
-    }, [bienSeleccionado]);
-
-    const handleBienChange = (index, e) => {
-        const { name, value, files } = e.target;
-        const newBienes = [...bienes];
-
-        if (name === "fotos") {
-            newBienes[index].fotos = Array.from(files).slice(0, 3);
+        const usuario = getUserData();
+        if (usuario && usuario.id) {
+            dispatch(fetchBienes(usuario.id));
         } else {
-            newBienes[index][name] = value;
+            console.error('No se pudo obtener el ID del usuario');
         }
-        setBienes(newBienes);
-    };
+    }, [dispatch]);
 
-    const handleQuantityChange = (change) => {
-        setTotalBienes(prev => Math.max(1, prev + change));
-    };
-
-    const handleNext = () => {
-        if (currentStep < 3) setCurrentStep(prevStep => prevStep + 1);
-    };
-
-    const handlePrev = () => {
-        if (currentStep > 1) setCurrentStep(prevStep => prevStep - 1);
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        const userData = JSON.parse(localStorage.getItem('userData'));
-        const userId = userData?.id;
-
-        // Verifica si hay un ID de usuario válido
-        if (!userId) {
-            alert('ID del usuario no encontrado. Por favor, inicia sesión nuevamente.');
-            return;
-        }
-
-        setLoading(true);
-
+    const handleFinish = async () => {
         try {
-            const formData = new FormData();
-            formData.append('vendedorId', userId);
-            formData.append('fecha', new Date().toISOString());
+            const usuario = getUserData();
+            const vendedorId = usuario ? usuario.id : null;
 
-            // Itera sobre cada bien y añade sus propiedades a formData
-            bienes.forEach((bien) => {
-                formData.append('descripcion', bien.descripcion);
-                formData.append('precio', bien.precio);
-                formData.append('tipo', bien.tipo);
-                formData.append('marca', bien.marca);
-                formData.append('modelo', bien.modelo);
-                formData.append('stock', bien.cantidad);
-
-                // Asegúrate de que el nombre del campo sea 'fotos'
-                bien.fotos.forEach((foto) => {
-                    formData.append('fotos', foto); // 'fotos' debe coincidir con lo que espera tu backend
-                });
-            });
-
-            // Log para verificar los datos enviados
-            for (const [key, value] of formData.entries()) {
-                console.log(`${key}:`, value);
+            if (!vendedorId || !selectedTipo || !selectedMarca || !selectedModelo) {
+                message.warning('Por favor complete todos los campos obligatorios.');
+                return;
             }
 
-            // Llamar a la acción para agregar el bien
-            await dispatch(addBien(formData));
+            // Verifica si el bien ya está registrado
+            const bienExistente = items.find(b => b.modelo === selectedModelo && b.marca === selectedMarca && b.tipo === selectedTipo);
+            const formData = new FormData();
+            formData.append('uuid', generateUUID());
+            formData.append('tipo', selectedTipo);
+            formData.append('marca', selectedMarca);
+            formData.append('modelo', selectedModelo);
+            formData.append('descripcion', form.getFieldValue('bienDescripcion') || '');
+            formData.append('precio', form.getFieldValue('bienPrecio') || 0);
+            formData.append('stock', 1); // Asignar un stock inicial de 1
+            formData.append('vendedorId', vendedorId);
+            formData.append('fecha', new Date().toISOString());
 
-            // Redireccionar al usuario después de registrar los bienes
-            navigate('/userdashboard', { state: { formData: bienes } });
-        } catch (err) {
-            console.error('Error al enviar bienes:', err);
-            alert('Error al registrar los bienes.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-
-
-    const handleBuscarBien = (e) => {
-        setBuscarBien(e.target.value);
-    };
-
-    const handleSelectBien = (value) => {
-        const bienSeleccionado = bienesUsuario.find(bien => bien.id === value);
-        if (bienSeleccionado) {
-            setBienSeleccionado(bienSeleccionado);
-            // Aquí actualizas los campos del formulario con los datos del bien seleccionado
-            setBienes((prevBienes) => {
-                return prevBienes.map(bien => ({
-                    ...bien,
-                    marca: bienSeleccionado.marca,
-                    modelo: bienSeleccionado.modelo,
-                    descripcion: bienSeleccionado.descripcion,
-                    precio: bienSeleccionado.precio,
-                    imei: bienSeleccionado.imei,
-                    tipo: bienSeleccionado.tipo // Asegúrate de que también se copie el tipo
-                }));
+            // Adjuntar las fotos
+            fileList.forEach(file => {
+                formData.append('fotos', file.originFileObj);
             });
-        }
-    };
 
-    const renderStep = () => {
-        switch (currentStep) {
-            case 1:
-                return (
-                    <div className="text-center">
-                        <h2 className="text-2xl font-bold mb-4">Registro de Bienes</h2>
-                        <div className="mb-4 flex justify-center items-center">
-                            <label className="inline-flex items-center mr-4">
-                                <input
-                                    type="radio"
-                                    name="tipoBien"
-                                    value="nuevo"
-                                    checked={tipoBien === 'nuevo'}
-                                    onChange={() => setTipoBien('nuevo')}
-                                    className="form-radio"
-                                />
-                                <span className="ml-2">Bien Nuevo</span>
-                            </label>
-                            <label className="inline-flex items-center">
-                                <input
-                                    type="radio"
-                                    name="tipoBien"
-                                    value="en_stock"
-                                    checked={tipoBien === 'en_stock'}
-                                    onChange={() => setTipoBien('en_stock')}
-                                    className="form-radio"
-                                />
-                                <span className="ml-2">Bien en Stock</span>
-                            </label>
-                        </div>
-                        <div className="flex justify-center items-center space-x-2 mb-4">
-                            <button
-                                type="button"
-                                className="px-4 py-2 border rounded bg-gray-200 text-gray-700"
-                                onClick={() => handleQuantityChange(-1)}
-                            >
-                                -
-                            </button>
-                            <span className="text-xl">{totalBienes}</span>
-                            <button
-                                type="button"
-                                className="px-4 py-2 border rounded bg-gray-200 text-gray-700"
-                                onClick={() => handleQuantityChange(1)}
-                            >
-                                +
-                            </button>
-                        </div>
-                        <div className="flex justify-center space-x-4">
-                            <button
-                                type="button"
-                                className="px-4 py-2 border rounded bg-gray-200 text-gray-700"
-                                onClick={() => navigate('/userdashboard')}
-                            >
-                                Volver
-                            </button>
-                            <button
-                                type="button"
-                                className="px-4 py-2 border rounded bg-blue-500 text-white"
-                                onClick={handleNext}
-                            >
-                                Siguiente
-                            </button>
-                        </div>
-                    </div>
-                );
-            case 2:
-                return (
-                    <div>
-                        <h2 className="text-xl font-bold mb-4">Datos de los Bienes</h2>
-                        {tipoBien === 'en_stock' && (
-                            <div className="mb-4">
-                                <label className="block mb-2 font-bold">Buscar Bien en Stock</label>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar en stock"
-                                    value={buscarBien}
-                                    onChange={handleBuscarBien}
-                                    className="w-full px-4 py-2 border rounded"
-                                />
-                                <select
-                                    onChange={(e) => handleSelectBien(e.target.value)}
-                                    className="w-full mt-2 px-4 py-2 border rounded"
-                                >
-                                    {isFetching && <option>Cargando...</option>}
-                                    {bienesUsuario.filter(bien =>
-                                        bien.descripcion.toLowerCase().includes(buscarBien.toLowerCase())
-                                    ).map(bien => (
-                                        <option key={bien.id} value={bien.id}>
-                                            {bien.descripcion}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                        {bienSeleccionado && tipoBien === 'en_stock' && (
-                            <div className="mb-4">
-                                <h3 className="text-lg font-semibold mb-2">Detalles del Bien Seleccionado</h3>
-                                <div className="mb-2">
-                                    <label className="block mb-1 font-bold">Marca</label>
-                                    <input
-                                        type="text"
-                                        value={bienSeleccionado.marca}
-                                        disabled
-                                        className="w-full px-4 py-2 border rounded"
-                                    />
-                                </div>
-                                <div className="mb-2">
-                                    <label className="block mb-1 font-bold">Modelo</label>
-                                    <input
-                                        type="text"
-                                        value={bienSeleccionado.modelo}
-                                        disabled
-                                        className="w-full px-4 py-2 border rounded"
-                                    />
-                                </div>
-                                <div className="mb-2">
-                                    <label className="block mb-1 font-bold">Descripción</label>
-                                    <input
-                                        type="text"
-                                        value={bienSeleccionado.descripcion}
-                                        disabled
-                                        className="w-full px-4 py-2 border rounded"
-                                    />
-                                </div>
-                                <div className="mb-2">
-                                    <label className="block mb-1 font-bold">Precio</label>
-                                    <input
-                                        type="text"
-                                        value={bienSeleccionado.precio}
-                                        disabled
-                                        className="w-full px-4 py-2 border rounded"
-                                    />
-                                </div>
-                                <div className="mb-2">
-                                    <label className="block mb-1 font-bold">IMEI</label>
-                                    <input
-                                        type="text"
-                                        value={bienSeleccionado.imei}
-                                        disabled
-                                        className="w-full px-4 py-2 border rounded"
-                                    />
-                                </div>
-                            </div>
-                        )}
+            if (bienExistente) {
+                // Actualiza la cantidad de stock
+                const cantidadActualizada = (bienExistente.stock || 0) + 1; // Incrementa el stock en 1
+                const bienActualizado = {
+                    ...bienExistente,
+                    stock: cantidadActualizada,
+                    descripcion: form.getFieldValue('bienDescripcion') || bienExistente.descripcion,
+                    fotos: fileList.length ? fileList.map(file => file.originFileObj) : bienExistente.fotos,
+                };
 
-                        {tipoBien === 'nuevo' && bienes.map((bien, index) => (
-                            <div key={index} className="mb-4">
-                                <h3 className="text-lg font-semibold mb-2">Bien {index + 1}</h3>
-                                <div className="mb-2">
-                                    <label className="block mb-1 font-bold">Tipo</label>
-                                    <select
-                                        name="tipo"
-                                        value={bien.tipo}
-                                        onChange={(e) => handleBienChange(index, e)}
-                                        className="w-full px-4 py-2 border rounded"
-                                    >
-                                        <option value="">Selecciona el tipo de bien</option>
-                                        <option value="telefono_movil">Teléfono Móvil</option>
-                                        <option value="tableta">Tableta</option>
-                                        <option value="notebook">Notebook</option>
-                                        <option value="bicicleta">Bicicleta</option>
-                                        <option value="tv">TV</option>
-                                        <option value="equipo_audio">Equipo de Audio</option>
-                                        <option value="camara_fotografica">Cámara Fotográfica</option>
-                                    </select>
-                                </div>
-                                {bien.tipo && (
-                                    <>
-                                        {bien.tipo === 'telefono_movil' && (
-                                            <div className="mb-2">
-                                                <label className="block mb-1 font-bold">IMEI</label>
-                                                <input
-                                                    type="text"
-                                                    name="imei"
-                                                    value={bien.imei}
-                                                    onChange={(e) => handleBienChange(index, e)}
-                                                    className="w-full px-4 py-2 border rounded"
-                                                />
-                                            </div>
-                                        )}
-                                        <div className="mb-2">
-                                            <label className="block mb-1 font-bold">Marca</label>
-                                            <input
-                                                type="text"
-                                                name="marca"
-                                                value={bien.marca}
-                                                onChange={(e) => handleBienChange(index, e)}
-                                                className="w-full px-4 py-2 border rounded"
-                                                required // Hacer este campo obligatorio
-                                            />
-                                        </div>
-                                        <div className="mb-2">
-                                            <label className="block mb-1 font-bold">Modelo</label>
-                                            <input
-                                                type="text"
-                                                name="modelo"
-                                                value={bien.modelo}
-                                                onChange={(e) => handleBienChange(index, e)}
-                                                className="w-full px-4 py-2 border rounded"
-                                                required // Hacer este campo obligatorio
-                                            />
-                                        </div>
-                                        <div className="mb-2">
-                                            <label className="block mb-1 font-bold">Descripción</label>
-                                            <textarea
-                                                name="descripcion"
-                                                value={bien.descripcion}
-                                                onChange={(e) => handleBienChange(index, e)}
-                                                className="w-full px-4 py-2 border rounded"
-                                                required // Hacer este campo obligatorio
-                                            />
-                                        </div>
-                                        <div className="mb-2">
-                                            <label className="block mb-1 font-bold">Precio</label>
-                                            <input
-                                                type="text"
-                                                name="precio"
-                                                value={bien.precio}
-                                                onChange={(e) => handleBienChange(index, e)}
-                                                className="w-full px-4 py-2 border rounded"
-                                                required // Hacer este campo obligatorio
-                                            />
-                                        </div>
-                                        <div className="mb-2">
-                                            <label className="block mb-1 font-bold">Cantidad</label>
-                                            <input
-                                                type="number"
-                                                name="cantidad"
-                                                value={bien.cantidad}
-                                                min="1"
-                                                onChange={(e) => handleBienChange(index, e)}
-                                                className="w-full px-4 py-2 border rounded"
-                                                required // Hacer este campo obligatorio
-                                            />
-                                        </div>
-                                        <div className="mb-2">
-                                            <label className="block mb-1 font-bold">Fotos</label>
-                                            <input
-                                                type="file"
-                                                name="fotos"
-                                                multiple
-                                                onChange={(e) => handleBienChange(index, e)}
-                                                className="w-full px-4 py-2 border rounded"
-                                            />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        ))}
+                console.log('Updated Bien Data to be sent:', bienActualizado);
+                await dispatch(addBien(bienActualizado)); // Modificar el action de Redux para manejar la actualización
+                notification.success({
+                    message: 'Cantidad Actualizada',
+                    description: `La cantidad del bien "${bienExistente.descripcion}" se ha actualizado a ${cantidadActualizada}.`,
+                });
+            } else {
+                await dispatch(addBien(formData));
+                notification.success({
+                    message: 'Bien Registrado',
+                    description: 'El bien nuevo ha sido registrado exitosamente.',
+                });
+            }
 
-                        <div className="flex justify-between">
-                            <button
-                                type="button"
-                                className="px-4 py-2 border rounded bg-gray-200 text-gray-700"
-                                onClick={handlePrev}
-                            >
-                                Anterior
-                            </button>
-                            <button
-                                type="button"
-                                className="px-4 py-2 border rounded bg-blue-500 text-white"
-                                onClick={handleNext}
-                            >
-                                Siguiente
-                            </button>
-                        </div>
-                    </div>
-                );
-            case 3:
-                return (
-                    <div className="text-center">
-                        <h2 className="text-2xl font-bold mb-4">Confirmar Registro</h2>
-                        <div className="mb-4">
-                            <h3 className="text-lg font-semibold">Detalles del Bien</h3>
-                            <ul>
-                                {bienes.map((bien, index) => (
-                                    <li key={index} className="mb-2">
-                                        <div><strong>Tipo:</strong> {bien.tipo}</div>
-                                        <div><strong>Marca:</strong> {bien.marca}</div>
-                                        <div><strong>Modelo:</strong> {bien.modelo}</div>
-                                        <div><strong>Descripción:</strong> {bien.descripcion}</div>
-                                        <div><strong>Precio:</strong> {bien.precio}</div>
-                                        {bien.tipo === 'telefono_movil' && (
-                                            <div><strong>IMEI:</strong> {bien.imei}</div>
-                                        )}
-                                        <div><strong>Cantidad:</strong> {bien.cantidad}</div>
-                                        <div><strong>Fotos:</strong> {bien.fotos.length} fotos</div>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                        <div className="flex justify-between">
-                            <button
-                                type="button"
-                                className="px-4 py-2 border rounded bg-gray-200 text-gray-700"
-                                onClick={handlePrev}
-                            >
-                                Anterior
-                            </button>
-                            <button
-                                type="button"
-                                className="px-4 py-2 border rounded bg-green-500 text-white"
-                                onClick={handleSubmit}
-                                disabled={loading}
-                            >
-                                {loading ? <Spin /> : 'Confirmar Registro'}
-                            </button>
-                        </div>
-                    </div>
-                );
-            default:
-                return null;
+            navigate('/userdashboard');
+        } catch (error) {
+            message.error('Error al registrar el bien. Inténtalo de nuevo.');
+            console.error('Error de registro:', error);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit}>
-            {error && <Alert message="Error" description={error} type="error" />}
-            {renderStep()}
-        </form>
+        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
+                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} style={{ marginRight: '10px' }}>
+                    Volver
+                </Button>
+                <Button icon={<HomeOutlined />} onClick={() => navigate('/userdashboard')} style={{ marginRight: '10px' }}>
+                    Inicio
+                </Button>
+            </div>
+
+            <Title level={3}>Registro de Bienes</Title>
+
+            <Form form={form} layout="vertical" onFinish={handleFinish}>
+                <Form.Item
+                    name="bienTipo"
+                    label="Tipo de Bien"
+                    rules={[{ required: true, message: 'Por favor seleccione el tipo de bien' }]}
+                >
+                    <Select onChange={setSelectedTipo}>
+                        {bienesTipos.map((tipo, index) => (
+                            <Option key={index} value={tipo}>{tipo}</Option>
+                        ))}
+                    </Select>
+                </Form.Item>
+
+                <Form.Item
+                    name="bienMarca"
+                    label="Marca"
+                    rules={[{ required: true, message: 'Por favor ingrese la marca' }]}
+                >
+                    <Input onChange={(e) => setSelectedMarca(e.target.value)} />
+                </Form.Item>
+
+                <Form.Item
+                    name="bienModelo"
+                    label="Modelo"
+                    rules={[{ required: true, message: 'Por favor ingrese el modelo' }]}
+                >
+                    <Input onChange={(e) => setSelectedModelo(e.target.value)} />
+                </Form.Item>
+
+                <Form.Item
+                    name="bienDescripcion"
+                    label="Descripción"
+                >
+                    <Input.TextArea rows={3} />
+                </Form.Item>
+
+                <Form.Item
+                    name="bienPrecio"
+                    label="Precio"
+                    rules={[{ required: true, message: 'Por favor ingrese el precio' }]}
+                >
+                    <InputNumber min={0} />
+                </Form.Item>
+
+                <Form.Item label="Fotos">
+                    <Upload
+                        fileList={fileList}
+                        onChange={({ fileList: newFileList }) => setFileList(newFileList)}
+                        multiple
+                        beforeUpload={() => false}
+                    >
+                        <Button>Subir Fotos</Button>
+                    </Upload>
+                </Form.Item>
+
+                <Form.Item>
+                    <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
+                        Registrar Bien
+                    </Button>
+                </Form.Item>
+            </Form>
+        </div>
     );
 };
 
-export default BienForm;
+export default RegistrarBienPage;
