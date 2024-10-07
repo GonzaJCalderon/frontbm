@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaSignOutAlt, FaHome, FaSearch } from 'react-icons/fa';
+import { FaSignOutAlt, FaHome, FaSearch, FaUser, FaShoppingCart, FaBoxOpen, FaWarehouse, FaFileExcel, FaDollarSign, FaTags } from 'react-icons/fa';
 import { useSelector, useDispatch } from 'react-redux';
 import { searchItems } from '../redux/actions/search';
 import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
@@ -126,11 +126,12 @@ const Dashboard = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-center">
-                        <Link to="/usuarios" className="m-2 group px-10 py-5 bg-blue-100 rounded-lg flex flex-col items-center justify-center gap-2">
-                            <i className="fas fa-users text-blue-500 text-5xl mb-4"></i>
-                            <p className="font-semibold text-gray-900 text-xl">Usuarios</p>
-                            <p className="font-semibold text-gray-600 text-xs">Administra y visualiza los usuarios aquí.</p>
+                        <Link to="/admin/usuarios" className="group bg-blue-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4">
+                            <FaUser className="text-blue-500 text-5xl" />
+                            <p className="text-xl font-semibold text-gray-900">Usuarios</p>
+                            <p className="text-sm font-semibold text-gray-600 text-center">Administra los usuarios aprobados y pendientes.</p>
                         </Link>
+
                         <Link to="/lista-bienes" className="m-2 group px-10 py-5 bg-green-100 rounded-lg flex flex-col items-center justify-center gap-2">
                             <i className="fas fa-boxes text-green-500 text-5xl mb-4"></i>
                             <p className="font-semibold text-gray-900 text-xl">Bienes Muebles</p>

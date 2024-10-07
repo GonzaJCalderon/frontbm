@@ -56,7 +56,7 @@ const Login = () => {
                     // Redirige según el rolDefinitivo del usuario
                     switch (usuario.rolDefinitivo) {
                         case 'administrador':
-                            navigate('/dashboard');
+                            navigate('/admin/dashboard');
                             break;
                         case 'usuario':
                             navigate('/userdashboard');

@@ -38,12 +38,30 @@ import {
     BUSCAR_USUARIO_DNI_ERROR,
     FETCH_TRANSACCIONES_REQUEST, 
     FETCH_TRANSACCIONES_SUCCESS, 
-    FETCH_TRANSACCIONES_ERROR 
+    FETCH_TRANSACCIONES_ERROR,
+    FETCH_PENDING_REGISTRATIONS_REQUEST,
+    FETCH_PENDING_REGISTRATIONS_SUCCESS,
+    FETCH_PENDING_REGISTRATIONS_ERROR,
+    APPROVE_REGISTRATION_REQUEST,
+    APPROVE_REGISTRATION_SUCCESS,
+    APPROVE_REGISTRATION_ERROR,
+    DENY_REGISTRATION_REQUEST,
+    DENY_REGISTRATION_SUCCESS,
+    DENY_REGISTRATION_ERROR,
+     FETCH_APPROVED_USERS_REQUEST,
+    FETCH_APPROVED_USERS_SUCCESS,
+    FETCH_APPROVED_USERS_FAILURE,
+    FETCH_REJECTED_USERS_REQUEST,
+    FETCH_REJECTED_USERS_SUCCESS,
+    FETCH_REJECTED_USERS_ERROR,
+    APPROVE_USER_SUCCESS,
+    
 } from '../actions/actionTypes';
 
 const initialState = {
     isAuthenticated: false,
     usuarios: [],
+    rejectedUsers: [],
     user: null,
     userDetails: {},
     items: [],
@@ -52,11 +70,15 @@ const initialState = {
     vendedor: null,
     loading: false,
     error: null,
+    pendingRegistrations: [],
     comprasVentas: {
         bienesComprados: [],
         bienesVendidos: [],
     },
+    transacciones: [], 
+    
 };
+
 
 // Reducer
 const usuariosReducer = (state = initialState, action) => {
@@ -290,15 +312,121 @@ const usuariosReducer = (state = initialState, action) => {
                 error: action.payload,
                 loading: false,
             };
-        case FETCH_TRANSACCIONES_REQUEST:
-            return { ...state, loading: true };
-        case FETCH_TRANSACCIONES_SUCCESS:
-            return { ...state, loading: false, transacciones: action.payload };
-        case FETCH_TRANSACCIONES_ERROR:
-            return { ...state, loading: false, error: action.payload };
+            case FETCH_TRANSACCIONES_REQUEST:
+                return {
+                    ...state,
+                    loading: true,
+                };
+            case FETCH_TRANSACCIONES_SUCCESS:
+                return {
+                    ...state,
+                    loading: false,
+                    transacciones: action.payload, // Asegúrate de que esto sea un array
+                };
+            case FETCH_TRANSACCIONES_ERROR:
+                return {
+                    ...state,
+                    loading: false,
+                    error: action.payload,
+                };
+
+              // Manejo de solicitudes de registro pendientes
+        case FETCH_PENDING_REGISTRATIONS_REQUEST:
+            return {
+                ...state,
+                loading: true,
+            };
+        case FETCH_PENDING_REGISTRATIONS_SUCCESS:
+            return {
+                ...state,
+                pendingRegistrations: action.payload,
+                loading: false,
+            };
+        case FETCH_PENDING_REGISTRATIONS_ERROR:
+            return {
+                ...state,
+                loading: false,
+                error: action.error,
+            };
+
+        // Aprobar registro
+        case APPROVE_REGISTRATION_REQUEST:
+            return {
+                ...state,
+                loading: true,
+            };
+        case APPROVE_REGISTRATION_SUCCESS:
+            return {
+                ...state,
+                pendingRegistrations: state.pendingRegistrations.filter(user => user.id !== action.payload),
+                loading: false,
+            };
+        case APPROVE_REGISTRATION_ERROR:
+            return {
+                ...state,
+                loading: false,
+                error: action.error,
+            };
+
+        // Negar registro
+        case DENY_REGISTRATION_REQUEST:
+            return {
+                ...state,
+                loading: true,
+            };
+        case DENY_REGISTRATION_SUCCESS:
+            return {
+                ...state,
+                pendingRegistrations: state.pendingRegistrations.filter(user => user.id !== action.payload.id),
+                loading: false,
+            };
+
+
+        case DENY_REGISTRATION_ERROR:
+            return {
+                ...state,
+                loading: false,
+                error: action.error,
+            };
+            case FETCH_APPROVED_USERS_REQUEST:
+                return { ...state, loading: true, error: null };
+            case FETCH_APPROVED_USERS_SUCCESS:
+                return { ...state, loading: false, usuarios: action.payload }; // Asegúrate de que el payload sea el array de usuarios
+            case FETCH_APPROVED_USERS_FAILURE:
+                return { ...state, loading: false, error: action.payload };
+
+                case FETCH_REJECTED_USERS_REQUEST:
+                    return {
+                        ...state,
+                        loading: true,
+                    };
+                case FETCH_REJECTED_USERS_SUCCESS:
+                    return {
+                        ...state,
+                        loading: false,
+                        rejectedUsers: action.payload,
+                    };
+                case FETCH_REJECTED_USERS_ERROR:
+                    return {
+                        ...state,
+                        loading: false,
+                        error: action.error,
+                    };
+
+                    case APPROVE_USER_SUCCESS:
+    return {
+        ...state,
+        approvedUsers: [...state.approvedUsers, action.payload],
+        pendingRegistrations: state.pendingRegistrations.filter(user => user.id !== action.payload.id),
+    };
+
+    
+   
         default:
             return state;
     }
+
+    
 };
 
 export default usuariosReducer;

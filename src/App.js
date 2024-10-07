@@ -16,6 +16,7 @@ import Perfil from './components/Perfil';
 import UserDashboard from './components/UserDashboard';
 import Inventario from './components/inventario';
 import AdminOperaciones from './components/AdminOperaciones';
+import AdminUsuariosDashboard from './components/AdminUsuariosDashboard';  // Nueva ruta
 
 
 const App = () => {
@@ -29,10 +30,9 @@ const App = () => {
           <Route path="/lista-bienes" element={<BienList />} />
           <Route path="/usuarios" element={<UsuarioList />} />
           <Route path="/usuarios/:id/edit" element={<EditUsuario />} />
-          <Route path="/operaciones/:userId" element={<Operaciones />} />
-          <Route path="/admin/usuarios" element={<UsuarioList />} />
+          <Route path="/admin/dashboard" element={<Dashboard />} />
           <Route path="/admin/operaciones/:userId" element={<AdminOperaciones />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin/usuarios" element={<AdminUsuariosDashboard />} />  {/* Nueva ruta para gestión de usuarios */}
           <Route path="/userdashboard" element={<UserDashboard />} />
           <Route path="/home" element={<Home />} />
           <Route path="/perfil" element={<Perfil />} />

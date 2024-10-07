@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTransaccionesByAdmin, fetchUsuarios } from '../redux/actions/usuarios'; 
-import { Table, Button } from 'antd';
+import { fetchTransaccionesByAdmin, fetchUsuarios } from '../redux/actions/usuarios';
+import { Button, Table, Image } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 
@@ -10,238 +10,141 @@ const AdminOperaciones = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    const { transacciones = {}, loading, error, usuarios = [] } = useSelector(state => state.usuarios || {});
-    const { bienesComprados = [], bienesVendidos = [] } = transacciones;
+    const { transacciones, loading, error, usuarios } = useSelector(state => state.usuarios || {});
 
-    // Verificar que el userId esté presente
+    const [paginaCompras, setPaginaCompras] = useState(1);
+    const [paginaVentas, setPaginaVentas] = useState(1);
+    const transaccionesPorPagina = 10;
+
     useEffect(() => {
         if (userId) {
-            dispatch(fetchUsuarios()); // Cargar usuarios primero
-            dispatch(fetchTransaccionesByAdmin(userId)); // Luego cargar transacciones
+            dispatch(fetchUsuarios());
+            dispatch(fetchTransaccionesByAdmin(userId));
         }
     }, [dispatch, userId]);
 
-    // Obtener el nombre y apellido del usuario consultado
-    const usuario = usuarios.find(u => u.id === parseInt(userId));
-    const nombreCompleto = usuario ? `${usuario.nombre || 'Sin nombre'} ${usuario.apellido || ''}`.trim() : 'Sin nombre';
+    const transaccionesArray = Array.isArray(transacciones) ? transacciones : [];
 
-    // Debug: Verificar el usuario encontrado
-    console.log('Usuario encontrado:', usuario);
+    // Separar las transacciones en compras y ventas
+    const compras = transaccionesArray
+        .filter(transaccion => transaccion.compradorId === parseInt(userId))
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    const ventas = transaccionesArray
+        .filter(transaccion => transaccion.vendedorId === parseInt(userId))
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
-    // Columnas para la tabla de compras
+    // Configurar las columnas de las tablas
     const columnsCompras = [
+        { title: 'ID', dataIndex: 'id', key: 'id' },
         {
-            title: 'Bien',
-            dataIndex: 'bien',
-            key: 'descripcion',
-            render: (bien) => bien?.descripcion || 'Sin descripción',
+            title: 'Imagen',
+            dataIndex: ['bien', 'imagen'],
+            key: 'imagen',
+            render: (text, record) => <Image width={80} src={record.bien.imagen} alt={record.bien.descripcion} />
         },
-        {
-            title: 'Fecha',
-            dataIndex: 'fecha',
-            key: 'fecha',
-            render: fecha => new Date(fecha).toLocaleDateString(),
-        },
-        {
-            title: 'Cantidad',
-            dataIndex: 'cantidad',
-            key: 'cantidad',
-        },
+        { title: 'Descripción del Bien', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
+        { title: 'Marca', dataIndex: ['bien', 'marca'], key: 'marca' },
+        { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
+        { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
+        { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
+        { title: 'Estado', dataIndex: 'estado', key: 'estado' },
         {
             title: 'Vendedor',
+            render: (text, record) => `${record.vendedor.nombre} ${record.vendedor.apellido}`,
             key: 'vendedor',
-            render: (text, record) => {
-                const vendedor = record.vendedor;
-                return `${vendedor?.nombre || 'Sin nombre'} ${vendedor?.apellido || ''}`.trim();
-            },
-        },
-        {
-            title: 'DNI/CUIT Vendedor',
-            key: 'dniVendedor',
-            render: (text, record) => record.vendedor.dni || 'Sin DNI/CUIT',
-        },
-        {
-            title: 'Email Vendedor',
-            key: 'emailVendedor',
-            render: (text, record) => record.vendedor.email || 'Sin email',
-        },
-        {
-            title: 'Dirección Vendedor',
-            key: 'direccionVendedor',
-            render: (text, record) => record.vendedor.direccion || 'Sin dirección',
-        },
-        {
-            title: 'Monto',
-            dataIndex: 'monto',
-            key: 'monto',
-            render: monto => `$${monto.toLocaleString()}`,
-        },
-        {
-            title: 'Método de Pago',
-            dataIndex: 'metodoPago',
-            key: 'metodoPago',
-        },
-        {
-            title: 'Código Único de identificación de operación',
-            dataIndex: 'uuid',
-            key: 'uuid',
-        },
-    ];
-
-    // Columnas para la tabla de ventas
-    const columnsVentas = [
-        {
-            title: 'Bien',
-            dataIndex: 'bien',
-            key: 'descripcion',
-            render: (bien) => bien?.descripcion || 'Sin descripción',
         },
         {
             title: 'Fecha',
-            dataIndex: 'fecha',
+            render: (text, record) => new Date(record.fecha).toLocaleString(),
             key: 'fecha',
-            render: fecha => new Date(fecha).toLocaleDateString(),
-        },
-        {
-            title: 'Cantidad',
-            dataIndex: 'cantidad',
-            key: 'cantidad',
-        },
-        {
-            title: 'Comprador',
-            key: 'comprador',
-            render: (text, record) => {
-                const comprador = record.comprador;
-                return `${comprador?.nombre || 'Sin nombre'} ${comprador?.apellido || ''}`.trim();
-            },
-        },
-        {
-            title: 'DNI/CUIT Comprador',
-            key: 'dniComprador',
-            render: (text, record) => record.comprador.dni || 'Sin DNI/CUIT',
-        },
-        {
-            title: 'Email Comprador',
-            key: 'emailComprador',
-            render: (text, record) => record.comprador.email || 'Sin email',
-        },
-        {
-            title: 'Dirección Comprador',
-            key: 'direccionComprador',
-            render: (text, record) => record.comprador.direccion || 'Sin dirección',
-        },
-        {
-            title: 'Monto',
-            dataIndex: 'monto',
-            key: 'monto',
-            render: monto => `$${monto.toLocaleString()}`,
-        },
-        {
-            title: 'Método de Pago',
-            dataIndex: 'metodoPago',
-            key: 'metodoPago',
-        },
-        {
-            title: 'Código Único de identificación de operación',
-            dataIndex: 'uuid',
-            key: 'uuid',
         },
     ];
 
-    const datosComprados = bienesComprados.map(item => ({
-        id: item.id,
-        uuid: item.uuid,
-        fecha: item.fecha,
-        monto: item.monto,
-        cantidad: item.cantidad,
-        estado: item.estado,
-        metodoPago: item.metodoPago,
-        vendedor: {
-            nombre: item.vendedor?.nombre || 'Sin nombre',
-            apellido: item.vendedor?.apellido || '',
-            dni: item.vendedor?.dni || 'Sin DNI/CUIT',
-            email: item.vendedor?.email || 'Sin email',
-            direccion: item.vendedor?.direccion || 'Sin dirección',
+    const columnsVentas = [
+        { title: 'ID', dataIndex: 'id', key: 'id' },
+        {
+            title: 'Imagen',
+            dataIndex: ['bien', 'imagen'],
+            key: 'imagen',
+            render: (text, record) => <Image width={80} src={record.bien.imagen} alt={record.bien.descripcion} />
         },
-        bien: item.bien,
-        comprador: {
-            nombre: item.comprador?.nombre || 'Sin nombre',
-            apellido: item.comprador?.apellido || '',
-            dni: item.comprador?.dni || 'Sin DNI/CUIT',
-            email: item.comprador?.email || 'Sin email',
-            direccion: item.comprador?.direccion || 'Sin dirección',
-        }
-    }));
+        { title: 'Descripción del Bien', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
+        { title: 'Marca', dataIndex: ['bien', 'marca'], key: 'marca' },
+        { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
+        { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
+        { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
+        { title: 'Estado', dataIndex: 'estado', key: 'estado' },
+        {
+            title: 'Comprador',
+            render: (text, record) => `${record.comprador.nombre} ${record.comprador.apellido}`,
+            key: 'comprador',
+        },
+        {
+            title: 'Fecha',
+            render: (text, record) => new Date(record.fecha).toLocaleString(),
+            key: 'fecha',
+        },
+    ];
 
-    const datosVendidos = bienesVendidos.map(item => ({
-        id: item.id,
-        uuid: item.uuid,
-        fecha: item.fecha,
-        monto: item.monto,
-        cantidad: item.cantidad,
-        estado: item.estado,
-        metodoPago: item.metodoPago,
-        comprador: {
-            nombre: item.comprador?.nombre || 'Sin nombre',
-            apellido: item.comprador?.apellido || 'Sin apellido',
-            dni: item.comprador?.dni || 'Sin DNI/CUIT',
-            email: item.comprador?.email || 'Sin email',
-            direccion: item.comprador?.direccion || 'Sin dirección',
-        },
-        bien: item.bien,
-        vendedor: {
-            nombre: item.vendedor?.nombre || 'Sin nombre',
-            apellido: item.vendedor?.apellido || 'Sin apellido',
-            dni: item.vendedor?.dni || 'Sin DNI/CUIT',
-            email: item.vendedor?.email || 'Sin email',
-            direccion: item.vendedor?.direccion || 'Sin dirección',
-        },
-    }));
+    const usuario = usuarios.find(u => u.id === parseInt(userId));
+    const nombreCompleto = usuario
+        ? `${usuario.nombre || 'Sin nombre'} ${usuario.apellido || ''}`.trim()
+        : 'Sin nombre';
 
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
             <div className="flex justify-between items-center mb-4">
-                <Button
-                    type="primary"
-                    icon={<ArrowLeftOutlined />}
-                    onClick={() => navigate(-1)}
-                >
+                <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
                     Volver
                 </Button>
-                <Button
-                    type="primary"
-                    icon={<LogoutOutlined />}
-                    onClick={() => {
-                        localStorage.removeItem('token');
-                        navigate('/login');
-                    }}
-                >
+                <Button type="primary" icon={<LogoutOutlined />} onClick={() => {
+                    localStorage.removeItem('token');
+                    navigate('/home');
+                }}>
                     Cerrar Sesión
                 </Button>
             </div>
 
             <h1 className="text-2xl font-bold mb-4">Operaciones de {nombreCompleto}</h1>
-            
+
             {loading ? (
                 <div className="text-center">Cargando...</div>
+            ) : error ? (
+                <div className="text-red-500 text-center">{error}</div>
             ) : (
-                <>
-                    <h2 className="text-xl font-bold mb-2">Compras</h2>
-                    <Table
-                        columns={columnsCompras}
-                        dataSource={datosComprados}
-                        rowKey="id"
-                        pagination={{ pageSize: 5 }}
-                    />
+                <div>
+                    {/* Sección de Compras */}
+                    <div>
+                        <h2 className="text-xl font-bold mb-2">Compras</h2>
+                        <Table
+                            columns={columnsCompras}
+                            dataSource={compras}
+                            pagination={{
+                                current: paginaCompras,
+                                pageSize: transaccionesPorPagina,
+                                total: compras.length,
+                                onChange: (page) => setPaginaCompras(page),
+                            }}
+                            rowKey="id"
+                        />
+                    </div>
 
-                    <h2 className="text-xl font-bold mb-2">Ventas</h2>
-                    <Table
-                        columns={columnsVentas}
-                        dataSource={datosVendidos}
-                        rowKey="id"
-                        pagination={{ pageSize: 5 }}
-                    />
-                </>
+                    {/* Sección de Ventas */}
+                    <div className="mt-8">
+                        <h2 className="text-xl font-bold mb-2">Ventas</h2>
+                        <Table
+                            columns={columnsVentas}
+                            dataSource={ventas}
+                            pagination={{
+                                current: paginaVentas,
+                                pageSize: transaccionesPorPagina,
+                                total: ventas.length,
+                                onChange: (page) => setPaginaVentas(page),
+                            }}
+                            rowKey="id"
+                        />
+                    </div>
+                </div>
             )}
         </div>
     );

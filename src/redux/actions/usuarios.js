@@ -1,6 +1,7 @@
 import axios from 'axios';
 import api from '../axiosConfig';
 import { createAsyncThunk } from '@reduxjs/toolkit';
+import { notification } from 'antd';
 
 import {
     FETCH_USUARIOS_REQUEST,
@@ -46,14 +47,33 @@ import {
     BUSCAR_VENDEDOR_REQUEST ,
     FETCH_TRANSACCIONES_REQUEST, 
     FETCH_TRANSACCIONES_SUCCESS, 
-    FETCH_TRANSACCIONES_ERROR 
+    FETCH_TRANSACCIONES_ERROR,
+    FETCH_PENDING_REGISTRATIONS_REQUEST,
+    FETCH_PENDING_REGISTRATIONS_SUCCESS,
+    FETCH_PENDING_REGISTRATIONS_ERROR,
+    APPROVE_REGISTRATION_REQUEST,
+    APPROVE_REGISTRATION_SUCCESS,
+    APPROVE_REGISTRATION_ERROR,
+    DENY_REGISTRATION_REQUEST,
+    DENY_REGISTRATION_SUCCESS,
+    DENY_REGISTRATION_ERROR,
+    FETCH_APPROVED_USERS_REQUEST,
+    FETCH_APPROVED_USERS_SUCCESS,
+    FETCH_APPROVED_USERS_FAILURE,
+    FETCH_REJECTED_USERS_REQUEST,
+    FETCH_REJECTED_USERS_SUCCESS,
+    FETCH_REJECTED_USERS_ERROR,
+    APPROVE_USER_REQUEST, 
+    APPROVE_USER_SUCCESS, 
+    APPROVE_USER_ERROR 
+    
 } from './actionTypes';
 
 // Define getToken at the top of your file
 const getToken = () => localStorage.getItem('token');
 
 // Obtener usuarios
-export const fetchUsuarios = (pageNumber) => async dispatch => {
+export const fetchUsuarios = (pageNumber = 1) => async dispatch => {
     dispatch({ type: FETCH_USUARIOS_REQUEST });
     try {
         const response = await api.get(`/usuarios?page=${pageNumber}`);
@@ -71,6 +91,7 @@ export const fetchUsuarios = (pageNumber) => async dispatch => {
         });
     }
 };
+
 
 // Obtener detalles de usuario
 export const fetchUsuarioDetails = (id) => async (dispatch) => {
@@ -164,14 +185,46 @@ export const addUsuario = (newUser) => async dispatch => {
         throw error; // Re-lanzar el error para manejo en el componente
     }
 };
-
-
-
-
-
-
 // Acción para obtener compras y ventas de usuario
-// Acción para obtener compras y ventas de usuario
+export const obtenerTransacciones = async (userId, isAdmin) => {
+    try {
+        const response = await api.get(`bienes/transacciones/usuario/${userId}`);
+        console.log('Respuesta de transacciones:', response.data); // Agrega este log para depuración
+        if (Array.isArray(response.data)) {
+            return response.data.map(transaccion => {
+                return {
+                    ...transaccion,
+                    esAdmin: isAdmin
+                };
+            });
+        }
+        throw new Error('No se encontraron transacciones.');
+    } catch (error) {
+        throw new Error(error.message);
+    }
+};
+
+
+// Acción para el Administrador
+export const fetchTransaccionesByAdmin = (userId) => async (dispatch) => {
+    dispatch({ type: FETCH_TRANSACCIONES_REQUEST });
+    try {
+        const response = await api.get(`bienes/transacciones/usuario/${userId}`);
+        console.log('Respuesta de la API:', response.data); // Agrega este log para depuración
+
+        if (!Array.isArray(response.data)) {
+            throw new Error('La respuesta no es un array de transacciones.');
+        }
+
+        dispatch({ type: FETCH_TRANSACCIONES_SUCCESS, payload: response.data });
+    } catch (error) {
+        dispatch({ type: FETCH_TRANSACCIONES_ERROR, payload: error.message });
+    }
+};
+
+
+
+// Acción para Compras y Ventas
 export const fetchUsuarioComprasVentas = (userId) => async (dispatch) => {
     if (!userId) {
         console.error('El userId es null o undefined');
@@ -181,78 +234,22 @@ export const fetchUsuarioComprasVentas = (userId) => async (dispatch) => {
     dispatch({ type: FETCH_COMPRAS_VENTAS_REQUEST });
 
     try {
-        const response = await api.get(`/bienes/transacciones/usuario/${userId}`);
-        console.log('Response Data:', response.data);
-
-        if (Array.isArray(response.data)) {
-            dispatch({
-                type: FETCH_COMPRAS_VENTAS_SUCCESS,
-                payload: {
-                    bienesComprados: response.data.filter(item => item.compradorId === userId),
-                    bienesVendidos: response.data.filter(item => item.vendedorId === userId),
-                }
-            });
-        } else {
-            console.error('Error: Los datos de respuesta no son un array');
-            dispatch({
-                type: FETCH_COMPRAS_VENTAS_ERROR,
-                payload: 'Los datos de respuesta no son un array',
-            });
-        }
+        const transacciones = await obtenerTransacciones(userId);
+        dispatch({
+            type: FETCH_COMPRAS_VENTAS_SUCCESS,
+            payload: {
+                bienesComprados: transacciones.filter(item => item.compradorId === userId),
+                bienesVendidos: transacciones.filter(item => item.vendedorId === userId),
+            }
+        });
     } catch (error) {
-        const errorMessage = error.response?.data?.message || error.message || 'Error desconocido';
+        const errorMessage = error.message || 'Error desconocido';
         console.error('Error al obtener compras y ventas:', errorMessage);
-        dispatch({
-            type: FETCH_COMPRAS_VENTAS_ERROR,
-            payload: errorMessage,
-        });
+        dispatch({ type: FETCH_COMPRAS_VENTAS_ERROR, payload: errorMessage });
     }
 };
 
 
-
-// Acción para que el administrador obtenga las transacciones de un usuario específico
-// Acción para que el administrador obtenga las transacciones de un usuario específico
-export const fetchTransaccionesByAdmin = (userId) => async (dispatch) => {
-    if (!userId) {
-        console.error('El userId proporcionado es null o undefined');
-        return;
-    }
-
-    dispatch({ type: FETCH_TRANSACCIONES_REQUEST });
-
-    try {
-        // Realiza la petición al backend utilizando el userId del usuario que el admin desea consultar
-        const response = await api.get(`/bienes/transacciones/usuario/${userId}`);
-        console.log('Response Data:', response.data);  // Verifica que la respuesta sea la esperada
-
-        // Verifica si response.data es un array de transacciones
-        if (Array.isArray(response.data)) {
-            dispatch({
-                type: FETCH_TRANSACCIONES_SUCCESS,
-                payload: {
-                    userId,
-                    bienesComprados: response.data.filter(item => item.compradorId === parseInt(userId)),  // Asegura que los IDs sean comparados correctamente
-                    bienesVendidos: response.data.filter(item => item.vendedorId === parseInt(userId)),
-                }
-            });
-        } else {
-            console.error('Error: Los datos de respuesta no son un array');
-            dispatch({
-                type: FETCH_TRANSACCIONES_ERROR,
-                payload: 'Los datos de respuesta no son un array',
-            });
-        }
-    } catch (error) {
-        // Manejo del error de manera más robusta
-        const errorMessage = error.response?.data?.message || error.message || 'Error desconocido';
-        console.error('Error al obtener transacciones para el usuario:', errorMessage);
-        dispatch({
-            type: FETCH_TRANSACCIONES_ERROR,
-            payload: errorMessage,
-        });
-    }
-};
 
 
 
@@ -361,3 +358,75 @@ export const buscarVendedor = (dni) => async dispatch => {
         });
     }
 };
+
+
+
+export const fetchPendingRegistrations = () => async (dispatch) => {
+    dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
+    try {
+        const response = await api.get(`usuarios/usuarios/pendientes`); // Ajusta según tu API
+        dispatch({ type: FETCH_PENDING_REGISTRATIONS_SUCCESS, payload: response.data });
+    } catch (error) {
+        dispatch({ type: FETCH_PENDING_REGISTRATIONS_ERROR, error: error.message });
+    }
+};
+
+export const approveUser = (userId) => async (dispatch) => {
+    dispatch({ type: APPROVE_USER_REQUEST });
+    try {
+        const response = await api.put(`usuarios/${userId}/aprobar`); // Verifica que esta ruta sea correcta
+        dispatch({ type: APPROVE_USER_SUCCESS, payload: response.data.usuario });
+    } catch (error) {
+        dispatch({ type: APPROVE_USER_ERROR, error: error.message });
+    }
+};
+
+
+export const fetchApprovedUsers = () => {
+    return async (dispatch) => {
+        dispatch({ type: FETCH_APPROVED_USERS_REQUEST });
+        try {
+            const response = await api.get('usuarios/usuarios/aprobados'); // Asegúrate de que esta URL sea correcta
+            dispatch({
+                type: FETCH_APPROVED_USERS_SUCCESS,
+                payload: response.data, // Asegúrate de que la respuesta contenga el array de usuarios
+            });
+        } catch (error) {
+            dispatch({
+                type: FETCH_APPROVED_USERS_FAILURE,
+                payload: error.message,
+            });
+        }
+    };
+};
+
+export const denyRegistration = (userId, motivoRechazo, adminId) => async (dispatch) => {
+    dispatch({ type: DENY_REGISTRATION_REQUEST });
+    try {
+        console.log("Datos a enviar:", { userId, motivoRechazo, adminId }); // Asegúrate de que estos datos sean correctos
+        await api.put(`usuarios/${userId}/rechazar`, { motivoRechazo, rechazadoPor: adminId }); // Cambia 'reason' por 'motivoRechazo'
+        dispatch({ type: DENY_REGISTRATION_SUCCESS, payload: { id: userId } });
+    } catch (error) {
+        dispatch({ type: DENY_REGISTRATION_ERROR, error: error.message });
+    }
+};
+
+
+
+export const fetchRejectedUsers = () => async (dispatch) => {
+    dispatch({ type: FETCH_REJECTED_USERS_REQUEST });
+    
+    try {
+        const response = await api.get('usuarios/usuarios/rechazados'); // Asegúrate de que esta sea la ruta correcta
+        dispatch({
+            type: FETCH_REJECTED_USERS_SUCCESS,
+            payload: response.data,
+        });
+    } catch (error) {
+        dispatch({
+            type: FETCH_REJECTED_USERS_ERROR,
+            error: error.message,
+        });
+    }
+};
+

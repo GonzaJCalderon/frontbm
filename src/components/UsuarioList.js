@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUsuarios, deleteUsuario,fetchTransaccionesByAdmin } from '../redux/actions/usuarios'; 
+import { fetchApprovedUsers, deleteUsuario, fetchTransaccionesByAdmin } from '../redux/actions/usuarios'; 
 import { useNavigate } from 'react-router-dom';
-import { notification, message, Button } from 'antd';
+import { notification, Button } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
 
 const UsuarioList = () => {
@@ -12,13 +12,13 @@ const UsuarioList = () => {
     const { usuarios, loading, error } = useSelector(state => state.usuarios || { usuarios: [], loading: false, error: null });
 
     useEffect(() => {
-        dispatch(fetchUsuarios());  // Carga la lista de usuarios al montar el componente
+        dispatch(fetchApprovedUsers());  // Carga la lista de usuarios al montar el componente
     }, [dispatch]);
 
     const handleViewDetails = async (user) => {
         try {
             await dispatch(fetchTransaccionesByAdmin(user.id)); 
-            navigate(`/admin/operaciones/${user.id}`);
+            navigate(`/admin/operaciones/${user.id}`); // Navega pasando el userId en la URL
         } catch (error) {
             console.error(error);
             notification.error({
@@ -46,7 +46,7 @@ const UsuarioList = () => {
             message: 'Cierre de sesión exitoso',
             description: 'Has cerrado sesión correctamente.',
         });
-        navigate('/login');
+        navigate('/home');
     };
 
     const handleBack = () => {

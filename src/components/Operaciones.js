@@ -1,146 +1,78 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUsuarioComprasVentas } from '../redux/actions/usuarios';
-import { Table, Button, notification, message } from 'antd';
-import { ArrowLeftOutlined, HomeOutlined, LogoutOutlined } from '@ant-design/icons';
+import { fetchTransaccionesByAdmin } from '../redux/actions/usuarios';
+import { Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import { LogoutOutlined } from '@ant-design/icons';
 
-const Operaciones = () => {
+const OperacionesUsuario = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { comprasVentas = {}, loading, error } = useSelector(state => state.usuarios || {});
-    const { bienesComprados = [], bienesVendidos = [] } = comprasVentas;
 
-    const loggedUser = JSON.parse(localStorage.getItem('userData'));
-    const userId = loggedUser?.id;
+    const { transacciones, loading, error, usuarioActual } = useSelector(state => state.usuarios || {});
 
     useEffect(() => {
-        if (userId) {
-            dispatch(fetchUsuarioComprasVentas(userId));
-        } else {
-            navigate('/home');
+        if (usuarioActual && usuarioActual.id) {
+            dispatch(fetchTransaccionesByAdmin(usuarioActual.id)); // Para el usuario logueado
         }
-    }, [dispatch, userId, navigate]);
+    }, [dispatch, usuarioActual]);
 
-    const columns = [
-        {
-            title: 'Descripción',
-            dataIndex: 'bien.descripcion',
-            key: 'descripcion',
-            render: (text, record) => record.bien.descripcion,
-        },
-        {
-            title: 'Marca',
-            dataIndex: 'bien.marca',
-            key: 'marca',
-            render: (text, record) => record.bien.marca,
-        },
-        {
-            title: 'Modelo',
-            dataIndex: 'bien.modelo',
-            key: 'modelo',
-            render: (text, record) => record.bien.modelo,
-        },
-        {
-            title: 'Fecha',
-            dataIndex: 'fecha',
-            key: 'fecha',
-            render: fecha => new Date(fecha).toLocaleDateString(),
-        },
-        {
-            title: 'Stock',
-            dataIndex: 'cantidad',
-            key: 'cantidad',
-        },
-        {
-            title: 'Comprador',
-            dataIndex: 'comprador',
-            key: 'comprador',
-            render: (comprador) => `${comprador.nombre} ${comprador.apellido}`,
-        },
-        {
-            title: 'Vendedor',
-            dataIndex: 'vendedor',
-            key: 'vendedor',
-            render: (vendedor) => `${vendedor.nombre} ${vendedor.apellido}`,
-        },
-        {
-            title: 'Monto',
-            dataIndex: 'monto',
-            key: 'monto',
-            render: monto => `$${monto.toLocaleString()}`,
-        },
-        {
-            title: 'Método de Pago',
-            dataIndex: 'metodoPago',
-            key: 'metodoPago',
-        },
-        {
-            title: 'Estado',
-            dataIndex: 'estado',
-            key: 'estado',
-        },
-    ];
+    // Aseguramos que transacciones sea un array para evitar el error
+    const compras = Array.isArray(transacciones) ? transacciones.filter(t => t.estado === 'comprado') : [];
+    const ventas = Array.isArray(transacciones) ? transacciones.filter(t => t.estado === 'vendido') : [];
 
-    const datosComprados = bienesComprados.map(item => ({
-        ...item,
-    }));
-
-    const datosVendidos = bienesVendidos.map(item => ({
-        ...item,
-    }));
-
-    const handleBack = () => {
-        navigate(-1);
-    };
-
-    const handleLogout = () => {
-        message.success('Sesión cerrada exitosamente');
-        localStorage.removeItem('userData');
-        navigate('/home');
-    };
-
-    const handleHome = () => {
-        navigate('/home');
-    };
+    useEffect(() => {
+        console.log('Transacciones recibidas para el usuario actual:', transacciones);
+        console.log('Usuario actual:', usuarioActual);
+        console.log('Error:', error);
+    }, [transacciones, usuarioActual, error]);
 
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
-            <div className="flex justify-between mb-4">
-                <Button icon={<ArrowLeftOutlined />} onClick={handleBack}>
-                    Atrás
+            <div className="flex justify-between items-center mb-4">
+                <Button type="primary" icon={<LogoutOutlined />} onClick={() => {
+                    localStorage.removeItem('token');
+                    navigate('/login');
+                }}>
+                    Cerrar Sesión
                 </Button>
-                <div className="flex space-x-4">
-                    <Button icon={<HomeOutlined />} onClick={handleHome}>
-                        Inicio
-                    </Button>
-                    <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-                        Cerrar Sesión
-                    </Button>
-                </div>
             </div>
-            <h1 className="text-2xl font-bold mb-4">Operaciones</h1>
+
+            <h1 className="text-2xl font-bold mb-4">Operaciones de {usuarioActual?.nombre || 'Usuario'}</h1>
+
             {loading ? (
                 <div className="text-center">Cargando...</div>
+            ) : error ? (
+                <div className="text-red-500 text-center">{error}</div>
             ) : (
-                <>
-                    <h2 className="text-xl font-bold mb-2">Compras</h2>
-                    {datosComprados.length > 0 ? (
-                        <Table dataSource={datosComprados} columns={columns} rowKey="id" />
+                <div>
+                    <h2 className="text-xl font-bold">Compras</h2>
+                    {compras.length ? (
+                        compras.map(compra => (
+                            <div key={compra.id}>
+                                <p>ID: {compra.id}</p>
+                                <p>Descripción: {compra.descripcion}</p>
+                            </div>
+                        ))
                     ) : (
-                        <div>No hay compras disponibles.</div>
+                        <p>No hay compras registradas</p>
                     )}
-                    <h2 className="text-xl font-bold mb-2 mt-4">Ventas</h2>
-                    {datosVendidos.length > 0 ? (
-                        <Table dataSource={datosVendidos} columns={columns} rowKey="id" />
+
+                    <h2 className="text-xl font-bold mt-4">Ventas</h2>
+                    {ventas.length ? (
+                        ventas.map(venta => (
+                            <div key={venta.id}>
+                                <p>ID: {venta.id}</p>
+                                <p>Descripción: {venta.descripcion}</p>
+                            </div>
+                        ))
                     ) : (
-                        <div>No hay ventas disponibles.</div>
+                        <p>No hay ventas registradas</p>
                     )}
-                </>
+                </div>
             )}
-            {error && <div className="text-red-500 mt-4"><p>Error: {error}</p></div>}
         </div>
     );
 };
 
-export default Operaciones;
+export default OperacionesUsuario;
