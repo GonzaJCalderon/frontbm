@@ -1,4 +1,6 @@
 import axios from '../axiosConfig';
+import { message } from 'antd';
+
 import {
     FETCH_BIENES,
     ADD_BIEN,
@@ -16,8 +18,8 @@ import {
     FETCH_BIENES_REQUEST,
     FETCH_BIEN_DETAILS_ERROR,
     REGISTRAR_COMPRA_REQUEST,
-    REGISTRAR_COMPRA_SUCCESS,
-    REGISTRAR_COMPRA_ERROR,
+    COMPRA_SUCCESS,
+    COMPRA_ERROR,
     REGISTRAR_COMPRA_EXITO,
     FETCH_TRAZABILIDAD_REQUEST,
     FETCH_TRAZABILIDAD_SUCCESS,
@@ -67,22 +69,42 @@ export const fetchBienes = (userId) => async (dispatch) => {
         dispatch({ type: FETCH_BIENES_ERROR, payload: error.response ? error.response.data : error.message });
     }
 };
-
 // Acción para agregar un nuevo bien
-export const addBien = (bienData) => async dispatch => {
+// Acción para agregar un nuevo bien
+// Acción para agregar un nuevo bien con subida de archivos
+export const addBien = (bienData, files) => async dispatch => {
     dispatch({ type: ADD_BIEN_REQUEST });
     try {
         const token = getToken();
-        const response = await axios.post('/bienes', bienData, {
-            headers: {
-                'Content-Type': 'multipart/form-data', // Esto es importante para FormData
-                Authorization: `Bearer ${token}`
-            }
+        const formData = new FormData();
+
+        // Agregar datos del bien
+        Object.keys(bienData).forEach(key => {
+            formData.append(key, bienData[key]);
         });
+
+        // Agregar archivos si hay algún archivo
+        if (files && Object.keys(files).length > 0) {
+            Object.keys(files).forEach(key => {
+                formData.append('fotos', files[key]);
+            });
+        }
+
+        const config = {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                Authorization: `Bearer ${token}`
+            },
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity
+        };
+
+        const response = await axios.post('/bienes', formData, config);
 
         dispatch({ type: ADD_BIEN_SUCCESS, payload: response.data });
         return response.data;
     } catch (error) {
+        console.error('Error al agregar bien:', error);
         dispatch({
             type: ADD_BIEN_ERROR,
             error: error.response ? error.response.data : error.message
@@ -90,6 +112,9 @@ export const addBien = (bienData) => async dispatch => {
         return { error: error.response ? error.response.data : error.message };
     }
 };
+
+
+
 
 
 // Acción para obtener los detalles de un bien específico
@@ -152,25 +177,54 @@ export const registrarVenta = (ventaData) => async (dispatch) => {
 
 // Acción para registrar una compra
 export const registrarCompra = (compraData) => async (dispatch) => {
-    const token = getToken();
-    if (!token) {
-        return dispatch({ type: 'ERROR', payload: 'Token no encontrado en el estado global' });
-    }
-
     try {
-        const response = await axios.post('/bienes/comprar', compraData, {
-            headers: { 'Authorization': `Bearer ${token}` }
+      // Crear FormData para enviar los datos y las fotos
+      const formData = new FormData();
+      
+      formData.append('bienId', compraData.bienId);
+      formData.append('compradorId', compraData.compradorId);
+      formData.append('vendedorId', compraData.vendedorId);
+      formData.append('precio', compraData.precio);
+      formData.append('descripcion', compraData.descripcion);
+      formData.append('tipo', compraData.tipo);
+      formData.append('marca', compraData.marca);
+      formData.append('modelo', compraData.modelo);
+      formData.append('imei', compraData.imei || '');
+      formData.append('cantidad', compraData.cantidad);
+      formData.append('metodoPago', compraData.metodoPago);
+  
+      // Solo añadir fotos si son necesarias (si el bien no existe)
+      if (compraData.fotos && compraData.fotos.length > 0) {
+        compraData.fotos.forEach((file) => {
+          formData.append('fotos', file.originFileObj);
         });
-
-        if (response.data.mensaje === 'Compra registrada con éxito') {
-            dispatch({ type: REGISTRAR_COMPRA_EXITO, payload: response.data });
-        } else {
-            throw new Error('La respuesta del backend no indica éxito');
-        }
+      }
+  
+      // Hacer la solicitud al backend
+      const res = await axios.post('/bienes/comprar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+  
+      // Dispatch a una acción de éxito
+      dispatch({
+        type: COMPRA_SUCCESS,
+        payload: res.data,
+      });
+  
+      message.success('Compra registrada con éxito');
     } catch (error) {
-        dispatch({ type: REGISTRAR_COMPRA_ERROR, payload: error.response ? error.response.data : error.message });
+      console.error('Error al registrar la compra:', error);
+      dispatch({
+        type: COMPRA_ERROR,
+        payload: error.message,
+      });
+      message.error('Error al registrar la compra');
     }
-};
+  };
+  
+
 
 // Acción para obtener la trazabilidad de un bien específico
 export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {

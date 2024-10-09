@@ -92,9 +92,11 @@ const ComprarPage = () => {
   // Manejar los archivos subidos para cada bien
   const handleFileChange = (index, { fileList: newFileList }) => {
     const nuevosBienes = [...bienesDinamicos];
-    nuevosBienes[index].fotos = newFileList;
+    nuevosBienes[index].fotos = newFileList;  // Asegúrate de que esto esté bien
     setBienesDinamicos(nuevosBienes);
+    setFileList(newFileList);  // Actualiza fileList si es necesario
   };
+  
 
   const handleFinishStep1 = async (values) => {
     const newUser = {
@@ -103,11 +105,14 @@ const ComprarPage = () => {
       email: values.vendedorEmail.trim(),
       dniCuit: values.vendedorDniCuit.trim(),
       address: values.vendedorDireccion.trim(),
-      password: 'default_password',
+      password: 'default_password', // Cambia esto si es necesario
     };
-
+    
+    setLoading(true);
     try {
       const response = await dispatch(addUsuario(newUser));
+
+      // Asegúrate de que el backend devuelve el usuario creado en la respuesta
       if (response && response.usuario) {
         const updatedFormValues = {
           vendedorNombre: response.usuario.nombre,
@@ -119,30 +124,40 @@ const ComprarPage = () => {
         };
 
         setFormValues(updatedFormValues);
-        setStep(2);
+        setStep(2); // Cambia a la siguiente etapa solo si el registro es exitoso
       } else {
         message.error('Error inesperado en la respuesta del servidor. Verifica la estructura.');
       }
     } catch (error) {
+      // Mostrar error específico si existe
       message.error(error.response?.data?.message || 'Error al registrar el usuario.');
+    } finally {
+      setLoading(false);
     }
   };
+
+
   const handleFinishStep2 = async () => {
     const token = localStorage.getItem('token');
     const userData = JSON.parse(localStorage.getItem('userData'));
-
+  
     if (!userData) {
       return notification.error({
         message: 'Error',
         description: 'No se ha encontrado el comprador en el localStorage.',
       });
     }
-
+  
+    if (!selectedTipo || !selectedMarca || !selectedModelo) {
+      return notification.error({
+        message: 'Error',
+        description: 'Por favor, selecciona el tipo, marca y modelo del bien.',
+      });
+    }
+  
     const compradorId = userData.id;
-
     const bienesData = bienesDinamicos.map(bien => ({
-      id: bien.id,
-      descripcion: bien.descripcion, // Asegúrate de que este campo se esté pasando correctamente
+      descripcion: bien.descripcion,
       precio: bien.precio,
       tipo: selectedTipo,
       marca: selectedMarca,
@@ -155,21 +170,25 @@ const ComprarPage = () => {
       vendedorDireccion: formValues.vendedorDireccion,
       fecha: new Date().toISOString(),
       metodoPago: form.getFieldValue('metodoPago'),
-      cantidad: bien.cantidad || 1 // Asegúrate de que la cantidad se esté asignando
+      cantidad: bien.cantidad || 1
     }));
-
+  
     try {
-      // Registrar los bienes
+      setLoading(true); // Inicia el loading
       for (const bien of bienesData) {
         await dispatch(addBien(bien));
       }
-
+  
       setNewBienDetails(bienesData);
       setIsModalOpen(true);
     } catch (error) {
+      console.error('Error al registrar el bien:', error);
       message.error(error.response?.data?.message || 'Error al registrar el bien.');
+    } finally {
+      setLoading(false); // Finaliza el loading
     }
   };
+  
 
   const handleConfirm = async () => {
     if (!newBienDetails || newBienDetails.length === 0) {
@@ -379,7 +398,9 @@ const ComprarPage = () => {
                 >
                   <InputNumber min={1} onChange={handleCantidadChange} />
                 </Form.Item>
+
               </>
+
             )}
 
             {action === 'registrado' && (

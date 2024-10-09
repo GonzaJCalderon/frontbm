@@ -188,7 +188,7 @@ export const addUsuario = (newUser) => async dispatch => {
 // Acción para obtener compras y ventas de usuario
 export const obtenerTransacciones = async (userId, isAdmin) => {
     try {
-        const response = await api.get(`bienes/transacciones/usuario/${userId}`);
+        const response = await api.get(`/bienes/transacciones/usuario/${userId}`);
         console.log('Respuesta de transacciones:', response.data); // Agrega este log para depuración
         if (Array.isArray(response.data)) {
             return response.data.map(transaccion => {
@@ -200,9 +200,11 @@ export const obtenerTransacciones = async (userId, isAdmin) => {
         }
         throw new Error('No se encontraron transacciones.');
     } catch (error) {
+        console.error('Error en obtenerTransacciones:', error); // Log para depuración
         throw new Error(error.message);
     }
 };
+
 
 
 // Acción para el Administrador

@@ -5,9 +5,8 @@ import { notification } from 'antd';
 
 const UsuariosRechazados = () => {
     const dispatch = useDispatch();
-    const { rejectedUsers, loading, error } = useSelector(state => state.usuarios); // Estado de usuarios rechazados
+    const { rejectedUsers, loading, error } = useSelector(state => state.usuarios); 
 
-    // Obtener los datos del administrador desde localStorage
     const adminData = JSON.parse(localStorage.getItem('userData'));
 
     useEffect(() => {
@@ -21,6 +20,8 @@ const UsuariosRechazados = () => {
 
     if (loading) return <p>Cargando usuarios rechazados...</p>;
     if (error) return <p>Error al cargar usuarios: {error}</p>;
+
+    console.log(rejectedUsers); // Depuración para verificar la estructura de rejectedUsers
 
     return (
         <div>
@@ -48,13 +49,13 @@ const UsuariosRechazados = () => {
                             <tr key={user.id}>
                                 <td>{user.nombre}</td>
                                 <td>{user.apellido}</td>
-                                <td>{user.email}</td>
-                                <td>{user.dni}</td>
-                                <td>{user.direccion}</td>
+                                <td>{user.direccion.calle} </td> 
+                                <td>{user.direccion.altura}</td>
+                                <td>{user.direccion.departamento}</td>
                                 <td>{user.motivoRechazo}</td>
-                                <td>{fecha.toLocaleDateString()}</td> {/* Formato de fecha */}
-                                <td>{horaRechazo}</td> {/* Mostrar hora de rechazo */}
-                                <td>{`${adminData.nombre} ${adminData.apellido}`}</td> {/* Nombre del administrador que rechazó */}
+                                <td>{fecha.toLocaleDateString()}</td> 
+                                <td>{horaRechazo}</td> 
+                                <td>{`${adminData.nombre} ${adminData.apellido}`}</td> 
                                 <td>
                                     <button onClick={() => handleApprove(user.id)} className="px-4 py-2 bg-green-600 text-white rounded">Aprobar</button>
                                 </td>

@@ -77,6 +77,10 @@ export const REGISTRAR_VENTA_ERROR = 'REGISTRAR_VENTA_ERROR';
 // Tipos de acción para registrar una compra
 export const REGISTRAR_COMPRA_EXITO = 'REGISTRAR_COMPRA_EXITO';
 export const REGISTRAR_COMPRA_ERROR = 'REGISTRAR_COMPRA_ERROR';
+export const COMPRA_SUCCESS = 'COMPRA_SUCCESS';
+export const COMPRA_ERROR = 'COMPRA_ERROR';
+
+
 
 // Acción de búsqueda
 export const SEARCH_REQUEST = 'SEARCH_REQUEST';

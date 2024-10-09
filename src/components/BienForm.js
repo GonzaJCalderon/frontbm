@@ -40,6 +40,8 @@ const RegistrarBienPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { items } = useSelector(state => state.bienes);
+    const [precio, setPrecio] = useState('');
+    const [stock, setStock] = useState('');
 
     const bienesTipos = [...new Set(items.map(bien => bien.tipo))];
 
@@ -52,7 +54,7 @@ const RegistrarBienPage = () => {
         }
     }, [dispatch]);
 
-    const handleFinish = async () => {
+    const handleFinish = async (formData) => {
         try {
             const usuario = getUserData();
             const vendedorId = usuario ? usuario.id : null;
@@ -62,27 +64,42 @@ const RegistrarBienPage = () => {
                 return;
             }
 
-            // Verifica si el bien ya está registrado
-            const bienExistente = items.find(b => b.modelo === selectedModelo && b.marca === selectedMarca && b.tipo === selectedTipo);
-            const formData = new FormData();
-            formData.append('uuid', generateUUID());
-            formData.append('tipo', selectedTipo);
-            formData.append('marca', selectedMarca);
-            formData.append('modelo', selectedModelo);
-            formData.append('descripcion', form.getFieldValue('bienDescripcion') || '');
-            formData.append('precio', form.getFieldValue('bienPrecio') || 0);
-            formData.append('stock', 1); // Asignar un stock inicial de 1
-            formData.append('vendedorId', vendedorId);
-            formData.append('fecha', new Date().toISOString());
+            const precioNumero = parseFloat(precio);
+            const stockNumero = parseInt(stock);
 
-            // Adjuntar las fotos
-            fileList.forEach(file => {
-                formData.append('fotos', file.originFileObj);
-            });
+            if (isNaN(precioNumero) || isNaN(stockNumero)) {
+                message.warning('El precio y el stock deben ser números válidos.');
+                return;
+            }
+
+            const formDataToSend = new FormData();
+
+            formDataToSend.append('uuid', generateUUID());
+            formDataToSend.append('tipo', selectedTipo);
+            formDataToSend.append('marca', selectedMarca);
+            formDataToSend.append('modelo', selectedModelo);
+            formDataToSend.append('descripcion', form.getFieldValue('bienDescripcion') || '');
+            formDataToSend.append('precio', precioNumero);
+            formDataToSend.append('stock', stockNumero);
+            formDataToSend.append('vendedorId', vendedorId);
+            formDataToSend.append('fecha', new Date().toISOString());
+
+            if (fileList.length > 0) {
+                fileList.forEach(file => {
+                    formDataToSend.append('fotos[]', file.originFileObj);
+                });
+            }
+
+            console.log('FormData antes de enviar:', Object.fromEntries(formDataToSend.entries()));
+
+            let bienExistente = items.find(bien => 
+                bien.modelo === selectedModelo &&
+                bien.marca === selectedMarca &&
+                bien.tipo === selectedTipo
+            );
 
             if (bienExistente) {
-                // Actualiza la cantidad de stock
-                const cantidadActualizada = (bienExistente.stock || 0) + 1; // Incrementa el stock en 1
+                const cantidadActualizada = (bienExistente.stock || 0) + 1;
                 const bienActualizado = {
                     ...bienExistente,
                     stock: cantidadActualizada,
@@ -90,14 +107,13 @@ const RegistrarBienPage = () => {
                     fotos: fileList.length ? fileList.map(file => file.originFileObj) : bienExistente.fotos,
                 };
 
-                console.log('Updated Bien Data to be sent:', bienActualizado);
-                await dispatch(addBien(bienActualizado)); // Modificar el action de Redux para manejar la actualización
+                await dispatch(addBien(bienActualizado));
                 notification.success({
                     message: 'Cantidad Actualizada',
                     description: `La cantidad del bien "${bienExistente.descripcion}" se ha actualizado a ${cantidadActualizada}.`,
                 });
             } else {
-                await dispatch(addBien(formData));
+                await dispatch(addBien(formDataToSend));
                 notification.success({
                     message: 'Bien Registrado',
                     description: 'El bien nuevo ha sido registrado exitosamente.',
@@ -106,8 +122,18 @@ const RegistrarBienPage = () => {
 
             navigate('/userdashboard');
         } catch (error) {
-            message.error('Error al registrar el bien. Inténtalo de nuevo.');
-            console.error('Error de registro:', error);
+            console.error('Error al registrar el bien:', error);
+            
+            if (error.response && error.response.data) {
+                // Manejar errores específicos del servidor
+                console.error('Datos de error:', error.response.data);
+                
+                // Mostrar mensaje de error personalizado
+                message.error(error.response.data.message || 'Ocurrió un error al registrar el bien.');
+            } else {
+                // Manejar errores generales
+                message.error('Ha ocurrido un error al intentar registrar el bien. Inténtelo de nuevo.');
+            }
         }
     };
 
@@ -165,7 +191,15 @@ const RegistrarBienPage = () => {
                     label="Precio"
                     rules={[{ required: true, message: 'Por favor ingrese el precio' }]}
                 >
-                    <InputNumber min={0} />
+                    <InputNumber min={0} onChange={(value) => setPrecio(value.toString())} />
+                </Form.Item>
+
+                <Form.Item
+                    name="bienStock"
+                    label="Stock"
+                    rules={[{ required: true, message: 'Por favor ingrese el stock' }]}
+                >
+                    <InputNumber min={0} onChange={(value) => setStock(value.toString())} />
                 </Form.Item>
 
                 <Form.Item label="Fotos">

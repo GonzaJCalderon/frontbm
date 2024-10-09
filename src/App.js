@@ -32,7 +32,7 @@ const App = () => {
           <Route path="/usuarios/:id/edit" element={<EditUsuario />} />
           <Route path="/admin/dashboard" element={<Dashboard />} />
           <Route path="/admin/operaciones/:userId" element={<AdminOperaciones />} />
-          <Route path="/admin/usuarios" element={<AdminUsuariosDashboard />} />  {/* Nueva ruta para gestión de usuarios */}
+          <Route path="/admin/usuarios" element={<AdminUsuariosDashboard />} />  
           <Route path="/userdashboard" element={<UserDashboard />} />
           <Route path="/home" element={<Home />} />
           <Route path="/perfil" element={<Perfil />} />
