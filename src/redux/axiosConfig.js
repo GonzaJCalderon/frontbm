@@ -2,8 +2,8 @@ import axios from 'axios';
 
 // Crear una instancia de Axios
 const api = axios.create({
-    baseURL: 'http://localhost:5000', // URL base de tu API
-    withCredentials: true, // Habilita el envío de cookies
+    baseURL: 'https://backbm-production-ca20.up.railway.app', // URL base de tu API en Railway
+    withCredentials: true, // Habilita el envío de cookies si es necesario
 });
 
 // Agregar un interceptor para incluir el token en los encabezados
