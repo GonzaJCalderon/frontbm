@@ -1,3 +1,33 @@
+
+# CLAVES Y CORRECCIONES 
+
+# Usuarios y contraseñas
+
+admin = admin@mail.com
+contraseña = 123456
+usuario= usuario@mail.com
+contraseña = 123456
+
+# .env 
+DB_NAME=bienes_muebles
+DB_USER=postgres
+DB_PASSWORD=post
+DB_HOST=localhost
+DB_PORT=5432
+SECRET_KEY=bienes_muebles
+PORT=5000
+EMAIL_USER=9924de853aca25
+EMAIL_PASS=c3d3deb924840e
+
+--CORREGIR--
+POST cuando se quiere registrar un bien en el bienform
+POST cuando se quiere comprar un bien nuevo
+
+y todo lo que consideres necesario y oportuno cambiar y mejorar. modificalo sin problemas
+
+
+
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
