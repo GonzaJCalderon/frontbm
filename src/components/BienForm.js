@@ -58,84 +58,60 @@ const RegistrarBienPage = () => {
         try {
             const usuario = getUserData();
             const vendedorId = usuario ? usuario.id : null;
-
+    
             if (!vendedorId || !selectedTipo || !selectedMarca || !selectedModelo) {
                 message.warning('Por favor complete todos los campos obligatorios.');
                 return;
             }
-
+    
             const precioNumero = parseFloat(precio);
-            const stockNumero = parseInt(stock);
-
-            if (isNaN(precioNumero) || isNaN(stockNumero)) {
-                message.warning('El precio y el stock deben ser números válidos.');
+            const cantidadNum = parseInt(stock, 10);  // Aquí cambiamos de 'stock' a 'cantidad'
+    
+            if (isNaN(precioNumero) || isNaN(cantidadNum)) {
+                message.warning('El precio y la cantidad deben ser números válidos.');
                 return;
             }
-
+    
             const formDataToSend = new FormData();
-
+    
             formDataToSend.append('uuid', generateUUID());
             formDataToSend.append('tipo', selectedTipo);
             formDataToSend.append('marca', selectedMarca);
             formDataToSend.append('modelo', selectedModelo);
             formDataToSend.append('descripcion', form.getFieldValue('bienDescripcion') || '');
             formDataToSend.append('precio', precioNumero);
-            formDataToSend.append('stock', stockNumero);
+            formDataToSend.append('cantidad', cantidadNum);  // Cambiado de 'stock' a 'cantidad'
             formDataToSend.append('vendedorId', vendedorId);
             formDataToSend.append('fecha', new Date().toISOString());
-
+    
             if (fileList.length > 0) {
-                fileList.forEach(file => {
-                    formDataToSend.append('fotos[]', file.originFileObj);
+                fileList.forEach((file, index) => {
+                    formDataToSend.append('fotos', file.originFileObj);  // Aquí enviamos las fotos
                 });
             }
-
+    
             console.log('FormData antes de enviar:', Object.fromEntries(formDataToSend.entries()));
-
-            let bienExistente = items.find(bien =>
-                bien.modelo === selectedModelo &&
-                bien.marca === selectedMarca &&
-                bien.tipo === selectedTipo
-            );
-
-            if (bienExistente) {
-                const cantidadActualizada = (bienExistente.stock || 0) + 1;
-                const bienActualizado = {
-                    ...bienExistente,
-                    stock: cantidadActualizada,
-                    descripcion: form.getFieldValue('bienDescripcion') || bienExistente.descripcion,
-                    fotos: fileList.length ? fileList.map(file => file.originFileObj) : bienExistente.fotos,
-                };
-
-                await dispatch(addBien(bienActualizado));
-                notification.success({
-                    message: 'Cantidad Actualizada',
-                    description: `La cantidad del bien "${bienExistente.descripcion}" se ha actualizado a ${cantidadActualizada}.`,
-                });
-            } else {
-                await dispatch(addBien(formDataToSend));
-                notification.success({
-                    message: 'Bien Registrado',
-                    description: 'El bien nuevo ha sido registrado exitosamente.',
-                });
-            }
-
+    
+            // Rest of the logic...
+            await dispatch(addBien(formDataToSend));
+            notification.success({
+                message: 'Bien Registrado',
+                description: 'El bien nuevo ha sido registrado exitosamente.',
+            });
+    
             navigate('/userdashboard');
         } catch (error) {
             console.error('Error al registrar el bien:', error);
-
+    
             if (error.response && error.response.data) {
-                // Manejar errores específicos del servidor
                 console.error('Datos de error:', error.response.data);
-
-                // Mostrar mensaje de error personalizado
                 message.error(error.response.data.message || 'Ocurrió un error al registrar el bien.');
             } else {
-                // Manejar errores generales
                 message.error('Ha ocurrido un error al intentar registrar el bien. Inténtelo de nuevo.');
             }
         }
     };
+    
 
     return (
         <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
