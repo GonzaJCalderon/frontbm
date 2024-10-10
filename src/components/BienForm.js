@@ -92,7 +92,7 @@ const RegistrarBienPage = () => {
 
             console.log('FormData antes de enviar:', Object.fromEntries(formDataToSend.entries()));
 
-            let bienExistente = items.find(bien => 
+            let bienExistente = items.find(bien =>
                 bien.modelo === selectedModelo &&
                 bien.marca === selectedMarca &&
                 bien.tipo === selectedTipo
@@ -123,11 +123,11 @@ const RegistrarBienPage = () => {
             navigate('/userdashboard');
         } catch (error) {
             console.error('Error al registrar el bien:', error);
-            
+
             if (error.response && error.response.data) {
                 // Manejar errores específicos del servidor
                 console.error('Datos de error:', error.response.data);
-                
+
                 // Mostrar mensaje de error personalizado
                 message.error(error.response.data.message || 'Ocurrió un error al registrar el bien.');
             } else {
@@ -157,11 +157,15 @@ const RegistrarBienPage = () => {
                     rules={[{ required: true, message: 'Por favor seleccione el tipo de bien' }]}
                 >
                     <Select onChange={setSelectedTipo}>
-                        {bienesTipos.map((tipo, index) => (
-                            <Option key={index} value={tipo}>{tipo}</Option>
-                        ))}
+                        <Option value="bicicleta">Bicicleta</Option>
+                        <Option value="tv">TV</Option>
+                        <Option value="camaraFotografica">Cámara Fotográfica</Option>
+                        <Option value="equipoAudio">Equipo de Audio</Option>
+                        <Option value="telefonoMovil">Teléfono Móvil</Option>
+                        <Option value="laptop">Laptop</Option>
                     </Select>
                 </Form.Item>
+
 
                 <Form.Item
                     name="bienMarca"
