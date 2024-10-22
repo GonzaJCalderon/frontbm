@@ -79,8 +79,8 @@ const RegistrarBienPage = () => {
             formDataToSend.append('marca', selectedMarca);
             formDataToSend.append('modelo', selectedModelo);
             formDataToSend.append('descripcion', form.getFieldValue('bienDescripcion') || '');
-            formDataToSend.append('precio', precioNumero);
-            formDataToSend.append('cantidad', cantidadNum);  // Cambiado de 'stock' a 'cantidad'
+            formDataToSend.append('precio', parseFloat(precio));  // Asegúrate de enviar como número
+            formDataToSend.append('cantidad', parseInt(stock, 10));  // Cambiado a 'cantidad' como lo espera el backend
             formDataToSend.append('vendedorId', vendedorId);
             formDataToSend.append('fecha', new Date().toISOString());
     

@@ -42,13 +42,8 @@ const SolicitudesPendientes = () => {
             const storedData = localStorage.getItem('userData');
             const adminData = storedData ? JSON.parse(storedData) : null;
     
-            // Agrega un log para verificar adminData
-            console.log("adminData:", adminData); // Esto debería mostrar el objeto que almacenaste
-    
             if (adminData && adminData.id) {
-                const adminId = adminData.id; // Aquí obtienes el ID del administrador
-                console.log("Admin ID:", adminId); // Agrega este log para verificar el adminId
-    
+                const adminId = adminData.id;
                 dispatch(denyRegistration(selectedUserId, rejectionReason, adminId));
                 notification.error({ message: 'Registro denegado', description: `El registro del usuario con ID ${selectedUserId} ha sido denegado. Motivo: ${rejectionReason}` });
                 setRejectionReason('');
@@ -61,44 +56,44 @@ const SolicitudesPendientes = () => {
             notification.warning({ message: 'Motivo requerido', description: 'Por favor ingresa un motivo para la denegación.' });
         }
     };
-    
-    
 
     const handleCancel = () => {
         setIsModalVisible(false);
     };
 
     return (
-        <div>
+        <div className="p-6 bg-gray-100 min-h-screen">
             <h2 className="text-2xl font-bold mb-4">Solicitudes de Registro Pendientes</h2>
             {loading ? (
                 <p>Cargando solicitudes...</p>
             ) : error ? (
                 <p>Error al cargar solicitudes: {error}</p>
             ) : (
-                <table className="table-auto w-full bg-white rounded shadow-md">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Email</th>
-                            <th>DNI</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {updatedRegistrations.map(user => (
-                            <tr key={user.id}>
-                                <td>{user.nombre}</td>
-                                <td>{user.email}</td>
-                                <td>{user.dni}</td>
-                                <td>
-                                    <button onClick={() => handleApprove(user.id)} className="px-4 py-2 bg-green-600 text-white rounded">Aprobar</button>
-                                    <button onClick={() => showModal(user.id)} className="px-4 py-2 bg-red-600 text-white rounded">Denegar</button>
-                                </td>
+                <div className="overflow-x-auto">
+                    <table className="table-auto w-full bg-white rounded shadow-md">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>DNI</th>
+                                <th>Acciones</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {updatedRegistrations.map(user => (
+                                <tr key={user.id}>
+                                    <td>{user.nombre}</td>
+                                    <td>{user.email}</td>
+                                    <td>{user.dni}</td>
+                                    <td>
+                                        <button onClick={() => handleApprove(user.id)} className="px-4 py-2 bg-green-600 text-white rounded">Aprobar</button>
+                                        <button onClick={() => showModal(user.id)} className="px-4 py-2 bg-red-600 text-white rounded">Denegar</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
             <Modal 
                 title="Motivo de Rechazo"

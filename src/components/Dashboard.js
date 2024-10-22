@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaSignOutAlt, FaHome, FaSearch, FaUser, FaShoppingCart, FaBoxOpen, FaWarehouse, FaFileExcel, FaDollarSign, FaTags } from 'react-icons/fa';
+import { FaSignOutAlt, FaHome, FaSearch, FaUser } from 'react-icons/fa';
 import { useSelector, useDispatch } from 'react-redux';
 import { searchItems } from '../redux/actions/search';
 import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
@@ -20,8 +20,15 @@ const Dashboard = () => {
         direccion: '',
         tipo: ''
     });
+    const [showSearch, setShowSearch] = useState(false); // Estado para mostrar/ocultar el campo de búsqueda
 
     const { loading, results, error } = useSelector(state => state.search || {});
+
+    // Asegúrate de que el efecto esté aquí
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
 
     const handleLogout = () => {
         navigate('/home');
@@ -89,54 +96,58 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="p-6 bg-gray-100 min-h-screen flex flex-col">
+        <div className="p-6 bg-gray-100 min-h-screen flex flex-col overflow-hidden">
             <header className="bg-blue-600 text-black p-4 flex justify-between items-center">
-                <h1 className="text-2xl text-white font-bold">Dashboard</h1>
-                <div className="flex space-x-4">
-                    <input
-                        type="text"
-                        placeholder="Buscar..."
-                        value={searchTerm}
-                        onChange={handleSearch}
-                        className="px-4 py-2 rounded"
-                    />
+                <h1 className="text-2xl text-white font-bold mb-4">Dashboard</h1>
+                <div className="flex items-center space-x-4">
+                    {/* Icono de búsqueda que muestra el campo de búsqueda */}
                     <FaSearch
                         className="text-white w-5 h-5 cursor-pointer"
+                        onClick={() => setShowSearch(!showSearch)} // Alternar la visibilidad del campo de búsqueda
                     />
+                    {showSearch && (
+                        <input
+                            type="text"
+                            placeholder="Buscar..."
+                            value={searchTerm}
+                            onChange={handleSearch}
+                            className="px-4 py-2 rounded border border-gray-300"
+                        />
+                    )}
                     <button
                         onClick={() => navigate('/home')}
-                        className="flex items-center px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
+                        className="flex items-center px-2 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
                     >
-                        <FaHome className="mr-2 w-5 h-5" />
-                        Inicio
+                        <FaHome className="w-5 h-5" />
                     </button>
                     <button
                         onClick={handleLogout}
-                        className="flex items-center px-4 py-2 bg-red-700 text-white rounded hover:bg-red-800"
+                        className="flex items-center px-2 py-2 bg-red-700 text-white rounded hover:bg-red-800"
                     >
-                        <FaSignOutAlt className="mr-2 w-5 h-5" />
-                        Salir
+                        <FaSignOutAlt className="w-5 h-5" />
                     </button>
                 </div>
             </header>
-            <main className="mt-6 flex-grow flex items-center justify-center">
+            <main className="mt-6 flex-grow flex flex-col items-center">
                 {loading ? (
                     <div className="flex items-center justify-center w-full h-full">
                         <p>Cargando...</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 justify-center">
-                        <Link to="/admin/usuarios" className="group bg-blue-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                        <Link to="/admin/usuarios" className="group bg-blue-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center">
                             <FaUser className="text-blue-500 text-5xl" />
                             <p className="text-xl font-semibold text-gray-900">Usuarios</p>
-                            <p className="text-sm font-semibold text-gray-600 text-center">Administra los usuarios aprobados y pendientes.</p>
+                            <p className="text-sm font-semibold text-gray-600">Administra los usuarios aprobados y pendientes.</p>
                         </Link>
 
-                        <Link to="/lista-bienes" className="m-2 group px-10 py-5 bg-green-100 rounded-lg flex flex-col items-center justify-center gap-2">
+                        <Link to="/lista-bienes" className="group bg-green-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center">
                             <i className="fas fa-boxes text-green-500 text-5xl mb-4"></i>
                             <p className="font-semibold text-gray-900 text-xl">Bienes Muebles</p>
                             <p className="font-semibold text-gray-600 text-xs">Administra los bienes muebles aquí.</p>
                         </Link>
+
+                        {/* Modal */}
                         {showModal && (
                             <div className="fixed inset-0 flex items-center justify-center z-50">
                                 <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 md:w-1/2 lg:w-1/3 relative">
