@@ -18,11 +18,22 @@ const ExcelUpload = () => {
     };
 
     return (
-        <div className="excel-upload-container">
-            <input type="file" accept=".xlsx, .xls" onChange={handleFileChange} />
-            <button onClick={handleUpload} disabled={loading}>Subir Stock</button>
-            {loading && <p>Cargando...</p>}
-            {error && <p>Error: {error}</p>}
+        <div className="flex flex-col items-center"> {/* Flexbox para alinear el contenido */}
+            <input
+                type="file"
+                accept=".xlsx, .xls"
+                onChange={handleFileChange}
+                className="mb-2 border border-gray-300 rounded p-2 w-full max-w-xs" // Estilo del input
+            />
+            <button
+                onClick={handleUpload}
+                disabled={loading}
+                className={`bg-teal-500 text-white rounded px-4 py-2 ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-teal-600'}`} // Estilo del botón
+            >
+                Subir Stock
+            </button>
+            {loading && <p className="mt-2">Cargando...</p>}
+            {error && <p className="mt-2 text-red-500">Error: {error}</p>} {/* Mensaje de error */}
         </div>
     );
 };
