@@ -18,7 +18,7 @@ const Inventario = () => {
     const navigate = useNavigate();
     const [reload, setReload] = useState(false);
     const [filteredItems, setFilteredItems] = useState([]); // Para manejar el filtrado de bienes
-    const { items, error, loading } = useSelector(state => state.bienes);
+    const { items = [], error, loading } = useSelector(state => state.bienes); // Asegúrate de que items siempre sea un array
 
     // Cargar bienes al montar el componente
     useEffect(() => {
@@ -67,7 +67,8 @@ const Inventario = () => {
 
     // Manejo de errores
     if (error) {
-        return <Alert message="Error" description={error} type="error" />;
+        const errorMessage = error.message || 'Ocurrió un error desconocido'; // Acceder al mensaje del error
+        return <Alert message="Error" description={errorMessage} type="error" />;
     }
 
     // Mostrar indicador de carga
@@ -76,43 +77,43 @@ const Inventario = () => {
     }
 
     // Mensaje cuando no hay bienes disponibles
-    if (!items.length) {
+    if (!filteredItems.length) {
         return <div>No hay bienes disponibles.</div>;
     }
 
     // Definición de las columnas de la tabla
     const columns = [
         {
-            title: 'Descripción', 
-            dataIndex: 'descripcion', 
-            key: 'descripcion', 
+            title: 'Descripción',
+            dataIndex: 'descripcion',
+            key: 'descripcion',
             render: text => text || 'N/A'
         },
         {
-            title: 'Precio', 
-            dataIndex: 'precio', 
-            key: 'precio', 
+            title: 'Precio',
+            dataIndex: 'precio',
+            key: 'precio',
             render: text => text || 'N/A',
             sorter: (a, b) => a.precio - b.precio, // Ordenar por precio
         },
         {
-            title: 'Fecha', 
-            dataIndex: 'createdAt', 
-            key: 'fecha', 
+            title: 'Fecha',
+            dataIndex: 'createdAt',
+            key: 'fecha',
             render: text => text ? formatDate(text) : 'N/A',
             sorter: (a, b) => new Date(b.createdAt) - new Date(a.createdAt), // Ordenar por fecha
         },
         {
-            title: 'Foto', 
-            dataIndex: 'foto', 
-            key: 'foto', 
+            title: 'Foto',
+            dataIndex: 'foto',
+            key: 'foto',
             render: text => (
                 text ? (
                     <Image
                         src={`http://localhost:5000/uploads/${text}`} // URL de la imagen
                         width={50}
                         preview={false}
-                        onError={(e) => { 
+                        onError={(e) => {
                             e.target.src = 'ruta/a/imagen/por/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
                         }}
                         alt="Imagen del bien" // Mejora la accesibilidad
@@ -121,33 +122,33 @@ const Inventario = () => {
             )
         },
         {
-            title: 'Tipo', 
-            dataIndex: 'tipo', 
-            key: 'tipo', 
+            title: 'Tipo',
+            dataIndex: 'tipo',
+            key: 'tipo',
             render: text => text || 'N/A'
         },
         {
-            title: 'Marca', 
-            dataIndex: 'marca', 
-            key: 'marca', 
+            title: 'Marca',
+            dataIndex: 'marca',
+            key: 'marca',
             render: text => text || 'N/A'
         },
         {
-            title: 'Modelo', 
-            dataIndex: 'modelo', 
-            key: 'modelo', 
+            title: 'Modelo',
+            dataIndex: 'modelo',
+            key: 'modelo',
             render: text => text || 'N/A'
         },
         {
-            title: 'IMEI', 
-            dataIndex: 'imei', 
-            key: 'imei', 
+            title: 'IMEI',
+            dataIndex: 'imei',
+            key: 'imei',
             render: text => text || 'N/A'
         },
         {
-            title: 'Stock', 
-            dataIndex: 'stock', 
-            key: 'stock', 
+            title: 'Stock',
+            dataIndex: 'stock',
+            key: 'stock',
             render: text => text || 'N/A'
         }
     ];
@@ -159,18 +160,18 @@ const Inventario = () => {
                 <Button icon={<HomeOutlined />} onClick={handleHome}>Home</Button>
                 <Button icon={<LogoutOutlined />} onClick={handleLogout} danger>Cerrar sesión</Button>
                 <Button onClick={handleBienAgregado}>Recargar Bienes</Button>
-                <Search 
+                <Search
                     placeholder="Buscar por tipo, marca o modelo"
                     onSearch={handleSearch}
                     style={{ width: 200 }}
-                    enterButton 
+                    enterButton
                 />
             </Space>
             <Title level={2}>Inventario</Title>
-            <Table 
-                dataSource={filteredItems} 
-                columns={columns} 
-                rowKey="uuid" 
+            <Table
+                dataSource={filteredItems}
+                columns={columns}
+                rowKey="uuid"
                 pagination={{ pageSize: 10 }} // Mostrar 10 bienes por página
             />
         </div>
