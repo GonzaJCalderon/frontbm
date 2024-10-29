@@ -9,6 +9,10 @@ const UsuarioList = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { usuarios, loading, error } = useSelector(state => state.usuarios || { usuarios: [], loading: false, error: null });
+    
+    // Obtén el rol del usuario autenticado desde localStorage
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    const isAdmin = userData && userData.rolDefinitivo === 'administrador';
 
     useEffect(() => {
         dispatch(fetchApprovedUsers());
@@ -110,18 +114,22 @@ const UsuarioList = () => {
                                             >
                                                 Ver Operaciones
                                             </Button>
-                                            <Button
-                                                onClick={() => handleEdit(user.id)}
-                                                className="bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
-                                            >
-                                                Editar
-                                            </Button>
-                                            <Button
-                                                onClick={() => handleDelete(user.id)}
-                                                className="bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-                                            >
-                                                Eliminar
-                                            </Button>
+                                            {isAdmin && (
+                                                <>
+                                                    <Button
+                                                        onClick={() => handleEdit(user.id)}
+                                                        className="bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm"
+                                                    >
+                                                        Editar
+                                                    </Button>
+                                                    <Button
+                                                        onClick={() => handleDelete(user.id)}
+                                                        className="bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                                                    >
+                                                        Eliminar
+                                                    </Button>
+                                                </>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
