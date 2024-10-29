@@ -3,7 +3,7 @@ import axios from 'axios';
 // Crear una instancia de Axios
 const api = axios.create({
     // baseURL: 'https://backbm-production-ca20.up.railway.app', // URL base de tu API en Railway
-    baseURL:'http://localhost:5000',
+    baseURL: 'http://localhost:5005',
     withCredentials: true, // Habilita el envío de cookies si es necesario
 });
 
