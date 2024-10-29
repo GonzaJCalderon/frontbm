@@ -58,6 +58,9 @@ const Login = () => {
                         case 'administrador':
                             navigate('/admin/dashboard');
                             break;
+                        case 'moderador':  // Agregado para moderador
+                            navigate('/admin/dashboard'); // Aquí podrías agregar permisos específicos si lo deseas
+                            break;
                         case 'usuario':
                             navigate('/userdashboard');
                             break;
