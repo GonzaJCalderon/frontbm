@@ -65,18 +65,19 @@ const bienesReducer = (state = initialState, action) => {
                 loading: false,
                 error: action.payload,
             };
-        case ADD_BIEN:
-            return {
-                ...state,
-                items: [...state.items, action.payload],
-                bienDetalles: {
-                    ...state.bienDetalles,
-                    ...action.payload,
-                    fotos: action.payload.fotos || [], // Asegúrate de que fotos esté definido
-                },
-                success: true,
-                error: null,
-            };
+            case ADD_BIEN:
+                return {
+                    ...state,
+                    items: [...state.items, action.payload], // Añade el nuevo bien al array de items
+                    bienDetalles: {
+                        ...state.bienDetalles,
+                        ...action.payload,
+                        fotos: [...(action.payload.fotos || [])], // Asegura fotos como array usando spread
+                    },
+                    success: true, // Actualiza success para indicar que fue exitoso
+                    error: null,   // Resetea cualquier error anterior
+                };
+            
         case ADD_BIEN_ERROR:
             return {
                 ...state,

@@ -49,7 +49,7 @@ const UsuarioList = () => {
     };
 
     const handleBack = () => {
-        navigate(-1);
+        navigate('/admin/dashboard'); 
     };
 
     return (

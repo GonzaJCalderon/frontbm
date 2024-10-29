@@ -1,5 +1,7 @@
 import axios from '../axiosConfig';
 import { message } from 'antd';
+import prepareFormData from '../../utils/prepareFormData';  // Ajusta la ruta si es necesario
+
 
 import {
     FETCH_BIENES,
@@ -71,47 +73,25 @@ export const fetchBienes = (userId) => async (dispatch) => {
 };
 // Acción para agregar un nuevo bien
 // Acción para agregar un nuevo bien
-// Acción para agregar un nuevo bien con subida de archivos
 export const addBien = (bienData, files) => async dispatch => {
     dispatch({ type: ADD_BIEN_REQUEST });
     try {
-        const token = getToken();
-        const formData = new FormData();
-
-        // Agregar datos del bien
-        Object.keys(bienData).forEach(key => {
-            formData.append(key, bienData[key]);
+        const formData = prepareFormData(bienData, files);
+        const response = await axios.post('/bienes/add/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
         });
-
-        // Agregar archivos si hay algún archivo
-        if (files && Object.keys(files).length > 0) {
-            Object.keys(files).forEach(key => {
-                formData.append('fotos', files[key]);
-            });
-        }
-
-        const config = {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                Authorization: `Bearer ${token}`
-            },
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity
-        };
-
-        const response = await axios.post('/bienes', formData, config);
 
         dispatch({ type: ADD_BIEN_SUCCESS, payload: response.data });
-        return response.data;
+        message.success('Bien agregado exitosamente');
     } catch (error) {
-        console.error('Error al agregar bien:', error);
         dispatch({
             type: ADD_BIEN_ERROR,
-            error: error.response ? error.response.data : error.message
+            error: error.response ? error.response.data : error.message,
         });
-        return { error: error.response ? error.response.data : error.message };
+        message.error('Error al agregar el bien');
     }
 };
+
 
 
 
