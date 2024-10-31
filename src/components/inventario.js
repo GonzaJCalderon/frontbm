@@ -30,7 +30,7 @@ const Inventario = () => {
         } else {
             console.error('ID del usuario no encontrado en localStorage');
         }
-    }, [dispatch, reload]);
+    }, [dispatch]);
 
     // Actualizar la lista filtrada cuando cambian los bienes
     useEffect(() => {
@@ -62,8 +62,15 @@ const Inventario = () => {
     };
 
     const handleBienAgregado = () => {
-        setReload(!reload); // Alternar el estado para recargar
+        const userData = JSON.parse(localStorage.getItem('userData'));
+        const userId = userData?.id;
+    
+        if (userId) {
+            dispatch(fetchBienes(userId)); // Cargar bienes directamente
+        }
     };
+    
+    
 
     // Manejo de errores
     if (error) {
@@ -110,16 +117,18 @@ const Inventario = () => {
             render: text => (
                 text ? (
                     <Image
-                        src={`http://localhost:5000/uploads/${text}`} // URL de la imagen
+                        src={`http://localhost:5005/uploads/${text}`} // URL de la imagen
                         width={50}
                         preview={false}
                         onError={(e) => {
-                            e.target.src = 'ruta/a/imagen/por/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
+                            e.target.src = '/images/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
                         }}
+                        
                         alt="Imagen del bien" // Mejora la accesibilidad
                     />
                 ) : 'No disponible'
             )
+            
         },
         {
             title: 'Tipo',

@@ -92,8 +92,13 @@ export const fetchUsuarios = (pageNumber = 1) => async dispatch => {
     }
 };
 
+// Definición de la función getCurrentUserId
+const getCurrentUserId = () => {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    return currentUser ? currentUser.id : null;
+};
 
-// Obtener detalles de usuario
+// Asegúrate de que la función esté definida antes de ser utilizada
 export const fetchUsuarioDetails = (id) => async (dispatch) => {
     dispatch({ type: FETCH_USUARIO_DETAILS_REQUEST });
     try {
@@ -109,12 +114,20 @@ export const fetchUsuarioDetails = (id) => async (dispatch) => {
                 'Authorization': `Bearer ${token}`
             }
         });
+
+        // Almacena los datos en el localStorage para el usuario activo
+        if (id === getCurrentUserId()) { // Verifica si el ID corresponde al usuario actual
+            localStorage.setItem('currentUser', JSON.stringify(response.data));
+        }
+
         dispatch({ type: FETCH_USUARIO_DETAILS_SUCCESS, payload: response.data });
     } catch (error) {
         console.error('Error al obtener los detalles del usuario:', error);
         dispatch({ type: FETCH_USUARIO_DETAILS_FAILURE, payload: error.message });
     }
 };
+
+
 
 // Login
 export const login = createAsyncThunk(
