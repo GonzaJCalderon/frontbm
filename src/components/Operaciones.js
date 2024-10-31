@@ -73,7 +73,7 @@ const OperacionesUsuario = () => {
         { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
         { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        { title: 'Estado', dataIndex: 'estado', key: 'estado' },
+       
         {
             title: 'Vendedor',
             render: (text, record) => `${record.vendedor?.nombre || ''} ${record.vendedor?.apellido || ''}`,
