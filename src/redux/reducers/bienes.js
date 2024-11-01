@@ -20,6 +20,8 @@ import {
 const initialState = {
     items: [],
     item: {},
+    totalPages: 0,
+    currentPage: 1,
     trazabilidad: {},
     loading: false,
     bienDetalles: {

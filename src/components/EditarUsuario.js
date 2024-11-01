@@ -135,10 +135,10 @@ const EditUsuario = () => {
         <p><strong>Apellido:</strong> {userDetails?.apellido || 'N/A'}</p>
         <p><strong>Email:</strong> {userDetails?.email || 'N/A'}</p>
         <p><strong>DNI:</strong> {userDetails?.dni || 'N/A'}</p>
-        <p><strong>Calle:</strong> {userDetails?.direccion?.calle || 'N/A'}</p> {/* Mostrar calle */}
-        <p><strong>Altura:</strong> {userDetails?.direccion?.altura || 'N/A'}</p> {/* Mostrar altura */}
-        <p><strong>Barrio:</strong> {userDetails?.direccion?.barrio || 'N/A'}</p> {/* Mostrar barrio */}
-        <p><strong>Departamento:</strong> {userDetails?.direccion?.departamento || 'N/A'}</p> {/* Mostrar departamento */}
+        <p><strong>Calle:</strong> {userDetails?.direccion?.calle || 'N/A'}</p> 
+        <p><strong>Altura:</strong> {userDetails?.direccion?.altura || 'N/A'}</p> 
+        <p><strong>Barrio:</strong> {userDetails?.direccion?.barrio || 'N/A'}</p> 
+        <p><strong>Departamento:</strong> {userDetails?.direccion?.departamento || 'N/A'}</p> 
     </div>
 
     {/* Formulario para editar datos */}

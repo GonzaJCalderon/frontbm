@@ -129,7 +129,7 @@ const BienList = () => {
                             preview={false}
                             onClick={() => openImage(`http://localhost:5000/uploads/${text}`)} // Para abrir la imagen grande
                             onError={(e) => {
-                                e.target.src = 'ruta/a/imagen/por/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
+                                e.target.src = '/images/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
                             }}
                         />
                     ) : 'No disponible'}
@@ -213,12 +213,13 @@ const BienList = () => {
                                 />
                             </div>
                         )}
-                        <div className="mt-4">
-                            <h4 className="text-lg font-semibold">Datos del Vendedor</h4>
-                            <p><strong>Nombre:</strong> {selectedBien.vendedor ? `${selectedBien.vendedor.nombre} ${selectedBien.vendedor.apellido}` : 'N/A'}</p>
-                            <p><strong>Email:</strong> {selectedBien.vendedor?.email || 'N/A'}</p>
-                            <p><strong>Dirección:</strong> {selectedBien.vendedor?.direccion || 'N/A'}</p>
-                        </div>
+                       <div className="mt-4">
+    <h4 className="text-lg font-semibold">Datos del Vendedor</h4>
+    <p><strong>Nombre:</strong> {selectedBien.vendedor ? `${selectedBien.vendedor.nombre} ${selectedBien.vendedor.apellido}` : 'N/A'}</p>
+    <p><strong>Email:</strong> {selectedBien.vendedor?.email || 'N/A'}</p>
+    <p><strong>Dirección:</strong> {selectedBien.vendedor?.direccion ? `${selectedBien.vendedor.direccion.calle || ''}, ${selectedBien.vendedor.direccion.altura || ''}, ${selectedBien.vendedor.direccion.barrio || ''}, ${selectedBien.vendedor.direccion.departamento || ''}` : 'N/A'}</p>
+</div>
+
                         <div className="mt-4">
                             <h4 className="text-lg font-semibold">Datos del Comprador</h4>
                             <p><strong>Nombre:</strong> {selectedBien.comprador ? `${selectedBien.comprador.nombre} ${selectedBien.comprador.apellido}` : 'N/A'}</p>

@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchPendingRegistrations, approveUser, denyRegistration } from '../redux/actions/usuarios';
 import { notification, Modal, Input, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
 
 const SolicitudesPendientes = () => {
     const dispatch = useDispatch();
@@ -41,7 +42,7 @@ const SolicitudesPendientes = () => {
         if (selectedUserId && rejectionReason) {
             const storedData = localStorage.getItem('userData');
             const adminData = storedData ? JSON.parse(storedData) : null;
-    
+
             if (adminData && adminData.id) {
                 const adminId = adminData.id;
                 dispatch(denyRegistration(selectedUserId, rejectionReason, adminId));
@@ -61,8 +62,47 @@ const SolicitudesPendientes = () => {
         setIsModalVisible(false);
     };
 
+    const handleLogout = () => {
+        localStorage.removeItem('userData');
+        notification.success({
+            message: 'Cierre de sesión exitoso',
+            description: 'Has cerrado sesión correctamente.',
+        });
+        navigate('/home');
+    };
+
+    const handleBack = () => {
+        navigate('/admin/dashboard');
+    };
+
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+                <Button
+                    type="primary"
+                    icon={<ArrowLeftOutlined />}
+                    onClick={handleBack}
+                >
+                    Volver
+                </Button>
+                <div className="flex space-x-4 mt-2 md:mt-0">
+                    <Button
+                        type="default"
+                        icon={<HomeOutlined />}
+                        onClick={() => navigate('/admin/dashboard')}
+                    >
+                        Inicio
+                    </Button>
+                    <Button
+                        type="primary"
+                        icon={<LogoutOutlined />}
+                        onClick={handleLogout}
+                    >
+                        Cerrar Sesión
+                    </Button>
+                </div>
+            </div>
+
             <h2 className="text-2xl font-bold mb-4">Solicitudes de Registro Pendientes</h2>
             {loading ? (
                 <p>Cargando solicitudes...</p>
@@ -74,8 +114,12 @@ const SolicitudesPendientes = () => {
                         <thead>
                             <tr>
                                 <th>Nombre</th>
+                                <th>Apellido</th>
                                 <th>Email</th>
                                 <th>DNI</th>
+                                <th>CUIT</th>
+                                <th>Dirección</th>
+                                <th>Rol</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -83,11 +127,19 @@ const SolicitudesPendientes = () => {
                             {updatedRegistrations.map(user => (
                                 <tr key={user.id}>
                                     <td>{user.nombre}</td>
+                                    <td>{user.apellido}</td>
                                     <td>{user.email}</td>
                                     <td>{user.dni}</td>
+                                    <td>{user.cuit || 'N/A'}</td>
+                                    <td>{`${user.direccion.calle} ${user.direccion.altura}, ${user.direccion.barrio}, ${user.direccion.departamento}`}</td>
+                                    <td>{user.rolDefinitivo}</td>
                                     <td>
-                                        <button onClick={() => handleApprove(user.id)} className="px-4 py-2 bg-green-600 text-white rounded">Aprobar</button>
-                                        <button onClick={() => showModal(user.id)} className="px-4 py-2 bg-red-600 text-white rounded">Denegar</button>
+                                        <Button onClick={() => handleApprove(user.id)} className="bg-green-600 text-white rounded">
+                                            Aprobar
+                                        </Button>
+                                        <Button onClick={() => showModal(user.id)} className="bg-red-600 text-white rounded">
+                                            Denegar
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}

@@ -70,7 +70,7 @@ const UsuarioList = () => {
                     <Button
                         type="default"
                         icon={<HomeOutlined />}
-                        onClick={() => navigate('/')}
+                        onClick={() => navigate('/admin/dashboard')}
                     >
                         Inicio
                     </Button>
