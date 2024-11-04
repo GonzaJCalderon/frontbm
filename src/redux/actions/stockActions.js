@@ -66,9 +66,9 @@ export const uploadStockExcel = (file) => async (dispatch) => {
         dispatch({ type: FETCH_USUARIO_COMPRAS_VENTAS_REQUEST });
 
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('archivoExcel', file);
 
-        const response = await api.post('/stock/upload', formData, { // Cambia a 'api'
+        const response = await api.post('/bienes/subir-stock', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
