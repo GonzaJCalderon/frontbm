@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaSignOutAlt, FaHome, FaUser, FaShoppingCart, FaBoxOpen, FaWarehouse, FaFileExcel, FaDollarSign, FaTags, FaSearch } from 'react-icons/fa';
 import ExcelUpload from '../components/ExcelUpload';
+import logo from '../assets/logo-png-sin-fondo.png'; // Importa el logo
 
 const UserDashboard = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [searchVisible, setSearchVisible] = useState(false);
+    const [fullName, setFullName] = useState('');
+    const [gender, setGender] = useState(''); // Nuevo estado para género
+
+    useEffect(() => {
+        const storedUser = JSON.parse(localStorage.getItem('userData')) || {};
+        const { nombre, apellido, genero } = storedUser; // Asegúrate de que 'genero' está aquí
+        setFullName(`${nombre} ${apellido}`);
+        setGender(genero); // Guarda el género del usuario
+    }, []);
 
     const handleLogout = () => {
+        localStorage.removeItem('userData');
         navigate('/home');
     };
 
@@ -19,13 +30,17 @@ const UserDashboard = () => {
     const handleSearch = (e) => {
         const term = e.target.value;
         setSearchTerm(term);
-        // Implementa la lógica de búsqueda aquí si es necesario
     };
 
     return (
         <div className="p-4 md:p-6 bg-gray-100 min-h-screen flex flex-col">
             <header className="bg-blue-600 text-white p-4 flex flex-col md:flex-row justify-between items-center">
-                <h1 className="text-2xl font-bold">User Dashboard</h1>
+                <div className="flex items-center">
+                    <img src={logo} alt="Logo" className="h-10 w-10 mr-2" />
+                    <h1 className="text-lg md:text-l font-semibold text-center md:text-left">
+                        Bienvenido/a <span className="text-yellow-200">{fullName},</span> al Registro de Bienes Muebles
+                    </h1>
+                </div>
                 <div className="flex items-center space-x-2 mt-2 md:mt-0">
                     <div className="relative">
                         <FaSearch
@@ -88,7 +103,7 @@ const UserDashboard = () => {
                     <div className="group bg-teal-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4">
                         <FaFileExcel className="text-teal-500 text-5xl" />
                         <p className="text-xl font-semibold text-gray-900">Cargar Stock</p>
-                        <p className="text-sm font-semibold text-gray-600 text-center">Sube un archivo Excel para actualizar el stock.</p>
+                        <p className="text-sm font-semibold text-gray-600 text-center">Sube un archivo Excel para actualizar el stock</p>
                         <ExcelUpload />
                     </div>
                 </div>

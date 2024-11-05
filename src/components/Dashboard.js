@@ -4,6 +4,7 @@ import { FaSignOutAlt, FaHome, FaSearch, FaUser } from 'react-icons/fa';
 import { useSelector, useDispatch } from 'react-redux';
 import { searchItems } from '../redux/actions/search';
 import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
+import logo from '../assets/logo-png-sin-fondo.png'; // Importa el logo
 import '../assets/styles/fontawesome.css';
 
 const Dashboard = () => {
@@ -22,13 +23,16 @@ const Dashboard = () => {
     });
     const [showSearch, setShowSearch] = useState(false); // Estado para mostrar/ocultar el campo de búsqueda
 
-    const { loading, results, error } = useSelector(state => state.search || {});
+    const { loading, results, error, user } = useSelector(state => ({
+        loading: state.search.loading,
+        results: state.search.results,
+        error: state.search.error,
+        user: state.auth.user // Suponiendo que el usuario está almacenado en el estado de autenticación
+    }));
 
-    // Asegúrate de que el efecto esté aquí
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
-
 
     const handleLogout = () => {
         navigate('/home');
@@ -98,9 +102,10 @@ const Dashboard = () => {
     return (
         <div className="p-6 bg-gray-100 min-h-screen flex flex-col overflow-hidden">
             <header className="bg-blue-600 text-black p-4 flex justify-between items-center">
-                <h1 className="text-2xl text-white font-bold mb-4">Dashboard</h1>
+            <img src={logo} alt="Logo" className="h-10 w-auto mr-6" /> 
+                <h1 className="text-2xl text-white font-bold mb-4">Bienvenido/a, {user ? `${user.nombre} ${user.apellido}` : 'Invitado'}</h1>
+                
                 <div className="flex items-center space-x-4">
-                    {/* Icono de búsqueda que muestra el campo de búsqueda */}
                     <FaSearch
                         className="text-white w-5 h-5 cursor-pointer"
                         onClick={() => setShowSearch(!showSearch)} // Alternar la visibilidad del campo de búsqueda
@@ -201,7 +206,6 @@ const Dashboard = () => {
                                         </button>
                                     </div>
                                 </div>
-                                <div className="fixed inset-0 bg-black opacity-50"></div>
                             </div>
                         )}
                     </div>
