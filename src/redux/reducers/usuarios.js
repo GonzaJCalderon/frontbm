@@ -55,6 +55,9 @@ import {
     FETCH_REJECTED_USERS_SUCCESS,
     FETCH_REJECTED_USERS_ERROR,
     APPROVE_USER_SUCCESS,
+    CHECK_USER_REQUEST,
+    CHECK_USER_SUCCESS,
+    CHECK_USER_ERROR
     
 } from '../actions/actionTypes';
 
@@ -419,6 +422,12 @@ const usuariosReducer = (state = initialState, action) => {
         approvedUsers: [...state.approvedUsers, action.payload],
         pendingRegistrations: state.pendingRegistrations.filter(user => user.id !== action.payload.id),
     };
+    case CHECK_USER_REQUEST:
+            return { ...state, loading: true, error: null };
+        case CHECK_USER_SUCCESS:
+            return { ...state, loading: false, usuario: action.payload };
+        case CHECK_USER_ERROR:
+            return { ...state, loading: false, error: action.error };
 
     
    

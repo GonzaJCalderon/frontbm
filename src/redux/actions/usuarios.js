@@ -65,7 +65,10 @@ import {
     FETCH_REJECTED_USERS_ERROR,
     APPROVE_USER_REQUEST, 
     APPROVE_USER_SUCCESS, 
-    APPROVE_USER_ERROR 
+    APPROVE_USER_ERROR,
+    CHECK_USER_REQUEST, 
+    CHECK_USER_SUCCESS,
+     CHECK_USER_ERROR
     
 } from './actionTypes';
 
@@ -198,6 +201,7 @@ export const addUsuario = (newUser) => async dispatch => {
         throw error; // Re-lanzar el error para manejo en el componente
     }
 };
+
 // Acción para obtener compras y ventas de usuario
 export const obtenerTransacciones = async (userId, isAdmin) => {
     try {
@@ -445,3 +449,32 @@ export const fetchRejectedUsers = () => async (dispatch) => {
     }
 };
 
+// Acción para verificar si el usuario existe
+export const checkExistingUser = (dni, email) => async (dispatch) => {
+    dispatch({ type: CHECK_USER_REQUEST });
+  
+    try {
+      const response = await api.post('usuarios/check', { dni, email });
+  
+      if (response.data.existe) {
+        dispatch({
+          type: CHECK_USER_SUCCESS,
+          payload: response.data.usuario,
+        });
+        return response.data;  // Regresa la respuesta
+      } else {
+        dispatch({
+          type: CHECK_USER_SUCCESS,
+          payload: null,
+        });
+        return { usuario: null };  // Devuelve null si no existe el usuario
+      }
+    } catch (error) {
+      dispatch({
+        type: CHECK_USER_ERROR,
+        error: error.message,
+      });
+      throw error; // Lanza el error para que el componente lo maneje
+    }
+  };
+  

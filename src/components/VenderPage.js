@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Form, Input, InputNumber, Button, Select, message, Modal, Typography, notification } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchBienes, registrarVenta } from '../redux/actions/bienes';
-import { addUsuario } from '../redux/actions/usuarios';
+import { addUsuario, checkExistingUser } from '../redux/actions/usuarios';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, HomeOutlined, LogoutOutlined } from '@ant-design/icons';
 
@@ -50,6 +50,8 @@ const VenderPage = () => {
   const marcasDisponibles = items.filter(bien => bien.tipo === selectedTipo).map(bien => bien.marca);
   const modelosDisponibles = items.filter(bien => bien.tipo === selectedTipo && bien.marca === selectedMarca).map(bien => bien.modelo);
   const [selectedBienes, setSelectedBienes] = useState([]);
+ 
+
 
   useEffect(() => {
     if (usuario && usuario.id) {
@@ -98,28 +100,46 @@ const VenderPage = () => {
       address: values.compradorDireccion.trim(),
       password: 'default_password',
     };
-
+  
     try {
-      const response = await dispatch(addUsuario(compradorData));
-      if (response && response.usuario) {
+      // Verificar si el usuario ya existe
+      const existingUser = await dispatch(checkExistingUser(compradorData.dniCuit, compradorData.email));
+      
+      if (existingUser && existingUser.usuario) {
+        // Si el usuario existe, avanzamos al siguiente paso sin crear uno nuevo
         const updatedFormValues = {
-          compradorNombre: response.usuario.nombre,
-          compradorApellido: response.usuario.apellido,
-          compradorEmail: response.usuario.email,
-          compradorDniCuit: response.usuario.dni,
-          compradorDireccion: response.usuario.direccion,
-          compradorId: response.usuario.id,
+          compradorNombre: existingUser.usuario.nombre,
+          compradorApellido: existingUser.usuario.apellido,
+          compradorEmail: existingUser.usuario.email,
+          compradorDniCuit: existingUser.usuario.dni,
+          compradorDireccion: existingUser.usuario.direccion,
+          compradorId: existingUser.usuario.id,
         };
-
         setFormValues(updatedFormValues);
         setStep(2);
       } else {
-        message.error('Error inesperado en la respuesta del servidor. Verifica la estructura.');
+        // Si el usuario no existe, intenta crear uno nuevo
+        const response = await dispatch(addUsuario(compradorData));
+        if (response && response.usuario) {
+          const updatedFormValues = {
+            compradorNombre: response.usuario.nombre,
+            compradorApellido: response.usuario.apellido,
+            compradorEmail: response.usuario.email,
+            compradorDniCuit: response.usuario.dni,
+            compradorDireccion: response.usuario.direccion,
+            compradorId: response.usuario.id,
+          };
+          setFormValues(updatedFormValues);
+          setStep(2);
+        } else {
+          message.error('Error inesperado en la respuesta del servidor. Verifica la estructura.');
+        }
       }
     } catch (error) {
-      message.error(error.response?.data?.message || 'Error al registrar el usuario.');
+      message.error(error.response?.data?.message || 'Error al verificar o registrar el usuario.');
     }
   };
+  
 
   const handleFinishStep2 = async () => {
     const compradorId = formValues.compradorId;
