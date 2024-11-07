@@ -130,7 +130,7 @@ const OperacionesUsuario = () => {
                     <Button icon={<HomeOutlined />} onClick={handleHome}>Home</Button>
                     <Button type="primary" icon={<LogoutOutlined />} onClick={() => {
                         localStorage.removeItem('token');
-                        navigate('/login');
+                        navigate('/userdashboard');
                     }}>
                         Cerrar Sesión
                     </Button>
