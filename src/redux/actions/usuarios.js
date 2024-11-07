@@ -175,32 +175,50 @@ export const register = (newUser) => async dispatch => {
 };
 
 // Agregar usuario
+// Acción para agregar un usuario
+// Acción para agregar un usuario
 export const addUsuario = (newUser) => async dispatch => {
     dispatch({ type: ADD_USUARIO_REQUEST });
     console.log("Datos enviados al backend:", newUser); // Log de datos enviados al backend
-
+  
     try {
-        const response = await api.post('/usuarios/register-usuario-por-tercero', newUser);
-        console.log("Respuesta del backend:", response.data); // Log de respuesta del backend
-
-        if (response.data && response.data.usuario) {
-            dispatch({
-                type: ADD_USUARIO_SUCCESS,
-                payload: response.data.usuario
-            });
-            return response.data;
-        } else {
-            throw new Error('Estructura de respuesta inesperada');
-        }
-    } catch (error) {
-        console.log("Error al registrar usuario:", error.response ? error.response.data : error.message); // Log de error
+      // Enviar los datos con la dirección como un objeto JSON
+      const response = await api.post('/usuarios/register-usuario-por-tercero', {
+        dniCuit: newUser.dniCuit, // DNI/CUIT del usuario
+        firstName: newUser.firstName, // Nombre del usuario
+        lastName: newUser.lastName, // Apellido del usuario
+        email: newUser.email, // Correo electrónico del usuario
+        direccion: {  // Dirección del usuario
+          calle: newUser.direccion.calle,
+          numero: newUser.direccion.numero,
+          ciudad: newUser.direccion.ciudad
+        },
+        password: 'default_password', // Contraseña por defecto
+        rolDefinitivo: 'usuario', // Rol por defecto
+      });
+  
+      console.log("Respuesta del backend:", response.data); // Log de respuesta del backend
+  
+      if (response.data && response.data.usuario) {
         dispatch({
-            type: ADD_USUARIO_ERROR,
-            error: error.response ? error.response.data : { message: error.message }
+          type: ADD_USUARIO_SUCCESS,
+          payload: response.data.usuario
         });
-        throw error; // Re-lanzar el error para manejo en el componente
+        return response.data;
+      } else {
+        throw new Error('Estructura de respuesta inesperada');
+      }
+    } catch (error) {
+      console.log("Error al registrar usuario:", error.response ? error.response.data : error.message); // Log de error
+      dispatch({
+        type: ADD_USUARIO_ERROR,
+        error: error.response ? error.response.data : { message: error.message }
+      });
+      throw error; // Re-lanzar el error para manejo en el componente
     }
-};
+  };
+  
+
 
 // Acción para obtener compras y ventas de usuario
 export const obtenerTransacciones = async (userId, isAdmin) => {
