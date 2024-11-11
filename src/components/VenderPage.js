@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchBienes, registrarVenta } from '../redux/actions/bienes';
 import { addUsuario, checkExistingUser } from '../redux/actions/usuarios';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeftOutlined, HomeOutlined, LogoutOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { Title } = Typography;

@@ -175,49 +175,68 @@ export const register = (newUser) => async dispatch => {
 };
 
 // Agregar usuario
-// Modificada la acción para enviar todos los datos
 export const addUsuario = (newUser) => async dispatch => {
     dispatch({ type: ADD_USUARIO_REQUEST });
-    console.log("Datos enviados al backend:", newUser); // Log de datos enviados al backend
-  
-    try {
-      // Enviar los datos completos, asegurándose de que los nombres de las propiedades coincidan con los del backend
-      const response = await api.post('/usuarios/register-usuario-por-tercero', {
-        dni: newUser.dni,
-        cuit: newUser.cuit,
-        nombre: newUser.nombre, // Cambiado a 'nombre' en lugar de 'firstName'
-        apellido: newUser.apellido, // Cambiado a 'apellido' en lugar de 'lastName'
-        email: newUser.email,
-        direccion: {
-          calle: newUser.direccion.calle,
-          numero: newUser.direccion.altura, // Cambiado de 'numero' a 'altura'
-          departamento: newUser.direccion.departamento || '', // Valor opcional para evitar errores
-        },
-        password: 'default_password', // Contraseña por defecto
-        tipo: newUser.tipo, // Tipo de usuario (jurídico o no)
-        razonSocial: newUser.tipo === 'juridica' ? newUser.razonSocial : '', // Solo agregar razón social si es jurídica
-      });
-  
-      console.log("Respuesta del backend:", response.data);
-  
-      if (response.data && response.data.usuario) {
-        dispatch({
-          type: ADD_USUARIO_SUCCESS,
-          payload: response.data.usuario
-        });
-        return response.data;
-      } else {
-        throw new Error('Estructura de respuesta inesperada');
-      }
-    } catch (error) {
-      console.log("Error al registrar usuario:", error.response ? error.response.data : error.message);
-      dispatch({
-        type: ADD_USUARIO_ERROR,
-        error: error.response ? error.response.data : { message: error.message }
-      });
-      throw error;
+    
+    console.log("Estructura de newUser antes de enviar al backend:", newUser);
+
+    // Verificación de campos obligatorios
+    const requiredFields = ['dni', 'cuit', 'nombre', 'apellido', 'email', 'direccion', 'tipo'];
+    for (let field of requiredFields) {
+        if (!newUser[field]) {
+            console.error(`Falta el campo: ${field}`);
+            return; // Detiene el proceso si falta algún campo
+        }
     }
-  };
+
+    // Asignar valor por defecto a password si no está presente
+    if (!newUser.password) {
+        newUser.password = 'default_password'; // Valor por defecto para la contraseña
+    }
+
+    try {
+        const response = await api.post('/usuarios/register-usuario-por-tercero', {
+            dni: newUser.dni,
+            cuit: newUser.cuit,
+            nombre: newUser.nombre,
+            apellido: newUser.apellido,
+            email: newUser.email,
+            direccion: {
+                calle: newUser.direccion.calle,
+                altura: newUser.direccion.altura,
+                barrio: newUser.direccion.barrio,
+                departamento: newUser.direccion.departamento || '',
+            },
+            password: newUser.password, // Ahora se asegura que password esté presente
+            tipo: newUser.tipo,
+            razonSocial: newUser.tipo === 'juridica' ? (newUser.razonSocial || '') : undefined,
+        });
+
+        console.log("Respuesta del backend:", response.data);
+
+        if (response.data && response.data.usuario) {
+            dispatch({
+                type: ADD_USUARIO_SUCCESS,
+                payload: response.data.usuario
+            });
+            return response.data;
+        } else {
+            throw new Error('Estructura de respuesta inesperada');
+        }
+    } catch (error) {
+        console.log("Error al registrar usuario:", error.response ? error.response.data : error.message);
+        dispatch({
+            type: ADD_USUARIO_ERROR,
+            error: error.response ? error.response.data : { message: error.message }
+        });
+        throw error;
+    }
+};
+
+
+
+
+  
 
 
 
