@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'; 
+import React, { useEffect, useState } from 'react';  
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchPendingRegistrations, approveUser, denyRegistration } from '../redux/actions/usuarios';
 import { notification, Modal, Input, Button } from 'antd';
@@ -9,18 +9,28 @@ const SolicitudesPendientes = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { pendingRegistrations, loading, error } = useSelector(state => state.usuarios);
-    
+
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
     const [selectedUserId, setSelectedUserId] = useState(null);
-    const [updatedRegistrations, setUpdatedRegistrations] = useState(pendingRegistrations);
+    const [updatedRegistrations, setUpdatedRegistrations] = useState([]);
 
     useEffect(() => {
         dispatch(fetchPendingRegistrations());
     }, [dispatch]);
 
     useEffect(() => {
-        setUpdatedRegistrations(pendingRegistrations);
+        // Al recibir las solicitudes, ordenamos por fechaCreacion (o fechaRechazo)
+        if (pendingRegistrations && pendingRegistrations.length > 0) {
+            const sortedRegistrations = [...pendingRegistrations].sort((a, b) => {
+                // Convertir las fechas a objetos Date y compararlas
+                const dateA = new Date(a.fechaRechazo || a.fechaCreacion); // Usar la fecha de rechazo o la de creación
+                const dateB = new Date(b.fechaRechazo || b.fechaCreacion);
+
+                return dateB - dateA; // Orden descendente (más reciente primero)
+            });
+            setUpdatedRegistrations(sortedRegistrations);
+        }
     }, [pendingRegistrations]);
 
     const handleApprove = async (id) => {
@@ -131,7 +141,27 @@ const SolicitudesPendientes = () => {
                                     <td>{user.email}</td>
                                     <td>{user.dni}</td>
                                     <td>{user.cuit || 'N/A'}</td>
-                                    <td>{`${user.direccion.calle} ${user.direccion.altura}, ${user.direccion.barrio}, ${user.direccion.departamento}`}</td>
+                                    <td>
+    {user.direccion ? (
+        <div style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '5px' }}>
+            <div style={{ marginBottom: '8px' }}>
+                <strong>Calle:</strong> {user.direccion.calle || 'Sin calle'}
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+                <strong>Altura:</strong> {user.direccion.altura || 'Sin altura'}
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+                <strong>Barrio:</strong> {user.direccion.barrio || 'Sin barrio'}
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+                <strong>Departamento:</strong> {user.direccion.departamento || 'Sin departamento'}
+            </div>
+        </div>
+    ) : (
+        'Sin Dirección'
+    )}
+</td>
+
                                     <td>{user.rolDefinitivo}</td>
                                     <td>
                                         <Button onClick={() => handleApprove(user.id)} className="bg-green-600 text-white rounded">

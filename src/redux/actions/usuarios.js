@@ -175,29 +175,30 @@ export const register = (newUser) => async dispatch => {
 };
 
 // Agregar usuario
-// Acción para agregar un usuario
-// Acción para agregar un usuario
+// Modificada la acción para enviar todos los datos
 export const addUsuario = (newUser) => async dispatch => {
     dispatch({ type: ADD_USUARIO_REQUEST });
     console.log("Datos enviados al backend:", newUser); // Log de datos enviados al backend
   
     try {
-      // Enviar los datos con la dirección como un objeto JSON
+      // Enviar los datos completos, asegurándose de que los nombres de las propiedades coincidan con los del backend
       const response = await api.post('/usuarios/register-usuario-por-tercero', {
-        dniCuit: newUser.dniCuit, // DNI/CUIT del usuario
-        firstName: newUser.firstName, // Nombre del usuario
-        lastName: newUser.lastName, // Apellido del usuario
-        email: newUser.email, // Correo electrónico del usuario
-        direccion: {  // Dirección del usuario
+        dni: newUser.dni,
+        cuit: newUser.cuit,
+        nombre: newUser.nombre, // Cambiado a 'nombre' en lugar de 'firstName'
+        apellido: newUser.apellido, // Cambiado a 'apellido' en lugar de 'lastName'
+        email: newUser.email,
+        direccion: {
           calle: newUser.direccion.calle,
-          numero: newUser.direccion.numero,
-          ciudad: newUser.direccion.ciudad
+          numero: newUser.direccion.altura, // Cambiado de 'numero' a 'altura'
+          departamento: newUser.direccion.departamento || '', // Valor opcional para evitar errores
         },
         password: 'default_password', // Contraseña por defecto
-        rolDefinitivo: 'usuario', // Rol por defecto
+        tipo: newUser.tipo, // Tipo de usuario (jurídico o no)
+        razonSocial: newUser.tipo === 'juridica' ? newUser.razonSocial : '', // Solo agregar razón social si es jurídica
       });
   
-      console.log("Respuesta del backend:", response.data); // Log de respuesta del backend
+      console.log("Respuesta del backend:", response.data);
   
       if (response.data && response.data.usuario) {
         dispatch({
@@ -209,15 +210,15 @@ export const addUsuario = (newUser) => async dispatch => {
         throw new Error('Estructura de respuesta inesperada');
       }
     } catch (error) {
-      console.log("Error al registrar usuario:", error.response ? error.response.data : error.message); // Log de error
+      console.log("Error al registrar usuario:", error.response ? error.response.data : error.message);
       dispatch({
         type: ADD_USUARIO_ERROR,
         error: error.response ? error.response.data : { message: error.message }
       });
-      throw error; // Re-lanzar el error para manejo en el componente
+      throw error;
     }
   };
-  
+
 
 
 // Acción para obtener compras y ventas de usuario

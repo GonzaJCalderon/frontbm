@@ -1,12 +1,13 @@
+// Home.jsx
 import React, { useState } from 'react';
 import Register from './RegisterForm'; 
 import Login from './Login';
 import logo from '../assets/logo-png-sin-fondo.png'; 
 
-const IngresoComponent = () => (
+const IngresoComponent = ({ onRegisterClick }) => (
   <div className="bg-gray-100 p-6 rounded-lg shadow-md flex items-center h-full">
     <div className="ml-auto"> 
-      <Login />
+      <Login onRegisterClick={onRegisterClick} />
     </div>
   </div>
 );
@@ -47,7 +48,7 @@ const Home = () => {
             <p className="text-base text-blue-200 mb-10">
               ¡Bienvenido! Aquí podrá registrar la compra y venta de Bienes Muebles Usados
             </p>
-            <div className="flex justify-center w-full"> {/* Centra los botones horizontalmente */}
+            <div className="flex justify-center w-full">
               <button
                 onClick={handleMostrarIngreso}
                 className="px-8 py-2 text-base tracking-wider font-semibold outline-none border border-white bg-white text-blue-500 hover:bg-blue-600 hover:text-white transition-all duration-300 mr-4"
@@ -63,11 +64,8 @@ const Home = () => {
             </div>
           </div>
         </div>
-
-        <div className="w-full mt-8">
-          {mostrarIngreso && <IngresoComponent />}
-          {mostrarRegistro && <RegistroComponent />}
-        </div>
+        {mostrarIngreso && <IngresoComponent onRegisterClick={handleMostrarRegistro} />}
+        {mostrarRegistro && <RegistroComponent />}
       </div>
     </div>
   );

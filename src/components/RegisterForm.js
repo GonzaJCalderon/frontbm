@@ -18,13 +18,18 @@ const Register = () => {
     apellido: '',
     email: '',
     password: '',
-    direccion: '',
+    direccion: {
+      calle: '',
+      altura: '',
+      barrio: '',
+      departamento: '', // El departamento debe estar dentro del objeto direccion
+    },
     cuit: '',
     dni: '',
     tipo: 'persona', // 'persona' o 'juridica'
     razonSocial: '', // Para 'persona juridica'
-    departamento: '' // Nuevo campo para el departamento
   });
+  
 
   const [showPassword, setShowPassword] = useState(false);
   const [notification, setNotification] = useState(null);
@@ -44,8 +49,16 @@ const Register = () => {
 
   const handleChange = e => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    if (name === 'calle' || name === 'altura' || name === 'barrio' || name === 'departamento') {
+      setFormData({
+        ...formData,
+        direccion: { ...formData.direccion, [name]: value },
+      });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -242,39 +255,70 @@ const Register = () => {
                 </button>
               </div>
             </div>
-            {/* Campo para seleccionar el departamento */}
             <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="departamento">
-                Departamento
-              </label>
-              <select
-                id="departamento"
-                name="departamento"
-                value={departamento}
-                onChange={handleChange}
-                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-              >
-                <option value="">Selecciona un departamento</option>
-                {departments.map((dep, index) => (
-                  <option key={index} value={dep}>{dep}</option>
-                ))}
-              </select>
-            </div>
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="calle">
+    Calle
+  </label>
+  <input
+    id="calle"
+    type="text"
+    name="calle"
+    value={formData.direccion.calle}
+    onChange={handleChange}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    placeholder="Ingresa la calle"
+  />
+</div>
 
-            <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="direccion">
-                Dirección
-              </label>
-              <input
-                id="direccion"
-                type="text"
-                name="direccion"
-                value={direccion}
-                onChange={handleChange}
-                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                placeholder="Ingresa tu dirección"
-              />
-            </div>
+<div className="mb-6">
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">
+    Altura
+  </label>
+  <input
+    id="altura"
+    type="text"
+    name="altura"
+    value={formData.direccion.altura}
+    onChange={handleChange}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    placeholder="Ingresa la altura"
+  />
+</div>
+
+<div className="mb-6">
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="barrio">
+    Barrio
+  </label>
+  <input
+    id="barrio"
+    type="text"
+    name="barrio"
+    value={formData.direccion.barrio}
+    onChange={handleChange}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    placeholder="Ingresa el barrio"
+  />
+</div>
+
+{/* Departamento */}
+<div className="mb-6">
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="departamento">
+    Departamento
+  </label>
+  <select
+    id="departamento"
+    name="departamento"
+    value={formData.direccion.departamento}
+    onChange={handleChange}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+  >
+    <option value="">Selecciona un departamento</option>
+    {departments.map((dep, index) => (
+      <option key={index} value={dep}>{dep}</option>
+    ))}
+  </select>
+</div>
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>

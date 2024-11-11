@@ -7,7 +7,9 @@ export const register = createAsyncThunk(
     async (userData, { rejectWithValue }) => {
         try {
             const response = await api.post('/usuarios/register', userData);
+            console.log('Respuesta de la API:', response.data);
             return response.data;
+            
         } catch (error) {
             return rejectWithValue(error.response.data.message || error.message);
         }
