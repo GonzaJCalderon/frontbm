@@ -155,23 +155,41 @@ export const registrarVenta = (ventaData) => async (dispatch) => {
 };
 
 
-// Acción para registrar una compra
 export const registrarCompra = (compraData) => async (dispatch) => {
     try {
+      // Validaciones previas
+      const precio = parseFloat(compraData.precio);
+      const cantidad = parseInt(compraData.cantidad, 10);
+      const metodoPago = compraData.metodoPago;
+  
+      if (isNaN(precio) || precio <= 0) {
+        message.error('Por favor, ingrese un precio válido');
+        return;
+      }
+  
+      if (isNaN(cantidad) || cantidad <= 0) {
+        message.error('Por favor, ingrese una cantidad válida');
+        return;
+      }
+  
+      if (!metodoPago || metodoPago === 'undefined') {
+        message.error('Por favor, seleccione un método de pago');
+        return;
+      }
+  
       // Crear FormData para enviar los datos y las fotos
       const formData = new FormData();
-      
       formData.append('bienId', compraData.bienId);
       formData.append('compradorId', compraData.compradorId);
       formData.append('vendedorId', compraData.vendedorId);
-      formData.append('precio', compraData.precio);
+      formData.append('precio', precio);
       formData.append('descripcion', compraData.descripcion);
       formData.append('tipo', compraData.tipo);
       formData.append('marca', compraData.marca);
       formData.append('modelo', compraData.modelo);
       formData.append('imei', compraData.imei || '');
-      formData.append('cantidad', compraData.cantidad);
-      formData.append('metodoPago', compraData.metodoPago);
+      formData.append('cantidad', cantidad);
+      formData.append('metodoPago', metodoPago);
   
       // Solo añadir fotos si son necesarias (si el bien no existe)
       if (compraData.fotos && compraData.fotos.length > 0) {
@@ -181,7 +199,7 @@ export const registrarCompra = (compraData) => async (dispatch) => {
       }
   
       // Hacer la solicitud al backend
-      const res = await axios.post('/bienes/comprar', formData, {
+      const res = await axios.post('/bienes/comprar_bien', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -203,6 +221,7 @@ export const registrarCompra = (compraData) => async (dispatch) => {
       message.error('Error al registrar la compra');
     }
   };
+  
   
 
 

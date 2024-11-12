@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Button, Select, message, Modal, Typography, Upload, notification } from 'antd';
+import { Form, Input, InputNumber, Button, Select, message, Typography, notification, Radio, Modal, Upload } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchBienes, addBien, registrarCompra } from '../redux/actions/bienes';
-import { addUsuario } from '../redux/actions/usuarios';
+import { addUsuario, checkExistingUser } from '../redux/actions/usuarios';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, HomeOutlined, LogoutOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { Title } = Typography;
 
-// Función para generar UUID
+// Utilidad para generar UUID
 const generateUUID = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0;
@@ -18,210 +18,150 @@ const generateUUID = () => {
   });
 };
 
-const getUserData = () => {
-  const userData = localStorage.getItem('userData');
-  if (userData) {
-    try {
-      return JSON.parse(userData);
-    } catch (error) {
-      console.error('Error al parsear userData:', error);
-      return null;
-    }
-  }
-  return null;
-};
+const departments = [
+  'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén', 'Rivadavia',
+  'San Martín', 'La Paz', 'Santa Rosa', 'General Alvear', 'Malargüe', 'San Carlos',
+  'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo'
+];
 
 const ComprarPage = () => {
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const { items } = useSelector(state => state.bienes);
+  const [formData, setFormData] = useState({
+    nombre: '',
+    apellido: '',
+    email: '',
+    direccion: { calle: '', altura: '', barrio: '', departamento: '' },
+    cuit: '',
+    dni: '',
+    tipo: 'persona',
+    razonSocial: '',
+  });
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formValues, setFormValues] = useState({});
   const [fileList, setFileList] = useState([]);
-  const [action, setAction] = useState('nuevo'); // Default action to 'nuevo'
+  const [newBienDetails, setNewBienDetails] = useState([]);
   const [selectedTipo, setSelectedTipo] = useState(null);
   const [selectedMarca, setSelectedMarca] = useState('');
   const [selectedModelo, setSelectedModelo] = useState('');
-  const [compradorId, setCompradorId] = useState('');
-  const [bienesDinamicos, setBienesDinamicos] = useState([]); // Estado para manejar los bienes
-  const [newBienDetails, setNewBienDetails] = useState([]); // Datos para el modal
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { items } = useSelector(state => state.bienes);
+  const [bienEsNuevo, setBienEsNuevo] = useState('nuevo'); // Estado para manejar bien nuevo o registrado
+  const [nuevaMarca, setNuevaMarca] = useState(''); // Nueva marca ingresada por el usuario
+  const [nuevoModelo, setNuevoModelo] = useState(''); // Nuevo modelo ingresado por el usuario
+  const [selectedMetodoPago, setSelectedMetodoPago] = useState('');
 
-  // Filtrar bienes por tipo
+
   const bienesTipos = [...new Set(items.map(bien => bien.tipo))];
-
-  const marcasDisponibles = items
-    .filter(bien => bien.tipo === selectedTipo)
-    .map(bien => bien.marca);
-
-  const modelosDisponibles = items
-    .filter(bien => bien.tipo === selectedTipo && bien.marca === selectedMarca)
-    .map(bien => bien.modelo);
+  const marcasDisponibles = items.filter(bien => bien.tipo === selectedTipo).map(bien => bien.marca);
+  const modelosDisponibles = items.filter(bien => bien.tipo === selectedTipo && bien.marca === selectedMarca).map(bien => bien.modelo);
 
   useEffect(() => {
-    const usuario = getUserData();
+    const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
     if (usuario && usuario.id) {
-      setCompradorId(usuario.id);
       dispatch(fetchBienes(usuario.id));
-    } else {
-      console.error('No se pudo obtener el ID del usuario');
     }
   }, [dispatch]);
 
-  // Función para manejar el cambio en la cantidad de bienes
-  const handleCantidadChange = (value) => {
-    const nuevosBienes = Array.from({ length: value }, (_, index) => ({
-      id: generateUUID(),
-      precio: null,
-      descripcion: '',
-      fotos: [],
-      bienNumero: index + 1,
-    }));
-    setBienesDinamicos(nuevosBienes);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (['calle', 'altura', 'barrio', 'departamento'].includes(name)) {
+      setFormData({ ...formData, direccion: { ...formData.direccion, [name]: value } });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
-  // Manejar cambios en los formularios de los bienes dinámicos
-  const handleBienChange = (index, field, value) => {
-    const nuevosBienes = [...bienesDinamicos];
-    nuevosBienes[index][field] = value;
-    setBienesDinamicos(nuevosBienes);
-  };
-
-  // Manejar los archivos subidos para cada bien
-  const handleFileChange = (index, { fileList: newFileList }) => {
-    const nuevosBienes = [...bienesDinamicos];
-    nuevosBienes[index].fotos = newFileList;  // Asegúrate de que esto esté bien
-    setBienesDinamicos(nuevosBienes);
-    setFileList(newFileList);  // Actualiza fileList si es necesario
-  };
-  
-
-  const handleFinishStep1 = async (values) => {
-    const newUser = {
-      firstName: values.vendedorNombre.trim(),
-      lastName: values.vendedorApellido.trim(),
-      email: values.vendedorEmail.trim(),
-      dniCuit: values.vendedorDniCuit.trim(),
-      address: values.vendedorDireccion.trim(),
-      password: 'default_password', // Cambia esto si es necesario
-    };
-    
-    setLoading(true);
+  const handleFinishStep1 = async () => {
     try {
-      const response = await dispatch(addUsuario(newUser));
-
-      // Asegúrate de que el backend devuelve el usuario creado en la respuesta
-      if (response && response.usuario) {
-        const updatedFormValues = {
-          vendedorNombre: response.usuario.nombre,
-          vendedorApellido: response.usuario.apellido,
-          vendedorEmail: response.usuario.email,
-          vendedorDniCuit: response.usuario.dni,
-          vendedorDireccion: response.usuario.direccion,
-          vendedorId: response.usuario.id,
-        };
-
-        setFormValues(updatedFormValues);
-        setStep(2); // Cambia a la siguiente etapa solo si el registro es exitoso
+      const existingUser = await dispatch(checkExistingUser(formData.dni, formData.email));
+      if (existingUser && existingUser.usuario) {
+        setFormData({
+          ...existingUser.usuario,
+          direccion: {
+            calle: existingUser.usuario.direccion?.calle || '',
+            altura: existingUser.usuario.direccion?.numero || '',
+            departamento: existingUser.usuario.direccion?.departamento || '',
+          }
+        });
+        setStep(2);
       } else {
-        message.error('Error inesperado en la respuesta del servidor. Verifica la estructura.');
+        const newUser = await dispatch(addUsuario(formData));
+        if (newUser && newUser.usuario) {
+          setFormData({
+            ...newUser.usuario,
+            direccion: {
+              calle: newUser.usuario.direccion?.calle,
+              altura: newUser.usuario.direccion?.numero,
+              departamento: newUser.usuario.direccion?.departamento,
+            }
+          });
+          setStep(2);
+        } else {
+          message.error('Error en el registro del usuario.');
+        }
       }
     } catch (error) {
-      // Mostrar error específico si existe
-      message.error(error.response?.data?.message || 'Error al registrar el usuario.');
+      message.error(error.message || 'Error en la verificación del usuario.');
+    }
+  };
+
+  const handleFinishStep2 = async () => {
+    const bienData = {
+      tipo: selectedTipo,
+      marca: selectedMarca || nuevaMarca, // Usa la nueva marca si se ha ingresado
+      modelo: selectedModelo || nuevoModelo, // Usa el nuevo modelo si se ha ingresado
+      descripcion: form.getFieldValue('bienDescripcion') || '',
+      precio: parseFloat(form.getFieldValue('bienPrecio')),
+      cantidad: parseInt(form.getFieldValue('bienStock'), 10),
+      fotos: fileList.map(file => file.originFileObj),
+      vendedorId: formData.id,
+      fecha: new Date().toISOString(),
+      metodoPago: form.getFieldValue('metodoPago'),
+      uuid: generateUUID(),
+    };
+
+    try {
+      setLoading(true);
+      await dispatch(addBien(bienData));
+      setNewBienDetails([bienData]);
+      setIsModalOpen(true);
+    } catch (error) {
+      console.error('Error al registrar el bien:', error);
+      message.error('Error al registrar el bien.');
     } finally {
       setLoading(false);
     }
   };
 
-
-  const handleFinishStep2 = async () => {
-    const token = localStorage.getItem('token');
-    const userData = JSON.parse(localStorage.getItem('userData'));
-  
-    if (!userData) {
-      return notification.error({
-        message: 'Error',
-        description: 'No se ha encontrado el comprador en el localStorage.',
-      });
-    }
-  
-    if (!selectedTipo || !selectedMarca || !selectedModelo) {
-      return notification.error({
-        message: 'Error',
-        description: 'Por favor, selecciona el tipo, marca y modelo del bien.',
-      });
-    }
-  
-    const compradorId = userData.id;
-    const bienesData = bienesDinamicos.map(bien => ({
-      descripcion: bien.descripcion,
-      precio: bien.precio,
-      tipo: selectedTipo,
-      marca: selectedMarca,
-      modelo: selectedModelo,
-      fotos: bien.fotos.map(file => file.originFileObj),
-      vendedorId: formValues.vendedorId,
-      vendedorNombre: formValues.vendedorNombre,
-      vendedorEmail: formValues.vendedorEmail,
-      vendedorDniCuit: formValues.vendedorDniCuit,
-      vendedorDireccion: formValues.vendedorDireccion,
-      fecha: new Date().toISOString(),
-      metodoPago: form.getFieldValue('metodoPago'),
-      cantidad: bien.cantidad || 1
-    }));
-  
-    try {
-      setLoading(true); // Inicia el loading
-      for (const bien of bienesData) {
-        await dispatch(addBien(bien));
-      }
-  
-      setNewBienDetails(bienesData);
-      setIsModalOpen(true);
-    } catch (error) {
-      console.error('Error al registrar el bien:', error);
-      message.error(error.response?.data?.message || 'Error al registrar el bien.');
-    } finally {
-      setLoading(false); // Finaliza el loading
-    }
-  };
-  
-
   const handleConfirm = async () => {
-    if (!newBienDetails || newBienDetails.length === 0) {
-      console.error('No hay detalles de bienes para registrar');
-      return;
-    }
-
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    const compradorId = userData ? userData.id : null;
-
-    if (!compradorId) {
-      console.error('No se ha encontrado compradorId en localStorage');
-      return;
-    }
-
     try {
+      const userData = JSON.parse(localStorage.getItem('userData'));
+      const compradorId = userData ? userData.id : null;
+
+      if (!compradorId) {
+        console.error('No se ha encontrado compradorId en localStorage');
+        return;
+      }
+
       for (const bien of newBienDetails) {
         const compraData = {
-          fecha: bien.fecha || new Date().toISOString(),
+          fecha: bien.fecha,
           precio: bien.precio,
-          cantidad: bien.cantidad || 1,
-          compradorId: compradorId,
-          vendedorId: bien.vendedorId,
-          bienId: bien.id,
-          estado: bien.estado || 'pendiente',
-          metodoPago: form.getFieldValue('metodoPago') || bien.metodoPago,
+          cantidad: bien.cantidad,
+          compradorId,
+          vendedorId: formData.id,
+          bienId: bien.uuid,
+          estado: 'pendiente',
+          metodoPago: form.getFieldValue('metodoPago'),
           tipo: bien.tipo,
           marca: bien.marca,
           modelo: bien.modelo,
-          descripcion: bien.descripcion // Asegúrate de que la descripción se incluya aquí
+          descripcion: bien.descripcion,
         };
 
-        console.log('Datos enviados a registrarCompra:', compraData);
         await dispatch(registrarCompra(compraData));
       }
 
@@ -233,337 +173,196 @@ const ComprarPage = () => {
       setIsModalOpen(false);
       navigate('/userdashboard');
     } catch (error) {
-      console.error('Error al registrar los bienes:', error);
-      message.error('Error al registrar los bienes. Por favor, inténtalo de nuevo.');
+      console.error('Error al registrar la compra:', error);
+      message.error('Error al registrar la compra.');
     }
-  };
-
-
-
-  const handleChangeAction = (value) => {
-    setAction(value);
-    form.resetFields(['bienStock', 'bienDescripcion', 'bienPrecio', 'metodoPago']);
-    setFileList([]);
   };
 
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate(-1)}
-          style={{ marginRight: '10px' }}
-        >
-          Volver
-        </Button>
-        <Button
-          icon={<HomeOutlined />}
-          onClick={() => navigate('/userdashboard')}
-          style={{ marginRight: '10px' }}
-        >
-          Inicio
-        </Button>
-        <Button
-          icon={<LogoutOutlined />}
-          onClick={() => {
-            localStorage.removeItem('userData');
-            navigate('/home');
-          }}
-          type="primary"
-        >
-          Cerrar Sesión
-        </Button>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} style={{ marginRight: '10px' }}>Volver</Button>
+        <Button icon={<HomeOutlined />} onClick={() => navigate('/userdashboard')} style={{ marginRight: '10px' }}>Inicio</Button>
+        <Button icon={<LogoutOutlined />} onClick={() => { localStorage.removeItem('userData'); navigate('/home'); }} type="primary">Cerrar Sesión</Button>
       </div>
 
-      <Title level={3}>{step === 1 ? 'Paso 1: Datos del Vendedor' : 'Paso 2: Datos del Bien'}</Title>
+      <Title level={3}>{step === 1 ? 'Paso 1: Datos del Comprador' : 'Paso 2: Datos del Bien'}</Title>
 
       {step === 1 && (
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleFinishStep1}
-        >
-          <Form.Item
-            name="vendedorNombre"
-            label="Nombre"
-            rules={[{ required: true, message: 'Por favor ingrese el nombre del vendedor' }]}
-          >
-            <Input />
+        <Form layout="vertical" onFinish={handleFinishStep1}>
+          <Form.Item label="Tipo de Sujeto" name="tipo" required>
+            <Radio.Group onChange={handleChange} value={formData.tipo}>
+              <Radio value="persona">Persona</Radio>
+              <Radio value="juridica">Persona Jurídica</Radio>
+            </Radio.Group>
           </Form.Item>
-          <Form.Item
-            name="vendedorApellido"
-            label="Apellido"
-            rules={[{ required: true, message: 'Por favor ingrese el apellido del vendedor' }]}
-          >
-            <Input />
+          {formData.tipo === 'juridica' && (
+            <Form.Item label="Razón Social" name="razonSocial" required>
+              <Input placeholder="Razón Social" name="razonSocial" value={formData.razonSocial} onChange={handleChange} />
+            </Form.Item>
+          )}
+          <Form.Item label="Nombre" name="nombre" required>
+            <Input placeholder="Nombre" name="nombre" value={formData.nombre} onChange={handleChange} />
           </Form.Item>
-          <Form.Item
-            name="vendedorEmail"
-            label="Email"
-            rules={[{ required: true, message: 'Por favor ingrese el email del vendedor' }]}
-          >
-            <Input />
+          <Form.Item label="Apellido" name="apellido" required>
+            <Input placeholder="Apellido" name="apellido" value={formData.apellido} onChange={handleChange} />
           </Form.Item>
-          <Form.Item
-            name="vendedorDniCuit"
-            label="DNI/CUIT"
-            rules={[{ required: true, message: 'Por favor ingrese el DNI/CUIT del vendedor' }]}
-          >
-            <Input />
+          <Form.Item label="Correo Electrónico" name="email" required>
+            <Input placeholder="Correo Electrónico" name="email" value={formData.email} onChange={handleChange} />
           </Form.Item>
-          <Form.Item
-            name="vendedorDireccion"
-            label="Dirección"
-            rules={[{ required: true, message: 'Por favor ingrese la dirección del vendedor' }]}
-          >
-            <Input />
+          <Form.Item label="DNI" name="dni" required>
+            <Input placeholder="DNI" name="dni" value={formData.dni} onChange={handleChange} />
           </Form.Item>
-          <Form.Item>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              Siguiente
-            </Button>
+          <Form.Item label="CUIT" name="cuit" required>
+            <Input placeholder="CUIT" name="cuit" value={formData.cuit} onChange={handleChange} />
           </Form.Item>
+
+          <Title level={4}>Dirección</Title>
+          <Form.Item label="Calle" name="calle" required>
+            <Input placeholder="Calle" name="calle" value={formData.direccion.calle} onChange={handleChange} />
+          </Form.Item>
+          <Form.Item label="Altura" name="altura" required>
+            <Input placeholder="Altura" name="altura" value={formData.direccion.altura} onChange={handleChange} />
+          </Form.Item>
+          <Form.Item label="Barrio" name="barrio" required>
+            <Input placeholder="Barrio" name="barrio" value={formData.direccion.barrio} onChange={handleChange} />
+          </Form.Item>
+          <Form.Item label="Departamento" name="departamento" required>
+            <Select onChange={(value) => setFormData({ ...formData, direccion: { ...formData.direccion, departamento: value } })} value={formData.direccion.departamento}>
+              {departments.map(department => (
+                <Option key={department} value={department}>{department}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Button type="primary" htmlType="submit" block loading={loading}>Siguiente</Button>
         </Form>
       )}
 
-      {step === 2 && (
-        <>
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleFinishStep2}
-          >
-            <Form.Item
-              name="accion"
-              label="Acción"
-              rules={[{ required: true, message: 'Por favor seleccione si el bien es nuevo o registrado' }]}
-            >
-              <Select onChange={handleChangeAction}>
-                <Option value="nuevo">Nuevo</Option>
-                <Option value="registrado">Registrado</Option>
-              </Select>
-            </Form.Item>
+{step === 2 && (
+  <Form layout="vertical" onFinish={handleFinishStep2}>
+    {/* Tipo de Bien */}
+    <Form.Item label="Tipo de Bien" name="tipoBien" required>
+      <Select
+        placeholder="Seleccionar tipo de bien"
+        value={selectedTipo}
+        onChange={(value) => setSelectedTipo(value)}
+      >
+        {bienesTipos.map(tipo => (
+          <Option key={tipo} value={tipo}>{tipo}</Option>
+        ))}
+      </Select>
+    </Form.Item>
 
-            {action === 'nuevo' && (
-              <>
-                <Form.Item
-                  name="bienTipo"
-                  label="Tipo de Bien"
-                  rules={[{ required: true, message: 'Por favor seleccione el tipo de bien' }]}
-                >
-                  <Select onChange={setSelectedTipo}>
-                    <Option value="bicicleta">Bicicleta</Option>
-                    <Option value="camaraFotografica">Cámara Fotográfica</Option>
-                    <Option value="tv">TV</Option>
-                    <Option value="equipoAudio">Equipo de Audio</Option>
-                    <Option value="telefonoMovil">Teléfono Móvil</Option> {/* Aquí está el tipo de bien relevante */}
-                    <Option value="tablet">Tablet</Option>
-                    <Option value="laptop">Laptop</Option>
-                  </Select>
-                </Form.Item>
+    {/* Marca */}
+    <Form.Item label="Marca" name="bienMarca" required>
+      <Select
+        placeholder="Seleccionar o agregar nueva marca"
+        value={selectedMarca || nuevaMarca}
+        onChange={setSelectedMarca}
+        dropdownRender={menu => (
+          <>
+            {menu}
+            <div style={{ display: 'flex', padding: 8 }}>
+              <Input
+                style={{ flex: 'auto' }}
+                placeholder="Nueva marca"
+                value={nuevaMarca}
+                onChange={(e) => setNuevaMarca(e.target.value)}
+              />
+              <Button type="text" onClick={() => message.success('Marca agregada')}>Agregar</Button>
+            </div>
+          </>
+        )}
+      >
+        {marcasDisponibles.map(marca => (
+          <Option key={marca} value={marca}>{marca}</Option>
+        ))}
+      </Select>
+    </Form.Item>
 
-                {/* Campo condicional para IMEI solo si el tipo de bien es teléfono móvil */}
-                {/* {selectedTipo === 'telefonoMovil' && (
-                  <Form.Item
-                    name="imei"
-                    label="IMEI (15 dígitos)"
-                    rules={[
-                      { required: true, message: 'Por favor ingrese el IMEI' },
-                      { len: 15, message: 'El IMEI debe tener exactamente 15 dígitos' },
-                      { pattern: /^\d+$/, message: 'El IMEI solo debe contener números' }
-                    ]}
-                  >
-                    <Input maxLength={15} placeholder="Ingrese el IMEI de 15 dígitos" />
-                  </Form.Item>
-                )} */}
+    {/* Modelo */}
+    <Form.Item label="Modelo" name="bienModelo" required>
+      <Select
+        placeholder="Seleccionar o agregar nuevo modelo"
+        value={selectedModelo || nuevoModelo}
+        onChange={setSelectedModelo}
+        dropdownRender={menu => (
+          <>
+            {menu}
+            <div style={{ display: 'flex', padding: 8 }}>
+              <Input
+                style={{ flex: 'auto' }}
+                placeholder="Nuevo modelo"
+                value={nuevoModelo}
+                onChange={(e) => setNuevoModelo(e.target.value)}
+              />
+              <Button type="text" onClick={() => message.success('Modelo agregado')}>Agregar</Button>
+            </div>
+          </>
+        )}
+      >
+        {modelosDisponibles.map(modelo => (
+          <Option key={modelo} value={modelo}>{modelo}</Option>
+        ))}
+      </Select>
+    </Form.Item>
 
-                <Form.Item
-                  name="bienMarca"
-                  label="Marca"
-                  rules={[{ required: true, message: 'Por favor seleccione la marca' }]}
-                >
-                  <Input value={selectedMarca} onChange={e => setSelectedMarca(e.target.value)} />
-                </Form.Item>
-                <Form.Item
-                  name="bienModelo"
-                  label="Modelo"
-                  rules={[{ required: true, message: 'Por favor ingrese el modelo' }]}
-                >
-                  <Input value={selectedModelo} onChange={e => setSelectedModelo(e.target.value)} />
-                </Form.Item>
-                <Form.Item
-                  name="bienStock"
-                  label="Cantidad"
-                  rules={[{ required: true, message: 'Por favor ingrese la cantidad' }]}
-                >
-                  <InputNumber min={1} onChange={handleCantidadChange} />
-                </Form.Item>
+    {/* Descripción */}
+    <Form.Item label="Descripción" name="bienDescripcion" required>
+      <Input.TextArea placeholder="Descripción del bien" />
+    </Form.Item>
 
-              </>
+    {/* Precio */}
+    <Form.Item label="Precio" name="bienPrecio" required>
+      <InputNumber style={{ width: '100%' }} placeholder="Precio" />
+    </Form.Item>
 
-            )}
+    {/* Stock */}
+    <Form.Item label="Stock" name="bienStock" required>
+      <InputNumber style={{ width: '100%' }} placeholder="Cantidad" />
+    </Form.Item>
 
-            {action === 'registrado' && (
-              <>
-                <Form.Item
-                  name="bienTipo"
-                  label="Tipo de Bien"
-                  rules={[{ required: true, message: 'Por favor seleccione el tipo de bien' }]}
-                >
-                  <Select onChange={setSelectedTipo}>
-                    <Option value="bicicleta">Bicicleta</Option>
-                    <Option value="camaraFotografica">Cámara Fotográfica</Option>
-                    <Option value="tv">TV</Option>
-                    <Option value="equipoAudio">Equipo de Audio</Option>
-                    <Option value="telefonoMovil">Teléfono Móvil</Option>
-                    <Option value="tablet">Tablet</Option>
-                    <Option value="laptop">Laptop</Option>
-                  </Select>
-                </Form.Item>
+    {/* Fotos */}
+    <Form.Item label="Fotos" name="bienFotos">
+      <Upload
+        listType="picture-card"
+        fileList={fileList}
+        onChange={({ fileList }) => setFileList(fileList)}
+        beforeUpload={() => false} // Prevenir el envío del archivo automáticamente
+      >
+        {fileList.length < 5 && '+ Agregar fotos'}
+      </Upload>
+    </Form.Item>
 
-                <Form.Item
-                  name="bienMarca"
-                  label="Marca"
-                  rules={[{ required: true, message: 'Por favor seleccione la marca' }]}
-                >
-                  <Select onChange={setSelectedMarca} disabled={!selectedTipo}>
-                    {marcasDisponibles.map(marca => (
-                      <Option key={marca} value={marca}>{marca}</Option>
-                    ))}
-                  </Select>
-                </Form.Item>
+    {/* Método de Pago */}
+    <Form.Item label="Método de Pago" name="metodoPago" required>
+      <Select
+        placeholder="Seleccionar método de pago"
+        value={selectedMetodoPago}
+        onChange={(value) => setSelectedMetodoPago(value)}
+      >
+        <Option value="tarjeta">Tarjeta de Crédito/Débito</Option>
+        <Option value="efectivo">Efectivo</Option>
+        <Option value="transferencia">Transferencia Bancaria</Option>
+      </Select>
+    </Form.Item>
 
-                <Form.Item
-                  name="bienModelo"
-                  label="Modelo"
-                  rules={[{ required: true, message: 'Por favor seleccione el modelo' }]}
-                >
-                  <Select onChange={setSelectedModelo} disabled={!selectedMarca}>
-                    {modelosDisponibles.map(modelo => (
-                      <Option key={modelo} value={modelo}>{modelo}</Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-
-                <Form.Item
-                  name="bienStock"
-                  label="Cantidad"
-                  rules={[{ required: true, message: 'Por favor ingrese la cantidad' }]}
-                >
-                  <InputNumber min={1} onChange={handleCantidadChange} />
-                </Form.Item>
-              </>
-            )}
-
-            {/* Agregar IMEI para cada bien dinámico si es teléfono móvil */}
-            {bienesDinamicos.map((bien, index) => (
-              <div key={bien.id} style={{ border: '1px solid #d9d9d9', padding: '10px', marginBottom: '10px' }}>
-                <Title level={4}>Bien #{bien.bienNumero}</Title>
-                <Form.Item
-                  label="Precio"
-                  rules={[{ required: true, message: 'Por favor ingrese el precio' }]}
-                >
-                  <InputNumber
-                    min={0}
-                    prefix="$"
-                    value={bien.precio}
-                    onChange={(value) => handleBienChange(index, 'precio', value)}
-                  />
-                </Form.Item>
-                <Form.Item
-                  label="Descripción"
-                >
-                  <Input.TextArea
-                    value={bien.descripcion}
-                    onChange={e => handleBienChange(index, 'descripcion', e.target.value)}
-                  />
-                </Form.Item>
-
-                {/* Mostrar el campo IMEI para cada bien si el tipo es teléfono móvil */}
-                {selectedTipo === 'telefonoMovil' && (
-                  <Form.Item
-                    label="IMEI (15 dígitos)"
-                    rules={[
-                      { required: true, message: 'Por favor ingrese el IMEI' },
-                      { len: 15, message: 'El IMEI debe tener exactamente 15 dígitos' },
-                      { pattern: /^\d+$/, message: 'El IMEI solo debe contener números' }
-                    ]}
-                  >
-                    <Input
-                      maxLength={15}
-                      value={bien.imei}
-                      onChange={e => handleBienChange(index, 'imei', e.target.value)}
-                      placeholder="Ingrese el IMEI de 15 dígitos"
-                    />
-                  </Form.Item>
-                )}
-
-                <Form.Item
-                  label="Fotos"
-                >
-                  <Upload
-                    listType="picture"
-                    fileList={bien.fotos}
-                    onChange={(info) => handleFileChange(index, info)}
-                    beforeUpload={() => false}
-                  >
-                    <Button>Subir Fotos</Button>
-                  </Upload>
-                </Form.Item>
-              </div>
-            ))}
-
-            <Form.Item
-              name="metodoPago"
-              label="Método de Pago"
-              rules={[{ required: true, message: 'Por favor seleccione un método de pago' }]}
-            >
-              <Select>
-                <Option value="efectivo">Efectivo</Option>
-                <Option value="tarjeta">Tarjeta de Crédito/Débito</Option>
-                <Option value="transferencia">Transferencia Bancaria</Option>
-              </Select>
-            </Form.Item>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                Registrar Compra
-              </Button>
-              <Button type="default" onClick={() => setStep(1)} style={{ marginLeft: '10px' }}>
-                Volver
-              </Button>
-            </Form.Item>
-          </Form>
-        </>
-      )}
+    {/* Botón de envío */}
+    <Button type="primary" htmlType="submit" block loading={loading}>Registrar Bien</Button>
+  </Form>
+)}
 
 
       <Modal
-        title="Confirmación de Compra"
-        open={isModalOpen}
+        title="Confirmar compra"
+        visible={isModalOpen}
         onOk={handleConfirm}
         onCancel={() => setIsModalOpen(false)}
         okText="Confirmar"
         cancelText="Cancelar"
       >
-        <p><strong>Se registrarán los siguientes bienes:</strong></p>
-        {newBienDetails.map((bien, index) => (
-          <div key={bien.id}>
-            <p><strong>Bien #{index + 1}</strong></p>
-            <p><strong>Tipo:</strong> {bien.tipo}</p>
-            <p><strong>Marca:</strong> {bien.marca}</p>
-            <p><strong>Modelo:</strong> {bien.modelo}</p>
-            <p><strong>Descripción:</strong> {bien.descripcion}</p>
-            <p><strong>Cantidad:</strong> {bienesDinamicos.length}</p>
-            <p><strong>Precio:</strong> ${bien.precio}</p>
-            <p><strong>Fotos:</strong></p>
-            <ul>
-              {bien.fotos.map(file => (
-                <li key={file.uid}>{file.name}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-        <p><strong>Método de Pago:</strong> {form.getFieldValue('metodoPago')}</p>
+        <p>¿Estás seguro de que deseas realizar la compra de los bienes registrados?</p>
       </Modal>
     </div>
   );
