@@ -36,12 +36,23 @@ const UsuarioList = () => {
     };
 
     const handleDelete = (id) => {
-        dispatch(deleteUsuario(id));
-        notification.success({
-            message: 'Usuario eliminado',
-            description: `El usuario con ID ${id} ha sido eliminado con éxito.`,
-        });
+        dispatch(deleteUsuario(id))
+            .then(() => {
+                notification.success({
+                    message: 'Usuario eliminado',
+                    description: `El usuario con ID ${id} ha sido eliminado con éxito.`,
+                });
+                // Puedes agregar aquí una acción para actualizar la lista de usuarios si es necesario
+                dispatch(fetchApprovedUsers());  // Volver a cargar los usuarios
+            })
+            .catch(error => {
+                notification.error({
+                    message: 'Error al eliminar usuario',
+                    description: error.message,
+                });
+            });
     };
+    
 
     const handleLogout = () => {
         localStorage.removeItem('token');

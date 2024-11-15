@@ -16,11 +16,9 @@ const formatDate = (dateString) => {
 const Inventario = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const [reload, setReload] = useState(false);
-    const [filteredItems, setFilteredItems] = useState([]); // Para manejar el filtrado de bienes
-    const { items = [], error, loading } = useSelector(state => state.bienes); // Asegúrate de que items siempre sea un array
+    const [filteredItems, setFilteredItems] = useState([]);
+    const { items = [], error, loading } = useSelector(state => state.bienes);
 
-    // Cargar bienes al montar el componente
     useEffect(() => {
         const userData = JSON.parse(localStorage.getItem('userData'));
         const userId = userData?.id;
@@ -32,12 +30,10 @@ const Inventario = () => {
         }
     }, [dispatch]);
 
-    // Actualizar la lista filtrada cuando cambian los bienes
     useEffect(() => {
-        setFilteredItems(items); // Inicialmente, mostrar todos los bienes
+        setFilteredItems(items);
     }, [items]);
 
-    // Función de búsqueda para filtrar por tipo, marca o modelo
     const handleSearch = (value) => {
         const lowercasedValue = value.toLowerCase();
         const filtered = items.filter(item =>
@@ -48,14 +44,8 @@ const Inventario = () => {
         setFilteredItems(filtered);
     };
 
-    const handleBack = () => {
-        navigate(-1);
-    };
-
-    const handleHome = () => {
-        navigate('/userdashboard');
-    };
-
+    const handleBack = () => navigate(-1);
+    const handleHome = () => navigate('/userdashboard');
     const handleLogout = () => {
         localStorage.removeItem('userData');
         navigate('/home');
@@ -66,29 +56,23 @@ const Inventario = () => {
         const userId = userData?.id;
     
         if (userId) {
-            dispatch(fetchBienes(userId)); // Cargar bienes directamente
+            dispatch(fetchBienes(userId));
         }
     };
-    
-    
 
-    // Manejo de errores
     if (error) {
-        const errorMessage = error.message || 'Ocurrió un error desconocido'; // Acceder al mensaje del error
+        const errorMessage = error.message || 'Ocurrió un error desconocido';
         return <Alert message="Error" description={errorMessage} type="error" />;
     }
 
-    // Mostrar indicador de carga
     if (loading) {
         return <Spin tip="Cargando..." />;
     }
 
-    // Mensaje cuando no hay bienes disponibles
     if (!filteredItems.length) {
         return <div>No hay bienes disponibles.</div>;
     }
 
-    // Definición de las columnas de la tabla
     const columns = [
         {
             title: 'Descripción',
@@ -101,34 +85,38 @@ const Inventario = () => {
             dataIndex: 'precio',
             key: 'precio',
             render: text => text || 'N/A',
-            sorter: (a, b) => a.precio - b.precio, // Ordenar por precio
+            sorter: (a, b) => a.precio - b.precio,
         },
         {
             title: 'Fecha',
             dataIndex: 'createdAt',
             key: 'fecha',
             render: text => text ? formatDate(text) : 'N/A',
-            sorter: (a, b) => new Date(b.createdAt) - new Date(a.createdAt), // Ordenar por fecha
+            sorter: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
         },
         {
             title: 'Foto',
             dataIndex: 'foto',
             key: 'foto',
-            render: text => (
-                text ? (
-                    <Image
-                        src={`http://localhost:5005/uploads/${text}`} // URL de la imagen
-                        width={50}
-                        preview={false}
-                        onError={(e) => {
-                            e.target.src = '/images/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
-                        }}
-                        
-                        alt="Imagen del bien" // Mejora la accesibilidad
-                    />
-                ) : 'No disponible'
+            render: fotos => (
+                Array.isArray(fotos) && fotos.length > 0 ? (
+                    fotos.map((url, index) => (
+                        <Image
+                            key={index}
+                            src={url}  // URL de la imagen desde Cloudinary
+                            width={50}
+                            preview={{ src: url }}  // Permite la visualización en tamaño completo al hacer clic
+                            onError={(e) => {
+                                console.error('Error al cargar la imagen:', e.target.src);
+                                e.target.src = '/images/defecto.jpg'; // Imagen de respaldo en caso de error
+                            }}
+                            alt="Imagen del bien"
+                        />
+                    ))
+                ) : (
+                    <span>No disponible</span>
+                )
             )
-            
         },
         {
             title: 'Tipo',
@@ -181,7 +169,7 @@ const Inventario = () => {
                 dataSource={filteredItems}
                 columns={columns}
                 rowKey="uuid"
-                pagination={{ pageSize: 10 }} // Mostrar 10 bienes por página
+                pagination={{ pageSize: 10 }}
             />
         </div>
     );

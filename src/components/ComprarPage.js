@@ -186,7 +186,7 @@ const ComprarPage = () => {
         <Button icon={<LogoutOutlined />} onClick={() => { localStorage.removeItem('userData'); navigate('/home'); }} type="primary">Cerrar Sesión</Button>
       </div>
 
-      <Title level={3}>{step === 1 ? 'Paso 1: Datos del Comprador' : 'Paso 2: Datos del Bien'}</Title>
+      <Title level={3}>{step === 1 ? 'Paso 1: Datos del Vendedor' : 'Paso 2: Datos del Bien'}</Title>
 
       {step === 1 && (
         <Form layout="vertical" onFinish={handleFinishStep1}>

@@ -65,30 +65,35 @@ export const fetchBienes = (userId) => async (dispatch) => {
                 Authorization: `Bearer ${token}`
             }
         });
-
+        
+        console.log(response.data);  // Verifica la estructura de los datos
+        
         dispatch({ type: FETCH_BIENES_SUCCESS, payload: response.data });
+        
     } catch (error) {
         dispatch({ type: FETCH_BIENES_ERROR, payload: error.response ? error.response.data : error.message });
     }
 };
 // Acción para agregar un nuevo bien
-// Acción para agregar un nuevo bien
-export const addBien = (bienData, files) => async dispatch => {
-    dispatch({ type: ADD_BIEN_REQUEST });
+export const addBien = (formData) => async dispatch => {
     try {
-        const formData = prepareFormData(bienData, files);
-        const response = await axios.post('/bienes/add/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        // Validación básica
+        if (!formData.has('fotos')) {
+            throw new Error('No se encontraron fotos para cargar.');
+        }
+
+        const response = await axios.post(
+            'http://localhost:5005/bienes/add/',
+            formData,
+            {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            }
+        );
 
         dispatch({ type: ADD_BIEN_SUCCESS, payload: response.data });
-        message.success('Bien agregado exitosamente');
     } catch (error) {
-        dispatch({
-            type: ADD_BIEN_ERROR,
-            error: error.response ? error.response.data : error.message,
-        });
-        message.error('Error al agregar el bien');
+        console.error('Error al agregar el bien:', error);
+        dispatch({ type: ADD_BIEN_ERROR, error: error.message });
     }
 };
 
@@ -240,6 +245,7 @@ export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {
         dispatch({ type: FETCH_TRAZABILIDAD_SUCCESS, payload: response.data });
     } catch (error) {
         const errorMessage = error.response ? error.response.data.message : error.message;
+        console.error(errorMessage); // Asegúrate de que el mensaje de error sea claro
         dispatch({ type: FETCH_TRAZABILIDAD_ERROR, payload: errorMessage });
     }
 };

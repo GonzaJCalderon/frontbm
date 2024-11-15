@@ -123,11 +123,11 @@ const BienList = () => {
                 <div onClick={() => showGallery(record.fotos, 0)} style={{ cursor: 'pointer' }}>
                     {text ? (
                         <Image
-                            src={`http://localhost:5000/uploads/${text}`} // Cambia esto a la ruta correcta de tu API
+                            src={text} // Asegúrate de que 'text' contiene la URL correcta de Firebase
                             alt="Foto del bien"
                             width={50}
                             preview={false}
-                            onClick={() => openImage(`http://localhost:5000/uploads/${text}`)} // Para abrir la imagen grande
+                            onClick={() => openImage(text)} // Para abrir la imagen grande
                             onError={(e) => {
                                 e.target.src = '/images/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
                             }}
@@ -135,7 +135,8 @@ const BienList = () => {
                     ) : 'No disponible'}
                 </div>
             ),
-        },
+        }
+        ,
         {
             title: 'Acción',
             key: 'action',
@@ -236,19 +237,20 @@ const BienList = () => {
             </Modal>
 
             <Modal open={visibleGallery} onCancel={closeGallery} footer={null} width={800}>
-                <Carousel autoplay>
-                    {selectedBien && selectedBien.fotos && selectedBien.fotos.map((foto, index) => (
-                        <div key={index}>
-                            <img
-                                src={`http://localhost:5000/uploads/${foto}`} // Cambia esto a la ruta correcta de tu API
-                                alt={`Foto ${index + 1}`}
-                                style={{ width: '100%', height: 'auto', cursor: 'pointer' }}
-                                onClick={() => openImage(`http://localhost:5000/uploads/${foto}`)} // Abre la imagen grande
-                            />
-                        </div>
-                    ))}
-                </Carousel>
-            </Modal>
+    <Carousel autoplay>
+        {selectedBien && selectedBien.fotos && selectedBien.fotos.map((foto, index) => (
+            <div key={index}>
+                <img
+                    src={foto} // Cambiar a la URL de Firebase
+                    alt={`Foto ${index + 1}`}
+                    style={{ width: '100%', height: 'auto', cursor: 'pointer' }}
+                    onClick={() => openImage(foto)} // Abre la imagen grande
+                />
+            </div>
+        ))}
+    </Carousel>
+</Modal>
+
         </div>
     );
 };
