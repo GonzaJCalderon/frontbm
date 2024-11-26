@@ -28,6 +28,20 @@ import {
     FETCH_TRAZABILIDAD_ERROR
 } from './actionTypes';
 
+const handleRequestError = (error) => {
+  if (error.response) {
+    console.error('Error del servidor:', error.response.data);
+    return error.response.data.message || 'Error al procesar la solicitud en el servidor.';
+  } else if (error.request) {
+    console.error('Error de red:', error.request);
+    return 'No se recibió respuesta del servidor.';
+  } else {
+    console.error('Error en configuración:', error.message);
+    return `Error en la solicitud: ${error.message}`;
+  }
+};
+
+
 // Función para obtener el token del localStorage
 const getToken = () => localStorage.getItem('token');
 
@@ -75,29 +89,36 @@ export const fetchBienes = (userId) => async (dispatch) => {
     }
 };
 // Acción para agregar un nuevo bien
-export const addBien = (formData) => async dispatch => {
-    try {
-        // Validación básica
-        if (!formData.has('fotos')) {
-            throw new Error('No se encontraron fotos para cargar.');
-        }
+export const addBien = (formData) => async (dispatch) => {
+  dispatch({ type: ADD_BIEN_REQUEST }); // Despacha el inicio de la solicitud
+  try {
+    const response = await axios.post('/bienes/add/', formData);
 
-        const response = await axios.post(
-            'http://localhost:5005/bienes/add/',
-            formData,
-            {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            }
-        );
-
-        dispatch({ type: ADD_BIEN_SUCCESS, payload: response.data });
-    } catch (error) {
-        console.error('Error al agregar el bien:', error);
-        dispatch({ type: ADD_BIEN_ERROR, error: error.message });
+    if (response && response.data) {
+      dispatch({ type: ADD_BIEN_SUCCESS, payload: response.data });
+      return response.data; // Retornar los datos para manejar en el componente
+    } else {
+      throw new Error('Respuesta del servidor no contiene datos.');
     }
+  } catch (error) {
+    console.error('Error al agregar el bien:', error);
+
+    if (error.response) {
+      console.error('Respuesta del servidor:', error.response.data);
+    }
+
+    dispatch({
+      type: ADD_BIEN_ERROR,
+      payload: error.response ? error.response.data.message || error.response.data : error.message,
+    });
+
+    throw new Error(
+      error.response
+        ? error.response.data.message || 'Error al agregar el bien.'
+        : 'Error de conexión con el servidor.'
+    );
+  }
 };
-
-
 
 
 
@@ -117,19 +138,36 @@ export const fetchBienDetails = (bienId) => async (dispatch) => {
 };
 
 // Acción para actualizar un bien existente
-export const updateBien = (id, bienData) => async dispatch => {
+export const updateBien = (uuid, bienData) => async dispatch => {
     try {
         const token = getToken();
-        const res = await axios.put(`/bienes/${id}`, bienData, {
+        // Limpiar datos antes de enviarlos
+        const cleanData = (data) => {
+            const result = {};
+            Object.keys(data).forEach(key => {
+                if (data[key] !== undefined && data[key] !== null) {
+                    result[key] = data[key];
+                }
+            });
+            return result;
+        };
+
+        const bienDataCleaned = cleanData(bienData);
+
+        // Realizar la solicitud
+        const res = await axios.put(`/bienes/${uuid}`, bienDataCleaned, {
             headers: {
                 Authorization: `Bearer ${token}`
             }
         });
+
+        // Despachar la acción al reducer
         dispatch({ type: UPDATE_BIEN, payload: res.data });
     } catch (error) {
         console.error('Error updating bien:', error);
     }
 };
+
 
 // Acción para registrar una venta
 // Acción para registrar una venta
@@ -160,75 +198,32 @@ export const registrarVenta = (ventaData) => async (dispatch) => {
 };
 
 
-export const registrarCompra = (compraData) => async (dispatch) => {
-    try {
-      // Validaciones previas
-      const precio = parseFloat(compraData.precio);
-      const cantidad = parseInt(compraData.cantidad, 10);
-      const metodoPago = compraData.metodoPago;
-  
-      if (isNaN(precio) || precio <= 0) {
-        message.error('Por favor, ingrese un precio válido');
-        return;
-      }
-  
-      if (isNaN(cantidad) || cantidad <= 0) {
-        message.error('Por favor, ingrese una cantidad válida');
-        return;
-      }
-  
-      if (!metodoPago || metodoPago === 'undefined') {
-        message.error('Por favor, seleccione un método de pago');
-        return;
-      }
-  
-      // Crear FormData para enviar los datos y las fotos
-      const formData = new FormData();
-      formData.append('bienId', compraData.bienId);
-      formData.append('compradorId', compraData.compradorId);
-      formData.append('vendedorId', compraData.vendedorId);
-      formData.append('precio', precio);
-      formData.append('descripcion', compraData.descripcion);
-      formData.append('tipo', compraData.tipo);
-      formData.append('marca', compraData.marca);
-      formData.append('modelo', compraData.modelo);
-      formData.append('imei', compraData.imei || '');
-      formData.append('cantidad', cantidad);
-      formData.append('metodoPago', metodoPago);
-  
-      // Solo añadir fotos si son necesarias (si el bien no existe)
-      if (compraData.fotos && compraData.fotos.length > 0) {
-        compraData.fotos.forEach((file) => {
-          formData.append('fotos', file.originFileObj);
-        });
-      }
-  
-      // Hacer la solicitud al backend
-      const res = await axios.post('/bienes/comprar_bien', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-  
-      // Dispatch a una acción de éxito
-      dispatch({
-        type: COMPRA_SUCCESS,
-        payload: res.data,
-      });
-  
-      message.success('Compra registrada con éxito');
-    } catch (error) {
-      console.error('Error al registrar la compra:', error);
-      dispatch({
-        type: COMPRA_ERROR,
-        payload: error.message,
-      });
-      message.error('Error al registrar la compra');
-    }
-  };
-  
-  
 
+export const registrarCompra = (compraData) => async (dispatch) => {
+  dispatch({ type: REGISTRAR_COMPRA_REQUEST });
+
+  try {
+    // Añadir registros de depuración para verificar los datos de compra
+    console.log('Datos de compra enviados:', compraData);
+
+    const res = await axios.post('/bienes/comprar', compraData);
+
+    if (res && res.data) {
+      dispatch({ type: REGISTRAR_COMPRA_EXITO, payload: res.data });
+      return res.data;
+    } else {
+      throw new Error('Respuesta vacía del servidor.');
+    }
+  } catch (error) {
+    const errorMessage = handleRequestError(error);
+    console.error('Error del servidor:', errorMessage);
+    dispatch({ type: COMPRA_ERROR, payload: errorMessage });
+    throw new Error(errorMessage);
+  }
+};
+
+
+  
 
 // Acción para obtener la trazabilidad de un bien específico
 export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {
@@ -249,3 +244,51 @@ export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {
         dispatch({ type: FETCH_TRAZABILIDAD_ERROR, payload: errorMessage });
     }
 };
+
+export const actualizarStockPorParametros = (updatedData) => async (dispatch) => {
+  const { tipo, marca, modelo, cantidad } = updatedData;
+
+  // Verificar parámetros requeridos
+  if (!tipo || !marca || !modelo || !cantidad) {
+    const missingParams = [];
+    if (!tipo) missingParams.push('tipo');
+    if (!marca) missingParams.push('marca');
+    if (!modelo) missingParams.push('modelo');
+    if (!cantidad) missingParams.push('cantidad');
+
+    throw new Error(`Faltan parámetros requeridos: ${missingParams.join(', ')}`);
+  }
+
+  console.log('Datos recibidos en actualizarStockPorParametros:', updatedData);
+
+  try {
+    const response = await axios.put('/bienes/actualizar-por-parametros', updatedData);
+
+    if (response && response.data) {
+      dispatch({
+        type: UPDATE_STOCK,
+        payload: response.data, // Actualización exitosa del stock
+      });
+      return response.data;
+    } else {
+      throw new Error('La respuesta del servidor no contiene datos.');
+    }
+  } catch (error) {
+    if (error.response) {
+      console.error('Error al actualizar stock:', error.response.data);
+      throw new Error(
+        error.response.data.message || 'Error al actualizar stock desde el servidor.'
+      );
+    } else if (error.request) {
+      console.error('Error de solicitud:', error.request);
+      throw new Error('No se recibió respuesta del servidor al intentar actualizar el stock.');
+    } else {
+      console.error('Error en configuración de solicitud:', error.message);
+      throw new Error(`Error al actualizar stock: ${error.message}`);
+    }
+  }
+};
+
+
+  
+  

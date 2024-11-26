@@ -488,26 +488,34 @@ export const fetchRejectedUsers = () => async (dispatch) => {
 };
 
 // Acción para verificar si el usuario existe
+// Acción para verificar si el usuario existe
 export const checkExistingUser = (dni, email) => async (dispatch) => {
     dispatch({ type: CHECK_USER_REQUEST });
   
+    console.log('Iniciando verificación de usuario con:', { dni, email }); // Log de entrada
+  
     try {
       const response = await api.post('usuarios/check', { dni, email });
+  
+      console.log('Respuesta del servidor en checkExistingUser:', response.data); // Log de la respuesta completa del servidor
   
       if (response.data.existe) {
         dispatch({
           type: CHECK_USER_SUCCESS,
           payload: response.data.usuario,
         });
+        console.log('Usuario encontrado:', response.data.usuario); // Log del usuario encontrado
         return response.data;  // Regresa la respuesta
       } else {
         dispatch({
           type: CHECK_USER_SUCCESS,
           payload: null,
         });
+        console.log('Usuario no encontrado.'); // Log de caso sin usuario
         return { usuario: null };  // Devuelve null si no existe el usuario
       }
     } catch (error) {
+      console.error('Error al verificar el usuario en checkExistingUser:', error.message); // Log del error
       dispatch({
         type: CHECK_USER_ERROR,
         error: error.message,
@@ -515,4 +523,5 @@ export const checkExistingUser = (dni, email) => async (dispatch) => {
       throw error; // Lanza el error para que el componente lo maneje
     }
   };
+  
   

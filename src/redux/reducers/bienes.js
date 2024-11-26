@@ -52,14 +52,14 @@ const bienesReducer = (state = initialState, action) => {
                 ...state,
                 loading: true,
             };
-        case FETCH_BIENES_SUCCESS:
-            console.log('Reducer FETCH_BIENES_SUCCESS:', action.payload);
-            return {
-                ...state,
-                items: action.payload,
-                loading: false,
-                error: null, // Limpiar error al obtener bienes con éxito
-            };
+            case FETCH_BIENES_SUCCESS:
+                console.log('Reducer FETCH_BIENES_SUCCESS:', action.payload);
+                return {
+                    ...state,
+                    items: action.payload || [], // Si no hay payload, asigna un array vacío
+                    loading: false,
+                    error: null,
+                };
         case FETCH_BIENES_ERROR:
             console.error('Error al obtener bienes en el reducer:', action.payload);
             return {
@@ -68,17 +68,17 @@ const bienesReducer = (state = initialState, action) => {
                 error: action.payload,
             };
             case ADD_BIEN:
-                return {
-                    ...state,
-                    items: [...state.items, action.payload], // Añade el nuevo bien al array de items
-                    bienDetalles: {
-                        ...state.bienDetalles,
-                        ...action.payload,
-                        fotos: [...(action.payload.fotos || [])], // Asegura fotos como array usando spread
-                    },
-                    success: true, // Actualiza success para indicar que fue exitoso
-                    error: null,   // Resetea cualquier error anterior
-                };
+    return {
+        ...state,
+        items: action.payload ? [...state.items, action.payload] : state.items, // Verifica si 'payload' existe
+        bienDetalles: {
+            ...state.bienDetalles,
+            ...action.payload,
+            fotos: action.payload?.fotos || [], // Asegúrate de que 'fotos' esté presente
+        },
+        success: true,
+        error: null,
+    };
             
         case ADD_BIEN_ERROR:
             return {
@@ -86,16 +86,16 @@ const bienesReducer = (state = initialState, action) => {
                 error: action.payload,
                 success: false,
             };
-        case FETCH_BIEN_DETAILS:
-            console.log('Detalles del bien obtenidos:', action.payload);
-            return {
-                ...state,
-                bienDetalles: {
-                    ...state.bienDetalles,
-                    ...action.payload,
-                    fotos: action.payload.fotos || [],
-                },
-            };
+            case FETCH_BIEN_DETAILS:
+                console.log('Detalles del bien obtenidos:', action.payload);
+                return {
+                    ...state,
+                    bienDetalles: {
+                        ...state.bienDetalles,
+                        ...action.payload,
+                        fotos: action.payload?.fotos || [], // Usa 'fotos' solo si están presentes
+                    },
+                };
         case UPDATE_BIEN:
             return {
                 ...state,
