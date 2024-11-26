@@ -199,28 +199,34 @@ export const registrarVenta = (ventaData) => async (dispatch) => {
 
 
 
-export const registrarCompra = (compraData) => async (dispatch) => {
-  dispatch({ type: REGISTRAR_COMPRA_REQUEST });
 
+
+export const registrarCompra = (formDataToSend) => async (dispatch) => {
   try {
-    // Añadir registros de depuración para verificar los datos de compra
-    console.log('Datos de compra enviados:', compraData);
+    const config = {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    };
 
-    const res = await axios.post('/bienes/comprar', compraData);
+    const response = await axios.post('/bienes/comprar', formDataToSend, config);
+    
+    dispatch({
+      type: 'REGISTRAR_COMPRA_SUCCESS',
+      payload: response.data,
+    });
 
-    if (res && res.data) {
-      dispatch({ type: REGISTRAR_COMPRA_EXITO, payload: res.data });
-      return res.data;
-    } else {
-      throw new Error('Respuesta vacía del servidor.');
-    }
+    return response.data;
   } catch (error) {
-    const errorMessage = handleRequestError(error);
-    console.error('Error del servidor:', errorMessage);
-    dispatch({ type: COMPRA_ERROR, payload: errorMessage });
-    throw new Error(errorMessage);
+    dispatch({
+      type: 'REGISTRAR_COMPRA_FAIL',
+      payload: error.response && error.response.data.message ? error.response.data.message : error.message,
+    });
+
+    throw error;
   }
 };
+
 
 
   

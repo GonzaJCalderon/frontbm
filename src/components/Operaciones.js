@@ -40,66 +40,111 @@ const OperacionesUsuario = () => {
         cargarTransacciones();
     }, [usuarioActual?.id]);
     
-
     const transaccionesArray = Array.isArray(transacciones) ? transacciones : [];
 
     const compras = transaccionesArray.filter(
         (transaccion) => transaccion.compradorId === usuarioActual?.id
-    );
+    ).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Ordenar por fecha
 
     const ventas = transaccionesArray.filter(
         (transaccion) => transaccion.vendedorId === usuarioActual?.id
-    );
+    ).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Ordenar por fecha
 
-    const columns = [
+    const columnsCompras = [
         {
             title: 'Imagen',
             dataIndex: ['bien', 'foto'],
             key: 'imagen',
-            render: (text, record) =>
-                Array.isArray(record.bien?.foto) && record.bien.foto.length > 0 ? (
+            render: (text, record) => {
+                console.log('Verificando fotos de compras:', record.bien.foto); // Debugging
+    
+                return Array.isArray(record.bien?.foto) && record.bien.foto.length > 0 ? (
                     record.bien.foto.map((url, index) => (
                         <Image
                             key={index}
                             width={80}
-                            src={url} // URL completa desde Cloudinary o servidor
+                            src={url}
                             alt={record.bien.descripcion || 'Imagen del bien'}
                             onError={(e) => {
-                                e.target.src = '/images/placeholder.png'; // Imagen por defecto
+                                e.target.src = '/images/placeholder.png';
                             }}
                         />
                     ))
                 ) : (
                     <span>Sin imagen</span>
-                ),
+                );
+            },
         },
         { title: 'Descripción', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
         { title: 'Marca', dataIndex: ['bien', 'marca'], key: 'marca' },
         { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
         { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
+        { title: 'Vendedor', dataIndex: ['vendedor', 'nombre'], key: 'vendedor_nombre' },
+        { title: 'Apellido del Vendedor', dataIndex: ['vendedor', 'apellido'], key: 'vendedor_apellido' },
         {
             title: 'Fecha',
             render: (text, record) => new Date(record.fecha).toLocaleString(),
             key: 'fecha',
         },
     ];
-
+    
+    const columnsVentas = [
+        {
+            title: 'Imagen',
+            dataIndex: ['bien', 'foto'],
+            key: 'imagen',
+            render: (text, record) => {
+                console.log('Verificando fotos de ventas:', record.bien.foto); // Debugging
+    
+                return Array.isArray(record.bien?.foto) && record.bien.foto.length > 0 ? (
+                    record.bien.foto.map((url, index) => (
+                        <Image
+                            key={index}
+                            width={80}
+                            src={url}
+                            alt={record.bien.descripcion || 'Imagen del bien'}
+                            onError={(e) => {
+                                e.target.src = '/images/placeholder.png';
+                            }}
+                        />
+                    ))
+                ) : (
+                    <span>Sin imagen</span>
+                );
+            },
+        },
+        { title: 'Descripción', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
+        { title: 'Marca', dataIndex: ['bien', 'marca'], key: 'marca' },
+        { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
+        { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
+        { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
+        { title: 'Comprador', dataIndex: ['comprador', 'nombre'], key: 'comprador_nombre' },
+        { title: 'Apellido del Comprador', dataIndex: ['comprador', 'apellido'], key: 'comprador_apellido' },
+        {
+            title: 'Fecha',
+            render: (text, record) => new Date(record.fecha).toLocaleString(),
+            key: 'fecha',
+        },
+    ];
+    
+    
+    
     const handleBack = () => navigate(-1);
     const handleHome = () => navigate('/userdashboard');
     const handleLogout = () => {
         localStorage.removeItem('token');
         navigate('/home');
     };
-
+    
     if (loading) {
         return <Spin tip="Cargando..." />;
     }
-
+    
     if (error) {
         return <Alert message="Error" description={error} type="error" />;
     }
-
+    
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
             <Space style={{ marginBottom: 16 }}>
@@ -115,11 +160,11 @@ const OperacionesUsuario = () => {
                 </Button>
             </Space>
             <Title level={2}>Operaciones de {usuarioActual?.nombre || 'Usuario'}</Title>
-
+    
             <div>
                 <Title level={3}>Compras</Title>
                 <Table
-                    columns={columns}
+                    columns={columnsCompras}
                     dataSource={compras}
                     pagination={{
                         current: paginaCompras,
@@ -129,10 +174,10 @@ const OperacionesUsuario = () => {
                     }}
                     rowKey="id"
                 />
-
+    
                 <Title level={3} style={{ marginTop: '32px' }}>Ventas</Title>
                 <Table
-                    columns={columns}
+                    columns={columnsVentas}
                     dataSource={ventas}
                     pagination={{
                         current: paginaVentas,
@@ -145,6 +190,7 @@ const OperacionesUsuario = () => {
             </div>
         </div>
     );
+    
 };
 
 export default OperacionesUsuario;

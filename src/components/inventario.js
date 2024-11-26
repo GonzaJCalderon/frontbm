@@ -31,7 +31,9 @@ const Inventario = () => {
     }, [dispatch]);
 
     useEffect(() => {
-        setFilteredItems(items);
+        // Ordenar los bienes por fecha de creación, de más nuevo a más antiguo
+        const sortedItems = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setFilteredItems(sortedItems);
     }, [items]);
 
     const handleSearch = (value) => {
@@ -41,7 +43,9 @@ const Inventario = () => {
             (item.marca && item.marca.toLowerCase().includes(lowercasedValue)) ||
             (item.modelo && item.modelo.toLowerCase().includes(lowercasedValue))
         );
-        setFilteredItems(filtered);
+        // Ordenar los resultados filtrados por fecha de creación
+        const sortedFiltered = filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setFilteredItems(sortedFiltered);
     };
 
     const handleBack = () => navigate(-1);
@@ -103,12 +107,12 @@ const Inventario = () => {
                     fotos.map((url, index) => (
                         <Image
                             key={index}
-                            src={url}  // URL de la imagen desde Cloudinary
+                            src={url} 
                             width={50}
-                            preview={{ src: url }}  // Permite la visualización en tamaño completo al hacer clic
+                            preview={{ src: url }} 
                             onError={(e) => {
                                 console.error('Error al cargar la imagen:', e.target.src);
-                                e.target.src = '/images/defecto.jpg'; // Imagen de respaldo en caso de error
+                                e.target.src = '/images/defecto.jpg'; 
                             }}
                             alt="Imagen del bien"
                         />

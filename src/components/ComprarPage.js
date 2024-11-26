@@ -157,7 +157,7 @@ const modelosDisponibles = items?.length > 0 && selectedTipo && selectedMarca
   
       const tipo = selectedTipo;
       const marca = selectedMarca || nuevaMarca;
-      const modelo = selectedModelo || nuevoModelo; // Asegúrate de definir modelo aquí
+      const modelo = selectedModelo || nuevoModelo;
       const descripcion = form.getFieldValue('bienDescripcion') || '';
       const precio = parseFloat(form.getFieldValue('bienPrecio'));
       const cantidad = parseInt(form.getFieldValue('bienStock'), 10);
@@ -172,31 +172,43 @@ const modelosDisponibles = items?.length > 0 && selectedTipo && selectedMarca
         return;
       }
   
-      const compraData = {
-        tipo,
-        marca,
-        modelo,
-        descripcion,
-        precio,
-        cantidad,
-        metodoPago,
-        vendedorId,
-        compradorId,
-        imei,
-      };
+      const formDataToSend = new FormData();
+      formDataToSend.append('tipo', tipo);
+      formDataToSend.append('marca', marca);
+      formDataToSend.append('modelo', modelo);
+      formDataToSend.append('descripcion', descripcion);
+      formDataToSend.append('precio', precio);
+      formDataToSend.append('cantidad', cantidad);
+      formDataToSend.append('metodoPago', metodoPago);
+      formDataToSend.append('vendedorId', vendedorId);
+      formDataToSend.append('compradorId', compradorId);
+  
+      if (imei) {
+        formDataToSend.append('imei', imei);
+      }
+  
+      // Añadir fotos al formData
+      if (fileList.length > 0) {
+        fileList.forEach((file) => {
+          formDataToSend.append('fotos', file.originFileObj);
+        });
+      }
+  
+      // Verificar FormData antes de enviarlo
+      for (let pair of formDataToSend.entries()) {
+        console.log(pair[0]+ ', ' + pair[1]); 
+      }
   
       // Enviar datos al backend
-      const response = await dispatch(registrarCompra(compraData));
+      const response = await dispatch(registrarCompra(formDataToSend));
   
       if (response?.success || response?.mensaje.includes('Compra registrada con éxito')) {
-        // Mostrar notificación de éxito
         notification.success({
           message: 'Compra exitosa',
-          description: `La compra del bien "${modelo}" se registró correctamente.`,
+          description: `La compra del bien  se registró correctamente.`,
           duration: 3,
         });
   
-        // Redirigir al dashboard después de mostrar el mensaje
         setTimeout(() => {
           navigate('/userdashboard');
         }, 3000);
@@ -221,8 +233,6 @@ const modelosDisponibles = items?.length > 0 && selectedTipo && selectedMarca
       setLoading(false);
     }
   };
-  
-  
   
  
   

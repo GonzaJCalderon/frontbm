@@ -38,11 +38,19 @@ const RegistrarBienPage = () => {
   const [selectedModelo, setSelectedModelo] = useState('');
   const [precio, setPrecio] = useState('');
   const [stock, setStock] = useState('');
+  const [imei, setImei] = useState(''); // State para IMEI
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { items } = useSelector((state) => state.bienes);
 
-  const bienesTipos = [...new Set(items.map((bien) => bien.tipo))];
+  const bienesTiposPermitidos = [
+    'camara fotografica',
+    'equipo de audio',
+    'laptop',
+    'tablet',
+    'tv',
+    'teléfono celular'
+  ];
 
   useEffect(() => {
     const usuario = getUserData();
@@ -82,6 +90,10 @@ const RegistrarBienPage = () => {
       formDataToSend.append('vendedorId', vendedorId);
       formDataToSend.append('fecha', new Date().toISOString());
 
+      if (selectedTipo === 'teléfono celular') {
+        formDataToSend.append('imei', imei); // Añadir IMEI si es teléfono celular
+      }
+
       if (fileList.length > 0) {
         fileList.forEach((file) => {
           formDataToSend.append('fotos', file.originFileObj); // Archivos para Cloudinary
@@ -120,7 +132,7 @@ const RegistrarBienPage = () => {
           label="Tipo de Bien"
           rules={[{ required: true, message: 'Por favor seleccione el tipo de bien' }]}>
           <Select onChange={setSelectedTipo}>
-            {bienesTipos.map((tipo) => (
+            {bienesTiposPermitidos.map((tipo) => (
               <Option key={tipo} value={tipo}>
                 {tipo}
               </Option>
@@ -159,6 +171,15 @@ const RegistrarBienPage = () => {
           rules={[{ required: true, message: 'Por favor ingrese el stock' }]}>
           <InputNumber min={0} onChange={(value) => setStock(value.toString())} />
         </Form.Item>
+
+        {selectedTipo === 'teléfono celular' && (
+          <Form.Item
+            name="imei"
+            label="IMEI"
+            rules={[{ required: true, message: 'Por favor ingrese el IMEI' }]}>
+            <Input onChange={(e) => setImei(e.target.value)} />
+          </Form.Item>
+        )}
 
         <Form.Item label="Fotos">
           <Upload
