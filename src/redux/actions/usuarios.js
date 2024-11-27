@@ -352,15 +352,18 @@ export const resetPassword = (userId) => async dispatch => {
 };
 
 // Acción para actualizar un usuario
-export const updateUser = (userId, userData) => async dispatch => {
-    dispatch({ type: UPDATE_USER_REQUEST });
+export const updateUser = (userId, userData) => async (dispatch) => {
+    dispatch({ type: 'UPDATE_USER_REQUEST' });
     try {
         const response = await api.put(`/usuarios/${userId}`, userData);
-        dispatch({ type: UPDATE_USER_SUCCESS, payload: response.data });
+        dispatch({ type: 'UPDATE_USER_SUCCESS', payload: response.data });
+        return Promise.resolve(response.data);
     } catch (error) {
-        dispatch({ type: UPDATE_USER_ERROR, payload: error.message });
+        dispatch({ type: 'UPDATE_USER_ERROR', payload: error.message });
+        return Promise.reject(error);
     }
 };
+
 
 // Acción para buscar items
 export const searchItems = (query) => async dispatch => {

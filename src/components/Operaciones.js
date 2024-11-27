@@ -50,6 +50,10 @@ const OperacionesUsuario = () => {
         (transaccion) => transaccion.vendedorId === usuarioActual?.id
     ).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Ordenar por fecha
 
+    const renderDireccion = (direccion) => {
+        return direccion ? `${direccion.calle}, ${direccion.altura}, ${direccion.barrio}, ${direccion.departamento}` : 'Sin dirección';
+    };
+
     const columnsCompras = [
         {
             title: 'Imagen',
@@ -80,23 +84,33 @@ const OperacionesUsuario = () => {
         { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
         { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        { title: 'Vendedor', dataIndex: ['vendedor', 'nombre'], key: 'vendedor_nombre' },
-        { title: 'Apellido del Vendedor', dataIndex: ['vendedor', 'apellido'], key: 'vendedor_apellido' },
+        {
+            title: 'Vendedor',
+            render: (text, record) => (
+                <span>
+                    {record.vendedor.nombre} {record.vendedor.apellido} <br />
+                    DNI: {record.vendedor.dni} <br />
+                    CUIT: {record.vendedor.cuit} <br />
+                    Email: {record.vendedor.email} <br />
+                    Dirección: {renderDireccion(record.vendedor.direccion)} <br />
+                   
+                </span>
+            ),
+            key: 'vendedor',
+        },
         {
             title: 'Fecha',
             render: (text, record) => new Date(record.fecha).toLocaleString(),
             key: 'fecha',
         },
     ];
-    
+
     const columnsVentas = [
         {
             title: 'Imagen',
             dataIndex: ['bien', 'foto'],
             key: 'imagen',
             render: (text, record) => {
-                console.log('Verificando fotos de ventas:', record.bien.foto); // Debugging
-    
                 return Array.isArray(record.bien?.foto) && record.bien.foto.length > 0 ? (
                     record.bien.foto.map((url, index) => (
                         <Image
@@ -119,8 +133,20 @@ const OperacionesUsuario = () => {
         { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
         { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        { title: 'Comprador', dataIndex: ['comprador', 'nombre'], key: 'comprador_nombre' },
-        { title: 'Apellido del Comprador', dataIndex: ['comprador', 'apellido'], key: 'comprador_apellido' },
+        {
+            title: 'Comprador',
+            render: (text, record) => (
+                <span>
+                    {record.comprador.nombre} {record.comprador.apellido} <br />
+                    DNI: {record.comprador.dni} <br />
+                    CUIT: {record.comprador.cuit} <br />
+                    Email: {record.comprador.email} <br />
+                    Dirección: {renderDireccion(record.comprador.direccion)} <br />
+                    
+                </span>
+            ),
+            key: 'comprador',
+        },
         {
             title: 'Fecha',
             render: (text, record) => new Date(record.fecha).toLocaleString(),

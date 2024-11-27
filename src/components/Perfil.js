@@ -1,21 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { FaEdit, FaSave, FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
-import { Button, Input, Form, Typography, notification, Card, Space, Avatar } from 'antd';
+import { Button, Input, Form, Typography, notification, Card, Avatar, Select } from 'antd';
 import { updateUser, logout } from '../redux/actions/usuarios';
 import { UserOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
+const { Option } = Select;
+
+const departments = [
+  'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén', 'Rivadavia',
+  'San Martín', 'La Paz', 'Santa Rosa', 'General Alvear', 'Malargüe', 'San Carlos',
+  'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo',
+];
 
 const UserProfile = () => {
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
+    id: '', // Para asegurarnos de tener el ID del usuario
     nombre: '',
     apellido: '',
     dni: '',
     email: '',
     contraseña: '',
-    direccion: '',
+    direccion: {
+      calle: '',
+      altura: '',
+      barrio: '',
+      departamento: '',
+    },
   });
 
   const dispatch = useDispatch();
@@ -25,12 +38,18 @@ const UserProfile = () => {
     const storedUser = JSON.parse(localStorage.getItem('userData')) || {};
 
     setFormData({
+      id: storedUser.id || '', // Incluye el ID del usuario
       nombre: storedUser.nombre || '',
       apellido: storedUser.apellido || '',
       dni: storedUser.dni || '',
       email: storedUser.email || '',
       contraseña: '', // Por seguridad, no almacenamos contraseñas en localStorage
-      direccion: storedUser.direccion || '',
+      direccion: storedUser.direccion || {
+        calle: '',
+        altura: '',
+        barrio: '',
+        departamento: '',
+      },
     });
   }, []);
 
@@ -39,40 +58,52 @@ const UserProfile = () => {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name in formData.direccion) {
+      setFormData({
+        ...formData,
+        direccion: {
+          ...formData.direccion,
+          [name]: value,
+        },
+      });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleSave = () => {
     if (formData.nombre.trim() === '' || formData.apellido.trim() === '') {
       notification.error({
         message: 'Error',
-        description: 'Por favor, complete todos los campos.',
+        description: 'Por favor, complete todos los campos obligatorios.',
       });
       return;
     }
 
-    // Aquí deberías actualizar el estado global si es necesario
-    dispatch(updateUser(formData))
+    if (!formData.id) {
+      notification.error({
+        message: 'Error',
+        description: 'No se pudo identificar al usuario.',
+      });
+      return;
+    }
+
+    dispatch(updateUser(formData.id, formData))
       .then(() => {
         setEditing(false);
         notification.success({
           message: 'Éxito',
-          description: 'Datos actualizados exitosamente!',
+          description: 'Datos actualizados correctamente!',
         });
-        // Actualizar localStorage con los nuevos datos
-        localStorage.setItem('userData', JSON.stringify({
-          nombre: formData.nombre,
-          apellido: formData.apellido,
-          dni: formData.dni,
-          email: formData.email,
-          direccion: formData.direccion,
-        }));
+
+        // Actualizar localStorage
+        localStorage.setItem('userData', JSON.stringify(formData));
       })
-      .catch((error) => {
-        console.error('Error al actualizar datos:', error);
+      .catch(() => {
         notification.error({
           message: 'Error',
-          description: 'Hubo un error al actualizar tus datos.',
+          description: 'Hubo un problema al actualizar los datos.',
         });
       });
   };
@@ -88,18 +119,10 @@ const UserProfile = () => {
       <Card
         style={{ width: '100%', maxWidth: '600px', textAlign: 'center' }}
         actions={[
-          <Button
-            type="primary"
-            icon={<FaSignOutAlt />}
-            onClick={handleLogout}
-          >
+          <Button type="primary" icon={<FaSignOutAlt />} onClick={handleLogout}>
             Cerrar sesión
           </Button>,
-          <Button
-            type="default"
-            icon={<FaArrowLeft />}
-            onClick={() => window.history.back()}
-          >
+          <Button type="default" icon={<FaArrowLeft />} onClick={() => window.history.back()}>
             Volver
           </Button>,
         ]}
@@ -108,36 +131,16 @@ const UserProfile = () => {
         <Title level={2}>Perfil</Title>
         <Form layout="vertical" style={{ maxWidth: '100%' }}>
           <Form.Item label="Nombre">
-            <Input
-              name="nombre"
-              value={formData.nombre}
-              onChange={handleChange}
-              disabled={!editing}
-            />
+            <Input name="nombre" value={formData.nombre} onChange={handleChange} disabled={!editing} />
           </Form.Item>
           <Form.Item label="Apellido">
-            <Input
-              name="apellido"
-              value={formData.apellido}
-              onChange={handleChange}
-              disabled={!editing}
-            />
+            <Input name="apellido" value={formData.apellido} onChange={handleChange} disabled={!editing} />
           </Form.Item>
           <Form.Item label="DNI">
-            <Input
-              name="dni"
-              value={formData.dni}
-              onChange={handleChange}
-              disabled={!editing}
-            />
+            <Input name="dni" value={formData.dni} onChange={handleChange} disabled={!editing} />
           </Form.Item>
           <Form.Item label="Email">
-            <Input
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              disabled={!editing}
-            />
+            <Input name="email" value={formData.email} onChange={handleChange} disabled={!editing} />
           </Form.Item>
           <Form.Item label="Contraseña">
             <Input.Password
@@ -149,29 +152,58 @@ const UserProfile = () => {
           </Form.Item>
           <Form.Item label="Dirección">
             <Input
-              name="direccion"
-              value={formData.direccion}
+              name="calle"
+              placeholder="Calle"
+              value={formData.direccion.calle}
+              onChange={handleChange}
+              disabled={!editing}
+            />
+            <Input
+              name="altura"
+              placeholder="Altura"
+              value={formData.direccion.altura}
+              onChange={handleChange}
+              disabled={!editing}
+            />
+            <Input
+              name="barrio"
+              placeholder="Barrio"
+              value={formData.direccion.barrio}
               onChange={handleChange}
               disabled={!editing}
             />
           </Form.Item>
+          <Form.Item label="Departamento">
+            <Select
+              value={formData.direccion.departamento}
+              onChange={(value) =>
+                setFormData({
+                  ...formData,
+                  direccion: {
+                    ...formData.direccion,
+                    departamento: value,
+                  },
+                })
+              }
+              disabled={!editing}
+              placeholder="Seleccione un departamento"
+            >
+              {departments.map((department) => (
+                <Option key={department} value={department}>
+                  {department}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
           {editing ? (
             <Form.Item>
-              <Button
-                type="primary"
-                icon={<FaSave />}
-                onClick={handleSave}
-              >
+              <Button type="primary" icon={<FaSave />} onClick={handleSave}>
                 Guardar
               </Button>
             </Form.Item>
           ) : (
             <Form.Item>
-              <Button
-                type="default"
-                icon={<FaEdit />}
-                onClick={handleEdit}
-              >
+              <Button type="default" icon={<FaEdit />} onClick={handleEdit}>
                 Editar
               </Button>
             </Form.Item>
