@@ -93,7 +93,7 @@ const UserDashboard = () => {
                     <Link to="/comprar" className="group bg-orange-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4">
                         <FaDollarSign className="text-orange-500 text-5xl" />
                         <p className="text-xl font-semibold text-gray-900">Comprar Bien Mueble</p>
-                        <p className="text-sm font-semibold text-gray-600 text-center">Busca y compra bienes.</p>
+                        <p className="text-sm font-semibold text-gray-600 text-center">Compra bienes y registralos.</p>
                     </Link>
                     <Link to="/vender" className="group bg-red-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4">
                         <FaTags className="text-red-500 text-5xl" />

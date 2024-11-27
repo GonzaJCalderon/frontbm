@@ -491,40 +491,53 @@ export const fetchRejectedUsers = () => async (dispatch) => {
 };
 
 // Acción para verificar si el usuario existe
-// Acción para verificar si el usuario existe
-export const checkExistingUser = (dni, email) => async (dispatch) => {
+export const checkExistingUser = (dni, email, usuarioActualDni) => async (dispatch) => {
     dispatch({ type: CHECK_USER_REQUEST });
   
-    console.log('Iniciando verificación de usuario con:', { dni, email }); // Log de entrada
+    console.log('Iniciando verificación de usuario con:', { dni, email });
   
     try {
       const response = await api.post('usuarios/check', { dni, email });
   
-      console.log('Respuesta del servidor en checkExistingUser:', response.data); // Log de la respuesta completa del servidor
+      console.log('Respuesta del servidor en checkExistingUser:', response.data);
   
       if (response.data.existe) {
+        if (response.data.mensaje === 'Datos inconsistentes') {
+          const inconsistencias = response.data.inconsistencias || [];
+          const mensajeError = `Los siguientes datos son inconsistentes: ${inconsistencias.join(', ')}`;
+          throw new Error(mensajeError);
+        }
+  
+        // Compara el DNI del usuario actual con el DNI del comprador
+        if (usuarioActualDni === dni) {
+          throw new Error('No puedes vender a ti mismo.');
+        }
+  
         dispatch({
           type: CHECK_USER_SUCCESS,
           payload: response.data.usuario,
         });
-        console.log('Usuario encontrado:', response.data.usuario); // Log del usuario encontrado
-        return response.data;  // Regresa la respuesta
+        console.log('Usuario encontrado:', response.data.usuario);
+        return response.data;
       } else {
         dispatch({
           type: CHECK_USER_SUCCESS,
           payload: null,
         });
-        console.log('Usuario no encontrado.'); // Log de caso sin usuario
-        return { usuario: null };  // Devuelve null si no existe el usuario
+        console.log('Usuario no encontrado.');
+        return { usuario: null };
       }
     } catch (error) {
-      console.error('Error al verificar el usuario en checkExistingUser:', error.message); // Log del error
+      console.error('Error al verificar el usuario en checkExistingUser:', error.message);
       dispatch({
         type: CHECK_USER_ERROR,
         error: error.message,
       });
-      throw error; // Lanza el error para que el componente lo maneje
+      throw error;
     }
   };
+  
+  
+  
   
   

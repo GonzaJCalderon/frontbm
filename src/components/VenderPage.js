@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Button, Select, message, Typography, notification, Radio } from 'antd';
+import { Form, Input, InputNumber, Button, Select, message, Typography, notification, Radio, Alert, Spin } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchBienes, registrarVenta } from '../redux/actions/bienes';
 import { addUsuario, checkExistingUser } from '../redux/actions/usuarios';
@@ -25,6 +25,10 @@ const VenderPage = () => {
   const { items } = useSelector((state) => state.bienes);
   const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
 
+
+
+
+
   const [formData, setFormData] = useState({
     nombre: '',
     apellido: '',
@@ -42,6 +46,8 @@ const VenderPage = () => {
   const [metodoPago, setMetodoPago] = useState('');
   const [imei, setImei] = useState('');
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false); 
+  const [error, setError] = useState(null);
 
   // Filtrar tipos de bienes permitidos
   const tiposDisponibles = allowedTipos;
@@ -69,15 +75,23 @@ const VenderPage = () => {
   };
 
   const handleFinishStep1 = async () => {
+    if (!formData.direccion.altura) {
+      message.error('El campo "Altura" es obligatorio.');
+      return;
+    }
+  
+    setLoading(true);
+    setError(null);
+  
     try {
-      const existingUser = await dispatch(checkExistingUser(formData.dni, formData.email));
+      const existingUser = await dispatch(checkExistingUser(formData.dni, formData.email, formData.nombre, formData.apellido, formData.cuit, usuario.dni));
       if (existingUser && existingUser.usuario) {
         setFormData({
-          ...existingUser.usuario,
+          ...formData,
           compradorId: existingUser.usuario.id,
           direccion: {
             calle: existingUser.usuario.direccion?.calle || '',
-            altura: existingUser.usuario.direccion?.numero || '',
+            altura: existingUser.usuario.direccion?.altura || '',
             departamento: existingUser.usuario.direccion?.departamento || '',
           },
         });
@@ -86,33 +100,43 @@ const VenderPage = () => {
         const newUser = await dispatch(addUsuario(formData));
         if (newUser && newUser.usuario) {
           setFormData({
-            ...newUser.usuario,
+            ...formData,
             compradorId: newUser.usuario.id,
             direccion: {
               calle: newUser.usuario.direccion?.calle,
-              altura: newUser.usuario.direccion?.numero,
+              altura: newUser.usuario.direccion?.altura,
               departamento: newUser.usuario.direccion?.departamento,
             },
           });
           setStep(2);
         } else {
-          message.error('Error en el registro del usuario.');
+          throw new Error('Error en el registro del usuario.');
         }
       }
     } catch (error) {
-      message.error(error.message || 'Error en la verificación del usuario.');
+      console.error('Error al registrar usuario:', error);
+      setError(error.message || 'Error al registrar usuario.');
+    } finally {
+      setLoading(false);
     }
   };
-
+  
+  
+  
   const handleFinishStep2 = async () => {
     if (!formData.compradorId) {
       return message.error('No se pudo obtener el ID del comprador. Intente nuevamente.');
     }
-
+  
     if (selectedTipo === 'teléfono móvil' && (!imei || imei.length !== 15)) {
       return message.error('Debe ingresar un IMEI válido de 15 dígitos para el teléfono móvil.');
     }
-
+  
+    // Verificar que el comprador y el vendedor no sean la misma persona comparando DNI
+    if (formData.dni === usuario.dni) {
+      return message.error('No puedes vender a ti mismo.');
+    }
+  
     const ventaData = {
       bienId: items.find((b) => b.modelo === selectedModelo && b.marca === selectedMarca)?.uuid,
       compradorId: formData.compradorId,
@@ -126,7 +150,7 @@ const VenderPage = () => {
       modelo: selectedModelo,
       imei: selectedTipo === 'teléfono móvil' ? imei : null,
     };
-
+  
     try {
       await dispatch(registrarVenta(ventaData));
       notification.success({ message: 'Venta Registrada', description: 'La venta ha sido registrada con éxito.' });
@@ -136,6 +160,8 @@ const VenderPage = () => {
       message.error('Error al registrar la venta. Intenta nuevamente.');
     }
   };
+  
+  
 
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
@@ -158,107 +184,121 @@ const VenderPage = () => {
 
       <Title level={3}>{step === 1 ? 'Paso 1: Datos del Comprador' : 'Paso 2: Datos del Bien'}</Title>
 
-      {step === 1 ? (
-        <Form layout="vertical" onFinish={handleFinishStep1}>
-          <Form.Item label="Tipo de Sujeto" name="tipo" required>
-            <Radio.Group onChange={handleChange} value={formData.tipo}>
-              <Radio value="persona">Persona</Radio>
-              <Radio value="juridica">Persona Jurídica</Radio>
-            </Radio.Group>
-          </Form.Item>
-          {formData.tipo === 'juridica' && (
-            <Form.Item label="Razón Social" name="razonSocial" required>
-              <Input placeholder="Razón Social" name="razonSocial" value={formData.razonSocial} onChange={handleChange} />
-            </Form.Item>
-          )}
-          <Form.Item label="Nombre" name="nombre" required>
-            <Input placeholder="Nombre" name="nombre" value={formData.nombre} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="Apellido" name="apellido" required>
-            <Input placeholder="Apellido" name="apellido" value={formData.apellido} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="Correo Electrónico" name="email" required>
-            <Input placeholder="Correo Electrónico" name="email" value={formData.email} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="Calle" name="calle" required>
-            <Input placeholder="Calle" name="calle" value={formData.direccion.calle} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="Altura" name="altura" required>
-            <Input placeholder="Altura" name="altura" value={formData.direccion.altura} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="Barrio" name="barrio">
-            <Input placeholder="Barrio" name="barrio" value={formData.direccion.barrio} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="Departamento" name="departamento" required>
-            <Select
-              placeholder="Selecciona un departamento"
-              value={formData.direccion.departamento}
-              onChange={(value) => handleChange({ target: { name: 'departamento', value } })}
-            >
-              {departments.map((dep) => (
-                <Option key={dep} value={dep}>{dep}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item label="CUIT" name="cuit" required>
-            <Input placeholder="CUIT" name="cuit" value={formData.cuit} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="DNI" name="dni" required>
-            <Input placeholder="DNI" name="dni" value={formData.dni} onChange={handleChange} />
-          </Form.Item>
+      {error && <Alert message="Error" description={error} type="error" showIcon style={{ marginBottom: 20 }} />}
 
-          <Button type="primary" htmlType="submit" block>Siguiente</Button>
-        </Form>
+      {loading ? (
+        <Spin tip="Cargando..." />
       ) : (
-        <Form layout="vertical" onFinish={handleFinishStep2}>
-          <Form.Item label="Tipo de Bien">
-            <Select value={selectedTipo} onChange={setSelectedTipo} placeholder="Seleccionar tipo">
-              {tiposDisponibles.map((tipo) => (
-                <Option key={tipo} value={tipo}>{tipo}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          {selectedTipo === 'teléfono móvil' && (
-            <Form.Item
-              label="IMEI"
-              name="imei"
-              rules={[
-                { required: true, message: 'El IMEI es obligatorio para teléfonos móviles.' },
-                { pattern: /^\d{15}$/, message: 'El IMEI debe tener exactamente 15 dígitos.' },
-              ]}
-            >
-              <Input placeholder="Ingrese el IMEI del teléfono móvil" onChange={(e) => setImei(e.target.value)} />
-            </Form.Item>
+        <Form layout="vertical" onFinish={step === 1 ? handleFinishStep1 : handleFinishStep2}>
+          {step === 1 ? (
+            <>
+              <Form.Item label="Tipo de Sujeto" name="tipo" required>
+                <Radio.Group onChange={handleChange} value={formData.tipo}>
+                  <Radio value="persona">Persona</Radio>
+                  <Radio value="juridica">Persona Jurídica</Radio>
+                </Radio.Group>
+              </Form.Item>
+              {formData.tipo === 'juridica' && (
+                <Form.Item label="Razón Social" name="razonSocial" required>
+                  <Input placeholder="Razón Social" name="razonSocial" value={formData.razonSocial} onChange={handleChange} />
+                </Form.Item>
+              )}
+              <Form.Item label="Nombre" name="nombre" required>
+                <Input placeholder="Nombre" name="nombre" value={formData.nombre} onChange={handleChange} />
+              </Form.Item>
+              <Form.Item label="Apellido" name="apellido" required>
+                <Input placeholder="Apellido" name="apellido" value={formData.apellido} onChange={handleChange} />
+              </Form.Item>
+              <Form.Item label="Correo Electrónico" name="email" required>
+                <Input placeholder="Correo Electrónico" name="email" value={formData.email} onChange={handleChange} />
+              </Form.Item>
+              <Form.Item label="Calle" name="calle" required>
+                <Input placeholder="Calle" name="calle" value={formData.direccion.calle} onChange={handleChange} />
+              </Form.Item>
+              <Form.Item label="Altura" name="altura" required>
+                <Input
+                  placeholder="Altura"
+                  name="altura"
+                  value={formData.direccion.altura || ''}
+                  onChange={handleChange}
+                />
+              </Form.Item>
+              <Form.Item label="Barrio" name="barrio">
+                <Input placeholder="Barrio" name="barrio" value={formData.direccion.barrio} onChange={handleChange} />
+              </Form.Item>
+              <Form.Item label="Departamento" name="departamento" required>
+                <Select
+                  placeholder="Selecciona un departamento"
+                  value={formData.direccion.departamento}
+                  onChange={(value) => handleChange({ target: { name: 'departamento', value } })}
+                >
+                  {departments.map((dep) => (
+                    <Option key={dep} value={dep}>{dep}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item label="CUIT" name="cuit" required>
+                <Input placeholder="CUIT" name="cuit" value={formData.cuit} onChange={handleChange} />
+              </Form.Item>
+              <Form.Item label="DNI" name="dni" required>
+                <Input placeholder="DNI" name="dni" value={formData.dni} onChange={handleChange} />
+              </Form.Item>
+
+              <Button type="primary" htmlType="submit" block>Siguiente</Button>
+            </>
+          ) : (
+            <>
+              <Form.Item label="Tipo de Bien">
+                <Select value={selectedTipo} onChange={setSelectedTipo} placeholder="Seleccionar tipo">
+                  {tiposDisponibles.map((tipo) => (
+                    <Option key={tipo} value={tipo}>{tipo}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              {selectedTipo === 'teléfono móvil' && (
+                <Form.Item
+                  label="IMEI"
+                  name="imei"
+                  rules={[
+                    { required: true, message: 'El IMEI es obligatorio para teléfonos móviles.' },
+                    { pattern: /^\d{15}$/, message: 'El IMEI debe tener exactamente 15 dígitos.' },
+                  ]}
+                >
+                  <Input placeholder="Ingrese el IMEI del teléfono móvil" onChange={(e) => setImei(e.target.value)} />
+                </Form.Item>
+              )}
+              <Form.Item label="Marca">
+                <Select value={selectedMarca} onChange={setSelectedMarca} placeholder="Seleccionar marca">
+                  {marcasDisponibles.map((marca) => (
+                    <Option key={marca} value={marca}>{marca}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item label="Modelo">
+                <Select value={selectedModelo} onChange={setSelectedModelo} placeholder="Seleccionar modelo">
+                  {modelosDisponibles.map((modelo) => (
+                    <Option key={modelo} value={modelo}>{modelo}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item label="Precio" name="precio" required>
+                <InputNumber placeholder="Precio" style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item label="Método de Pago">
+                <Select value={metodoPago} onChange={setMetodoPago} placeholder="Seleccionar método de pago">
+                  <Option value="efectivo">Efectivo</Option>
+                  <Option value="transferencia">Transferencia</Option>
+                  <Option value="tarjeta">Tarjeta</Option>
+                </Select>
+              </Form.Item>
+              <Button type="primary" htmlType="submit" block>Confirmar Venta</Button>
+            </>
           )}
-          <Form.Item label="Marca">
-            <Select value={selectedMarca} onChange={setSelectedMarca} placeholder="Seleccionar marca">
-              {marcasDisponibles.map((marca) => (
-                <Option key={marca} value={marca}>{marca}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item label="Modelo">
-            <Select value={selectedModelo} onChange={setSelectedModelo} placeholder="Seleccionar modelo">
-              {modelosDisponibles.map((modelo) => (
-                <Option key={modelo} value={modelo}>{modelo}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item label="Precio" name="precio" required>
-            <InputNumber placeholder="Precio" style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item label="Método de Pago">
-            <Select value={metodoPago} onChange={setMetodoPago} placeholder="Seleccionar método de pago">
-              <Option value="efectivo">Efectivo</Option>
-              <Option value="transferencia">Transferencia</Option>
-              <Option value="tarjeta">Tarjeta</Option>
-            </Select>
-          </Form.Item>
-          <Button type="primary" htmlType="submit" block>Confirmar Venta</Button>
         </Form>
       )}
     </div>
   );
 };
+
 
 export default VenderPage;

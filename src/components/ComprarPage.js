@@ -110,12 +110,36 @@ const modelosDisponibles = items?.length > 0 && selectedTipo && selectedMarca
       }));
     }
   };
-
   const handleFinishStep1 = async () => {
+    const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
+    if (!usuario) {
+      message.error('No se pudo obtener la información del usuario actual.');
+      return;
+    }
+  
+    if (!formData.dni || !formData.email) {
+      message.error('Por favor, complete todos los campos requeridos.');
+      return;
+    }
+  
+    // Validar que los campos no contengan valores no deseados y asegurar el formato JSON correcto
+    const cleanFormData = {
+      dni: formData.dni.trim(),
+      email: formData.email.trim(),
+      nombre: formData.nombre ? formData.nombre.trim() : undefined,
+      apellido: formData.apellido ? formData.apellido.trim() : undefined,
+      cuit: formData.cuit ? formData.cuit.trim() : undefined,
+    };
+  
     try {
       // Verificamos si el usuario ya existe con DNI y email
-      const existingUser = await dispatch(checkExistingUser(formData.dni, formData.email));
+      const existingUser = await dispatch(checkExistingUser(cleanFormData.dni, cleanFormData.email, usuario.dni));
       if (existingUser && existingUser.usuario) {
+        if (existingUser.usuario.dni === usuario.dni) {
+          message.error('No puedes comprar a ti mismo.');
+          return;
+        }
+  
         setFormData(prevData => ({
           ...prevData,
           ...existingUser.usuario,
@@ -128,8 +152,13 @@ const modelosDisponibles = items?.length > 0 && selectedTipo && selectedMarca
         setStep(2);
         message.success('Usuario encontrado, procediendo con la compra.');
       } else {
-        const newUser = await dispatch(addUsuario(formData));
+        const newUser = await dispatch(addUsuario(cleanFormData));
         if (newUser && newUser.usuario) {
+          if (newUser.usuario.dni === usuario.dni) {
+            message.error('No puedes comprar a ti mismo.');
+            return;
+          }
+  
           setFormData(prevData => ({
             ...prevData,
             ...newUser.usuario,
@@ -150,6 +179,9 @@ const modelosDisponibles = items?.length > 0 && selectedTipo && selectedMarca
       message.error(`Error en la verificación del usuario: ${error.message}`);
     }
   };
+  
+  
+  
   
   const handleFinishStep2 = async () => {
     try {
