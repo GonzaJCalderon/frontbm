@@ -266,18 +266,20 @@ export const obtenerTransacciones = async (userId, isAdmin) => {
 export const fetchTransaccionesByAdmin = (userId) => async (dispatch) => {
     dispatch({ type: FETCH_TRANSACCIONES_REQUEST });
     try {
-        const response = await api.get(`bienes/transacciones/usuario/${userId}`);
-        console.log('Respuesta de la API:', response.data); // Agrega este log para depuración
-
-        if (!Array.isArray(response.data)) {
-            throw new Error('La respuesta no es un array de transacciones.');
-        }
-
-        dispatch({ type: FETCH_TRANSACCIONES_SUCCESS, payload: response.data });
+      const response = await api.get(`bienes/transacciones/usuario/${userId}`);
+      console.log('Respuesta de la API:', response.data); // Agrega este log para depuración
+  
+      if (!Array.isArray(response.data)) {
+        throw new Error('La respuesta no es un array de transacciones.');
+      }
+  
+      dispatch({ type: FETCH_TRANSACCIONES_SUCCESS, payload: response.data });
     } catch (error) {
-        dispatch({ type: FETCH_TRANSACCIONES_ERROR, payload: error.message });
+      dispatch({ type: FETCH_TRANSACCIONES_ERROR, payload: error.message });
+      throw error;  // Asegura que el error se propague
     }
-};
+  };
+  
 
 
 

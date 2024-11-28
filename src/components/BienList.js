@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchAllBienes, fetchTrazabilidadBien } from '../redux/actions/bienes';
+import { fetchAllBienes } from '../redux/actions/bienes';
 import { useNavigate } from 'react-router-dom';
 import { FaSignOutAlt, FaHome, FaArrowLeft } from 'react-icons/fa';
 import { Table, Image, Alert, Modal, Carousel } from 'antd';
@@ -8,24 +8,19 @@ import { Table, Image, Alert, Modal, Carousel } from 'antd';
 const BienList = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { items: bienes, totalPages, currentPage, error } = useSelector(state => state.bienes);
-    const trazabilidad = useSelector(state => state.trazabilidad);
+    const { items: bienes, error } = useSelector(state => state.bienes);
     const [selectedBien, setSelectedBien] = useState(null);
     const [visibleGallery, setVisibleGallery] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [visibleImage, setVisibleImage] = useState(false);
 
     useEffect(() => {
-        dispatch(fetchAllBienes(currentPage));
-    }, [dispatch, currentPage]);
+        dispatch(fetchAllBienes());
+    }, [dispatch]);
 
     const handleBienClick = (bien) => {
         setSelectedBien(bien);
-        dispatch(fetchTrazabilidadBien(bien.uuid)); // Usando uuid aquí
-    };
-
-    const handlePageChange = (pageNumber) => {
-        dispatch(fetchAllBienes(pageNumber));
+        navigate(`/admin/trazabilidad/${bien.uuid}`);
     };
 
     const closeModal = () => {
@@ -33,7 +28,6 @@ const BienList = () => {
     };
 
     const handleLogout = () => {
-        // Implementar lógica de cierre de sesión
         navigate('/home');
     };
 
@@ -65,6 +59,9 @@ const BienList = () => {
     if (bienes.length === 0) {
         return <div className="text-center text-gray-500">No hay bienes disponibles.</div>;
     }
+
+    // Ordenar bienes por fecha de más nuevo a más antiguo
+    const sortedBienes = bienes.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
     const columns = [
         {
@@ -123,20 +120,19 @@ const BienList = () => {
                 <div onClick={() => showGallery(record.fotos, 0)} style={{ cursor: 'pointer' }}>
                     {text ? (
                         <Image
-                            src={text} // Asegúrate de que 'text' contiene la URL correcta de Firebase
+                            src={text} 
                             alt="Foto del bien"
                             width={50}
                             preview={false}
-                            onClick={() => openImage(text)} // Para abrir la imagen grande
+                            onClick={() => openImage(text)} 
                             onError={(e) => {
-                                e.target.src = '/images/defecto.jpg'; // Cambia esta ruta a tu imagen por defecto
+                                e.target.src = '/images/defecto.jpg';
                             }}
                         />
                     ) : 'No disponible'}
                 </div>
             ),
-        }
-        ,
+        },
         {
             title: 'Acción',
             key: 'action',
@@ -145,7 +141,7 @@ const BienList = () => {
                     onClick={() => handleBienClick(bien)}
                     className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600"
                 >
-                    Ver más
+                    Ver Trazabilidad
                 </button>
             ),
         },
@@ -181,7 +177,7 @@ const BienList = () => {
 
             <h2 className="text-2xl font-bold mb-4">Lista de Bienes</h2>
             <Table
-                dataSource={bienes}
+                dataSource={sortedBienes}
                 columns={columns}
                 rowKey="id" // Asegúrate de que 'id' es único
                 pagination={{ pageSize: 10 }}
@@ -204,55 +200,59 @@ const BienList = () => {
                         <p><strong>Precio:</strong> {selectedBien.precio || 'N/A'}</p>
                         <p><strong>Fecha:</strong> {selectedBien.fecha ? new Date(selectedBien.fecha).toLocaleDateString() : 'N/A'}</p>
                         {selectedBien.fotos && selectedBien.fotos.length > 0 && (
-                            <div className="mt-4">
-                                <h4 className="text-lg font-semibold">Galería de Imágenes</h4>
-                                <img
-                                    src={`http://localhost:5000/uploads/${selectedBien.fotos[0]}`} // Muestra la primera foto
-                                    alt="Foto del bien"
-                                    className="w-full h-auto rounded-lg cursor-pointer"
-                                    onClick={() => showGallery(selectedBien.fotos, 0)} // Al hacer clic, abre la galería
-                                />
-                            </div>
-                        )}
-                       <div className="mt-4">
-    <h4 className="text-lg font-semibold">Datos del Vendedor</h4>
-    <p><strong>Nombre:</strong> {selectedBien.vendedor ? `${selectedBien.vendedor.nombre} ${selectedBien.vendedor.apellido}` : 'N/A'}</p>
-    <p><strong>Email:</strong> {selectedBien.vendedor?.email || 'N/A'}</p>
-    <p><strong>Dirección:</strong> {selectedBien.vendedor?.direccion ? `${selectedBien.vendedor.direccion.calle || ''}, ${selectedBien.vendedor.direccion.altura || ''}, ${selectedBien.vendedor.direccion.barrio || ''}, ${selectedBien.vendedor.direccion.departamento || ''}` : 'N/A'}</p>
-</div>
+    <div className="mt-4">
+        <h4 className="text-lg font-semibold">Galería de Imágenes</h4>
+        <img
+            src={selectedBien.fotos[0]} // URL de Cloudinary
+            alt="Foto del bien"
+            className="w-full h-auto rounded-lg cursor-pointer"
+            onClick={() => showGallery(selectedBien.fotos, 0)} // Al hacer clic, abre la galería
+        />
+    </div>
+)}
 
                         <div className="mt-4">
-                            <h4 className="text-lg font-semibold">Datos del Comprador</h4>
-                            <p><strong>Nombre:</strong> {selectedBien.comprador ? `${selectedBien.comprador.nombre} ${selectedBien.comprador.apellido}` : 'N/A'}</p>
-                            <p><strong>Email:</strong> {selectedBien.comprador?.email || 'N/A'}</p>
-                            <p><strong>Dirección:</strong> {selectedBien.comprador?.direccion || 'N/A'}</p>
+                            <h4 className="text-lg font-semibold">Datos del Vendedor</h4>
+                            <p><strong>Nombre:</strong> {selectedBien.vendedor ? `${selectedBien.vendedor.nombre} ${selectedBien.vendedor.apellido}` : 'N/A'}</p>
+                                <p><strong>Email:</strong> {selectedBien.vendedor?.email || 'N/A'}</p>
+                                <p><strong>Dirección:</strong> {selectedBien.vendedor?.direccion ? `${selectedBien.vendedor.direccion.calle || ''}, ${selectedBien.vendedor.direccion.altura || ''}, ${selectedBien.vendedor.direccion.barrio || ''}, ${selectedBien.vendedor.direccion.departamento || ''}` : 'N/A'}</p>
+                            </div>
+        
+                            <div className="mt-4">
+                                <h4 className="text-lg font-semibold">Datos del Comprador</h4>
+                                <p><strong>Nombre:</strong> {selectedBien.comprador ? `${selectedBien.comprador.nombre} ${selectedBien.comprador.apellido}` : 'N/A'}</p>
+                                <p><strong>Email:</strong> {selectedBien.comprador?.email || 'N/A'}</p>
+                                <p><strong>Dirección:</strong> {selectedBien.comprador?.direccion || 'N/A'}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* Modal para mostrar la imagen grande */}
-            <Modal visible={visibleImage} footer={null} onCancel={closeImage} width={800}>
-                <img src={visibleImage} alt="Imagen grande" style={{ width: '100%', height: 'auto' }} />
-            </Modal>
-
-            <Modal open={visibleGallery} onCancel={closeGallery} footer={null} width={800}>
-    <Carousel autoplay>
-        {selectedBien && selectedBien.fotos && selectedBien.fotos.map((foto, index) => (
-            <div key={index}>
-                <img
-                    src={foto} // Cambiar a la URL de Firebase
-                    alt={`Foto ${index + 1}`}
-                    style={{ width: '100%', height: 'auto', cursor: 'pointer' }}
-                    onClick={() => openImage(foto)} // Abre la imagen grande
-                />
+                )}
+        
+                {/* Modal para mostrar la imagen grande */}
+                <Modal visible={visibleImage} footer={null} onCancel={closeImage} width={800}>
+                    <img src={visibleImage} alt="Imagen grande" style={{ width: '100%', height: 'auto' }} />
+                </Modal>
+        
+                {/* Modal para mostrar la galería de imágenes */}
+                <Modal open={visibleGallery} onCancel={closeGallery} footer={null} width={800}>
+                    <Carousel autoplay>
+                        {selectedBien && selectedBien.fotos && selectedBien.fotos.map((foto, index) => (
+                            <div key={index}>
+                                <img
+                                    src={foto} // Cambiar a la URL de Firebase
+                                    alt={`Foto ${index + 1}`}
+                                    style={{ width: '100%', height: 'auto', cursor: 'pointer' }}
+                                    onClick={() => openImage(foto)} // Abre la imagen grande
+                                />
+                            </div>
+                        ))}
+                    </Carousel>
+                </Modal>
             </div>
-        ))}
-    </Carousel>
-</Modal>
+        );
+        
 
-        </div>
-    );
+        
 };
 
 export default BienList;

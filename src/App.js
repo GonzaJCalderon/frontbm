@@ -5,6 +5,7 @@ import BienList from './components/BienList';
 import BienForm from './components/BienForm';
 import Home from './components/Home';
 import UsuarioList from './components/UsuarioList';
+import TrazabilidadBien from './components/TrazabilidadBien';
 import Dashboard from './components/Dashboard';
 import Operaciones from './components/Operaciones';
 import EditUsuario from './components/EditarUsuario';
@@ -29,6 +30,7 @@ const App = () => {
           <Route path="/success" element={<SuccessPage />} />
           <Route path="/lista-bienes" element={<BienList />} />
           <Route path="/usuarios" element={<UsuarioList />} />
+          <Route path="/admin/trazabilidad/:uuid" element={<TrazabilidadBien />} />
           <Route path="/usuarios/:id/edit" element={<EditUsuario />} />
           <Route path="/admin/dashboard" element={<Dashboard />} />
           <Route path="/admin/operaciones/:userId" element={<AdminOperaciones />} />

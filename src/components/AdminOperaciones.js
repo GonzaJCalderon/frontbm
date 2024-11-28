@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTransaccionesByAdmin, fetchUsuarios } from '../redux/actions/usuarios';
-import { Button, Table, Image } from 'antd';
+import { Button, Table, Image, Space, Typography, Spin, Alert } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
+
+const { Title } = Typography;
 
 const AdminOperaciones = () => {
     const { userId } = useParams();
@@ -33,24 +35,51 @@ const AdminOperaciones = () => {
         .filter(transaccion => transaccion.vendedorId === parseInt(userId))
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
+    // Función para renderizar la dirección
+    const renderDireccion = (direccion) => {
+        return direccion ? `${direccion.calle}, ${direccion.altura}, ${direccion.barrio}, ${direccion.departamento}` : 'Sin dirección';
+    };
+
     // Configurar las columnas de las tablas
     const columnsCompras = [
-        { title: 'ID', dataIndex: 'id', key: 'id' },
         {
             title: 'Imagen',
-            dataIndex: ['bien', 'imagen'],
+            dataIndex: ['bien', 'foto'],
             key: 'imagen',
-            render: (text, record) => <Image width={80} src={record.bien.imagen} alt={record.bien.descripcion} />
+            render: (text, record) => {
+                return Array.isArray(record.bien?.foto) && record.bien.foto.length > 0 ? (
+                    record.bien.foto.map((url, index) => (
+                        <Image
+                            key={index}
+                            width={80}
+                            src={url}
+                            alt={record.bien.descripcion || 'Imagen del bien'}
+                            onError={(e) => {
+                                e.target.src = '/images/placeholder.png';
+                            }}
+                        />
+                    ))
+                ) : (
+                    <span>Sin imagen</span>
+                );
+            },
         },
-        { title: 'Descripción del Bien', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
+        { title: 'Descripción', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
         { title: 'Marca', dataIndex: ['bien', 'marca'], key: 'marca' },
         { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
         { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        { title: 'Estado', dataIndex: 'estado', key: 'estado' },
         {
             title: 'Vendedor',
-            render: (text, record) => `${record.vendedor.nombre} ${record.vendedor.apellido}`,
+            render: (text, record) => (
+                <span>
+                    {record.vendedor.nombre} {record.vendedor.apellido} <br />
+                    DNI: {record.vendedor.dni} <br />
+                    CUIT: {record.vendedor.cuit} <br />
+                    Email: {record.vendedor.email} <br />
+                    Dirección: {renderDireccion(record.vendedor.direccion)} <br />
+                </span>
+            ),
             key: 'vendedor',
         },
         {
@@ -61,22 +90,44 @@ const AdminOperaciones = () => {
     ];
 
     const columnsVentas = [
-        { title: 'ID', dataIndex: 'id', key: 'id' },
         {
             title: 'Imagen',
-            dataIndex: ['bien', 'imagen'],
+            dataIndex: ['bien', 'foto'],
             key: 'imagen',
-            render: (text, record) => <Image width={80} src={record.bien.imagen} alt={record.bien.descripcion} />
+            render: (text, record) => {
+                return Array.isArray(record.bien?.foto) && record.bien.foto.length > 0 ? (
+                    record.bien.foto.map((url, index) => (
+                        <Image
+                            key={index}
+                            width={80}
+                            src={url}
+                            alt={record.bien.descripcion || 'Imagen del bien'}
+                            onError={(e) => {
+                                e.target.src = '/images/placeholder.png';
+                            }}
+                        />
+                    ))
+                ) : (
+                    <span>Sin imagen</span>
+                );
+            },
         },
-        { title: 'Descripción del Bien', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
+        { title: 'Descripción', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
         { title: 'Marca', dataIndex: ['bien', 'marca'], key: 'marca' },
         { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
         { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        { title: 'Estado', dataIndex: 'estado', key: 'estado' },
         {
             title: 'Comprador',
-            render: (text, record) => `${record.comprador.nombre} ${record.comprador.apellido}`,
+            render: (text, record) => (
+                <span>
+                    {record.comprador.nombre} {record.comprador.apellido} <br />
+                    DNI: {record.comprador.dni} <br />
+                    CUIT: {record.comprador.cuit} <br />
+                    Email: {record.comprador.email} <br />
+                    Dirección: {renderDireccion(record.comprador.direccion)} <br />
+                </span>
+            ),
             key: 'comprador',
         },
         {
@@ -91,61 +142,61 @@ const AdminOperaciones = () => {
         ? `${usuario.nombre || 'Sin nombre'} ${usuario.apellido || ''}`.trim()
         : 'Sin nombre';
 
+    if (loading) {
+        return <Spin tip="Cargando..." />;
+    }
+    
+    if (error) {
+        return <Alert message="Error" description={error} type="error" />;
+    }
+
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
-            <div className="flex justify-between items-center mb-4">
-                <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
-                    Volver
-                </Button>
-                <Button type="primary" icon={<LogoutOutlined />} onClick={() => {
-                    localStorage.removeItem('token');
-                    navigate('/home');
-                }}>
+            <Space style={{ marginBottom: 16 }}>
+                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
+                <Button icon={<HomeOutlined />} onClick={() => navigate('/admin/dashboard')}>Inicio</Button>
+                <Button
+                    type="primary"
+                    icon={<LogoutOutlined />}
+                    onClick={() => {
+                        localStorage.removeItem('token');
+                        navigate('/home');
+                    }}
+                    danger
+                >
                     Cerrar Sesión
                 </Button>
+            </Space>
+            
+            <Title level={2}>Operaciones de {nombreCompleto}</Title>
+
+            <div>
+                <Title level={3}>Compras</Title>
+                <Table
+                    columns={columnsCompras}
+                    dataSource={compras}
+                    pagination={{
+                        current: paginaCompras,
+                        pageSize: transaccionesPorPagina,
+                        total: compras.length,
+                        onChange: (page) => setPaginaCompras(page),
+                    }}
+                    rowKey="id"
+                />
+
+                <Title level={3} style={{ marginTop: '32px' }}>Ventas</Title>
+                <Table
+                    columns={columnsVentas}
+                    dataSource={ventas}
+                    pagination={{
+                        current: paginaVentas,
+                        pageSize: transaccionesPorPagina,
+                        total: ventas.length,
+                        onChange: (page) => setPaginaVentas(page),
+                    }}
+                    rowKey="id"
+                />
             </div>
-
-            <h1 className="text-2xl font-bold mb-4">Operaciones de {nombreCompleto}</h1>
-
-            {loading ? (
-                <div className="text-center">Cargando...</div>
-            ) : error ? (
-                <div className="text-red-500 text-center">{error}</div>
-            ) : (
-                <div>
-                    {/* Sección de Compras */}
-                    <div>
-                        <h2 className="text-xl font-bold mb-2">Compras</h2>
-                        <Table
-                            columns={columnsCompras}
-                            dataSource={compras}
-                            pagination={{
-                                current: paginaCompras,
-                                pageSize: transaccionesPorPagina,
-                                total: compras.length,
-                                onChange: (page) => setPaginaCompras(page),
-                            }}
-                            rowKey="id"
-                        />
-                    </div>
-
-                    {/* Sección de Ventas */}
-                    <div className="mt-8">
-                        <h2 className="text-xl font-bold mb-2">Ventas</h2>
-                        <Table
-                            columns={columnsVentas}
-                            dataSource={ventas}
-                            pagination={{
-                                current: paginaVentas,
-                                pageSize: transaccionesPorPagina,
-                                total: ventas.length,
-                                onChange: (page) => setPaginaVentas(page),
-                            }}
-                            rowKey="id"
-                        />
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
