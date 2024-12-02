@@ -328,7 +328,7 @@ export const deleteUsuario = (userId) => async dispatch => {
 export const assignRole = (userId, role) => async dispatch => {
     dispatch({ type: ASSIGN_ROLE_REQUEST });
     try {
-        const response = await api.patch(`/usuarios/${userId}/rol`, { rol: role });
+        const response = await api.patch(`usuarios/usuarios/${userId}/rol`, { nuevoRol: role }); // Ajusta el campo "nuevoRol"
         dispatch({
             type: ASSIGN_ROLE_SUCCESS,
             payload: response.data
@@ -341,6 +341,7 @@ export const assignRole = (userId, role) => async dispatch => {
         });
     }
 };
+
 
 // Resetear contraseña
 export const resetPassword = (userId) => async dispatch => {
@@ -425,13 +426,32 @@ export const buscarVendedor = (dni) => async dispatch => {
 
 export const fetchPendingRegistrations = () => async (dispatch) => {
     dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
+
     try {
-        const response = await api.get(`usuarios/usuarios/pendientes`); // Ajusta según tu API
+        // Recuperar el token desde el almacenamiento local (ajusta según tu implementación)
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Token de autenticación no encontrado.');
+        }
+
+        // Realizar la solicitud con el encabezado de autorización
+        const response = await api.get(`usuarios/usuarios/pendientes`, {
+            headers: {
+                Authorization: `Bearer ${token}`, // Incluye el token
+            },
+        });
+
         dispatch({ type: FETCH_PENDING_REGISTRATIONS_SUCCESS, payload: response.data });
     } catch (error) {
+        // Manejar errores
+        console.error('Error al obtener registros pendientes:', error);
         dispatch({ type: FETCH_PENDING_REGISTRATIONS_ERROR, error: error.message });
+
+        // Opcional: mostrar un mensaje de error al usuario
+        // message.error(error.response?.data?.mensaje || 'Error al obtener los registros pendientes.');
     }
 };
+
 
 export const approveUser = (userId) => async (dispatch) => {
     dispatch({ type: APPROVE_USER_REQUEST });
@@ -474,23 +494,41 @@ export const denyRegistration = (userId, motivoRechazo, adminId) => async (dispa
 };
 
 
-
 export const fetchRejectedUsers = () => async (dispatch) => {
     dispatch({ type: FETCH_REJECTED_USERS_REQUEST });
-    
+
     try {
-        const response = await api.get('usuarios/usuarios/rechazados'); // Asegúrate de que esta sea la ruta correcta
+        // Recuperar el token desde el almacenamiento local
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Token de autenticación no encontrado.');
+        }
+
+        // Realizar la solicitud con el encabezado de autorización
+        const response = await api.get('usuarios/usuarios/rechazados', {
+            headers: {
+                Authorization: `Bearer ${token}`, // Incluye el token
+            },
+        });
+
         dispatch({
             type: FETCH_REJECTED_USERS_SUCCESS,
             payload: response.data,
         });
     } catch (error) {
+        console.error('Error al obtener usuarios rechazados:', error);
+
         dispatch({
             type: FETCH_REJECTED_USERS_ERROR,
             error: error.message,
         });
+
+        // Opcional: notificar al usuario
+        // message.error(error.response?.data?.mensaje || 'Error al obtener los usuarios rechazados.');
     }
 };
+
+
 
 // Acción para verificar si el usuario existe
 export const checkExistingUser = (dni, email, usuarioActualDni) => async (dispatch) => {

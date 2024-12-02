@@ -54,9 +54,10 @@ const VenderPage = () => {
   const marcasDisponibles = Array.from(
     new Set(items.filter((bien) => bien.tipo === selectedTipo).map((bien) => bien.marca))
   );
-  const modelosDisponibles = items
-    .filter((bien) => bien.tipo === selectedTipo && bien.marca === selectedMarca)
-    .map((bien) => bien.modelo);
+  const modelosDisponibles = Array.from(
+    new Set(items.filter((bien) => bien.tipo === selectedTipo && bien.marca === selectedMarca).map((bien) => bien.modelo))
+  );
+  
 
   useEffect(() => {
     if (usuario && usuario.id) {
@@ -200,7 +201,8 @@ const VenderPage = () => {
       {loading ? (
         <Spin tip="Cargando..." />
       ) : (
-        <Form layout="vertical" onFinish={step === 1 ? handleFinishStep1 : handleFinishStep2}>
+        <Form layout="vertical" form={form} onFinish={step === 1 ? handleFinishStep1 : handleFinishStep2}>
+
   {step === 1 ? (
     <>
       <Form.Item label="Tipo de Sujeto" name="tipo" required>
@@ -266,23 +268,25 @@ const VenderPage = () => {
           ))}
         </Select>
       </Form.Item>
+     
       {selectedTipo === 'teléfono móvil' && imeis.map((imei, index) => (
-        <Form.Item
-          key={index}
-          label={`IMEI ${index + 1}`}
-          name={`imei_${index}`}
-          rules={[
-            { required: true, message: 'El IMEI es obligatorio para teléfonos móviles.' },
-            { pattern: /^\d{15}$/, message: 'El IMEI debe tener exactamente 15 dígitos.' },
-          ]}
-        >
-          <Input
-            placeholder="Ingrese el IMEI del teléfono móvil"
-            value={imei}
-            onChange={(e) => handleImeiChange(e.target.value, index)}
-          />
-        </Form.Item>
-      ))}
+  <Form.Item
+    key={index}
+    label={`IMEI ${index + 1}`}
+    name={`imei_${index}`}
+    rules={[
+      { required: true, message: 'El IMEI es obligatorio para teléfonos móviles.' },
+      { pattern: /^\d{15}$/, message: 'El IMEI debe tener exactamente 15 dígitos.' },
+    ]}
+  >
+    <Input
+      placeholder="Ingrese el IMEI del teléfono móvil"
+      value={imei}
+      onChange={(e) => handleImeiChange(e.target.value, index)}
+    />
+  </Form.Item>
+))}
+
       <Form.Item label="Marca">
         <Select value={selectedMarca} onChange={setSelectedMarca} placeholder="Seleccionar marca">
           {marcasDisponibles.map((marca) => (
@@ -297,12 +301,29 @@ const VenderPage = () => {
           ))}
         </Select>
       </Form.Item>
-      <Form.Item label="Precio" name="precio" required>
-        <InputNumber placeholder="Precio" style={{ width: '100%' }} />
-      </Form.Item>
-      <Form.Item label="Cantidad" name="cantidad" required>
-        <InputNumber min={1} placeholder="Cantidad" style={{ width: '100%' }} onChange={handleCantidadChange} />
-      </Form.Item>
+      <Form.Item
+  label="Precio"
+  name="precio"
+  rules={[
+    { required: true, message: 'El precio es obligatorio.' },
+    { type: 'number', min: 0.01, message: 'El precio debe ser mayor a 0.' },
+  ]}
+>
+  <InputNumber placeholder="Precio" style={{ width: '100%' }} />
+</Form.Item>
+
+<Form.Item
+  label="Cantidad"
+  name="cantidad"
+  rules={[
+    { required: true, message: 'La cantidad es obligatoria.' },
+    { type: 'number', min: 1, message: 'La cantidad debe ser al menos 1.' },
+  ]}
+>
+  <InputNumber min={1} placeholder="Cantidad" style={{ width: '100%' }} onChange={handleCantidadChange} />
+</Form.Item>
+
+
       <Form.Item label="Método de Pago">
         <Select value={metodoPago} onChange={setMetodoPago} placeholder="Seleccionar método de pago">
           <Option value="efectivo">Efectivo</Option>

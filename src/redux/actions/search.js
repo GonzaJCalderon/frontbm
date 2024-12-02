@@ -1,44 +1,36 @@
-// src/redux/actions/search.js
+import api from '../axiosConfig';  
+import { SEARCH_REQUEST, SEARCH_SUCCESS, SEARCH_ERROR } from './actionTypes';  
 
-export const searchItems = (term) => async (dispatch) => {
-    dispatch({ type: 'SEARCH_ITEMS_REQUEST' });
+export const searchItems = (term, category) => async (dispatch) => {
+    dispatch({ type: SEARCH_REQUEST });
 
     try {
-        // Obtener el token de localStorage (si es necesario)
-        const token = localStorage.getItem('token');
-        
-        // Configuración de los headers si necesitas incluir autenticación
-        const headers = new Headers();
-        headers.append('Content-Type', 'application/json');
-        if (token) {
-            headers.append('Authorization', `Bearer ${token}`);
-        }
-
-        // Realizar la solicitud con fetch
-        const response = await fetch(`/search?nombre=${term}`, {
-            method: 'GET',
-            headers: headers
+        const lowerCaseTerm = term.toLowerCase();
+        console.log("Buscando término:", lowerCaseTerm);  // Verifica el término de búsqueda
+        // Enviamos tanto el término como la categoría de búsqueda al backend
+        const response = await api.get(`/search/buscar`, {
+            params: {
+                query: lowerCaseTerm,
+                category: category, // Se incluye la categoría para filtrar la búsqueda
+            }
         });
 
-        // Verificar si la respuesta fue exitosa
-        if (!response.ok) {
-            throw new Error(`Error: ${response.status} ${response.statusText}`);
-        }
-
-        // Procesar la respuesta JSON
-        const data = await response.json();
-
-        // Dispatch de la acción exitosa
+        console.log("Respuesta de la API:", response);  // Imprime la respuesta completa
         dispatch({
-            type: 'SEARCH_ITEMS_SUCCESS',
-            payload: data,
+            type: SEARCH_SUCCESS,
+            payload: {
+                usuarios: response.data.usuarios || [],
+                bienes: response.data.bienes || [],
+            },
         });
 
     } catch (error) {
         console.error('Search Error:', error);
         dispatch({
-            type: 'SEARCH_ITEMS_ERROR',
-            payload: error.message,
+            type: SEARCH_ERROR,
+            payload: error.message || 'Error al realizar la búsqueda',
         });
     }
 };
+
+export default searchItems;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUsuarioDetails, updateUser } from '../redux/actions/usuarios';
+import { fetchUsuarioDetails, updateUser, assignRole } from '../redux/actions/usuarios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaEdit, FaArrowLeft, FaSignOutAlt, FaSearch } from 'react-icons/fa';
 import { Select } from 'antd';
@@ -12,6 +12,8 @@ const departments = [
   'San Martín', 'La Paz', 'Santa Rosa', 'General Alvear', 'Malargüe', 'San Carlos',
   'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo'
 ];
+
+const roles = ['admin', 'moderador', 'usuario']; // Opciones de roles
 
 const EditUsuario = () => {
     const { id } = useParams();
@@ -30,6 +32,7 @@ const EditUsuario = () => {
         dni: '',
         apellido: '',
         password: '',
+        rol: '', // Campo para el rol
     });
     const [successMessage, setSuccessMessage] = useState('');
     const [error, setError] = useState(null);
@@ -44,7 +47,6 @@ const EditUsuario = () => {
 
     useEffect(() => {
         if (userDetails) {
-            console.log('Usuario recuperado:', userDetails);
             setFormData({
                 nombre: userDetails.nombre || '',
                 dni: userDetails.dni || '',
@@ -57,6 +59,7 @@ const EditUsuario = () => {
                     departamento: userDetails.direccion?.departamento || '',
                 },
                 apellido: userDetails.apellido || '',
+                rol: userDetails.rol || '', // Cargar el rol del usuario
             });
         }
     }, [userDetails]);
@@ -79,6 +82,13 @@ const EditUsuario = () => {
         }
     };
 
+    const handleRoleChange = (value) => {
+        setFormData(prevState => ({
+            ...prevState,
+            rol: value, // Actualizar el rol en el estado
+        }));
+    };
+
     const handleSelectChange = (value) => {
         setFormData(prevState => ({
             ...prevState,
@@ -91,19 +101,29 @@ const EditUsuario = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        dispatch(updateUser(id, formData))
+        const { rol, ...userData } = formData;
+    
+        // Actualizar datos generales del usuario
+        dispatch(updateUser(id, userData))
             .then(() => {
-                setSuccessMessage('Datos actualizados correctamente');
-                setError(null);
-                setTimeout(() => {
-                    navigate('/usuarios');
-                }, 2000);
+                // Actualizar el rol del usuario
+                dispatch(assignRole(id, rol))
+                    .then(() => {
+                        setSuccessMessage('Datos actualizados correctamente');
+                        setTimeout(() => {
+                            navigate('/usuarios');
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        setError(`Error actualizando el rol: ${err.message}`);
+                    });
             })
             .catch(err => {
-                setError(err.message);
-                setSuccessMessage('');
+                setError(`Error actualizando los datos del usuario: ${err.message}`);
             });
     };
+    
+    
 
     return (
         <div className="flex flex-col items-center min-h-screen bg-gray-100 p-4">
@@ -137,23 +157,11 @@ const EditUsuario = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <h3 className="font-semibold">Datos Actuales:</h3>
-                    <div className="mb-2">
-                        <p><strong>Nombre:</strong> {userDetails?.nombre || 'N/A'}</p>
-                        <p><strong>Apellido:</strong> {userDetails?.apellido || 'N/A'}</p>
-                        <p><strong>Email:</strong> {userDetails?.email || 'N/A'}</p>
-                        <p><strong>DNI:</strong> {userDetails?.dni || 'N/A'}</p>
-                        <p><strong>Calle:</strong> {userDetails?.direccion?.calle || 'N/A'}</p> 
-                        <p><strong>Altura:</strong> {userDetails?.direccion?.altura || 'N/A'}</p> 
-                        <p><strong>Barrio:</strong> {userDetails?.direccion?.barrio || 'N/A'}</p> 
-                        <p><strong>Departamento:</strong> {userDetails?.direccion?.departamento || 'N/A'}</p> 
-                    </div>
-
                     <h3 className="font-semibold">Editar Datos:</h3>
                     {['nombre', 'apellido', 'email', 'dni'].map((field, idx) => (
                         <div key={idx} className="flex items-center">
                             <label htmlFor={field} className="block text-gray-700 font-bold w-1/3 capitalize">
-                                {field.replace(/([A-Z])/g, ' $1').toUpperCase()}:
+                                {field.toUpperCase()}:
                             </label>
                             <div className="relative w-2/3">
                                 <input
@@ -173,7 +181,7 @@ const EditUsuario = () => {
                     {['calle', 'altura', 'barrio', 'departamento'].map((field, idx) => (
                         <div key={idx} className="flex items-center">
                             <label htmlFor={field} className="block text-gray-700 font-bold w-1/3 capitalize">
-                                {field.replace(/([A-Z])/g, ' $1').toUpperCase()}:
+                                {field.toUpperCase()}:
                             </label>
                             <div className="relative w-2/3">
                                 {field === 'departamento' ? (
@@ -182,7 +190,7 @@ const EditUsuario = () => {
                                         name={field}
                                         value={formData.direccion[field]}
                                         onChange={handleSelectChange}
-                                        className="border border-gray-300 rounded-lg px-4 py-2 w-full"
+                                        className="w-full"
                                     >
                                         {departments.map((department) => (
                                             <Option key={department} value={department}>
@@ -204,6 +212,28 @@ const EditUsuario = () => {
                             </div>
                         </div>
                     ))}
+
+                    {/* Selección de rol */}
+                    <div className="flex items-center">
+                        <label htmlFor="rol" className="block text-gray-700 font-bold w-1/3 capitalize">
+                            Rol:
+                        </label>
+                        <div className="relative w-2/3">
+                            <Select
+                                id="rol"
+                                name="rol"
+                                value={formData.rol}
+                                onChange={handleRoleChange}
+                                className="w-full"
+                            >
+                                {roles.map(role => (
+                                    <Option key={role} value={role}>
+                                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                                    </Option>
+                                ))}
+                            </Select>
+                        </div>
+                    </div>
 
                     <button
                         type="submit"

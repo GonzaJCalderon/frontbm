@@ -15,101 +15,88 @@ const SolicitudesPendientes = () => {
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [updatedRegistrations, setUpdatedRegistrations] = useState([]);
 
+    // Obtener datos del usuario actual
+    const storedData = localStorage.getItem('userData');
+    const currentUser = storedData ? JSON.parse(storedData) : null;
+    const isModerator = currentUser?.rolDefinitivo === 'moderador'; // Ajustado para 'rolDefinitivo'
+
+    // Obtener las solicitudes pendientes al cargar
     useEffect(() => {
         dispatch(fetchPendingRegistrations());
     }, [dispatch]);
 
+    // Ordenar y actualizar la lista de solicitudes
     useEffect(() => {
-        // Al recibir las solicitudes, ordenamos por fechaCreacion (o fechaRechazo)
         if (pendingRegistrations && pendingRegistrations.length > 0) {
             const sortedRegistrations = [...pendingRegistrations].sort((a, b) => {
-                // Convertir las fechas a objetos Date y compararlas
-                const dateA = new Date(a.fechaRechazo || a.fechaCreacion); // Usar la fecha de rechazo o la de creación
+                const dateA = new Date(a.fechaRechazo || a.fechaCreacion);
                 const dateB = new Date(b.fechaRechazo || b.fechaCreacion);
-
-                return dateB - dateA; // Orden descendente (más reciente primero)
+                return dateB - dateA; // Orden descendente por fecha
             });
             setUpdatedRegistrations(sortedRegistrations);
         }
     }, [pendingRegistrations]);
 
+    // Manejo de aprobación de usuarios
     const handleApprove = async (id) => {
+        if (isModerator) {
+            notification.warning({ message: 'Acción no permitida', description: 'Los moderadores no pueden aprobar usuarios.' });
+            return;
+        }
         try {
             await dispatch(approveUser(id));
-            notification.success({ message: 'Registro aprobado', description: `El registro del usuario con ID ${id} ha sido aprobado.` });
+            notification.success({ message: 'Registro aprobado', description: `El usuario con ID ${id} ha sido aprobado.` });
             setUpdatedRegistrations(prev => prev.filter(user => user.id !== id));
         } catch (error) {
             notification.error({ message: 'Error', description: 'No se pudo aprobar el usuario.' });
         }
     };
 
+    // Mostrar modal de rechazo
     const showModal = (id) => {
         setSelectedUserId(id);
         setIsModalVisible(true);
     };
 
-    const handleDeny = () => {
-        if (selectedUserId && rejectionReason) {
-            const storedData = localStorage.getItem('userData');
-            const adminData = storedData ? JSON.parse(storedData) : null;
-
-            if (adminData && adminData.id) {
-                const adminId = adminData.id;
-                dispatch(denyRegistration(selectedUserId, rejectionReason, adminId));
-                notification.error({ message: 'Registro denegado', description: `El registro del usuario con ID ${selectedUserId} ha sido denegado. Motivo: ${rejectionReason}` });
-                setRejectionReason('');
-                setIsModalVisible(false);
-                setUpdatedRegistrations(prev => prev.filter(user => user.id !== selectedUserId));
-            } else {
-                notification.error({ message: 'Error', description: 'No se pudo obtener el ID del administrador.' });
-            }
-        } else {
+    // Manejo de rechazo de usuarios
+    const handleDeny = async () => {
+        if (!selectedUserId || !rejectionReason) {
             notification.warning({ message: 'Motivo requerido', description: 'Por favor ingresa un motivo para la denegación.' });
+            return;
+        }
+        try {
+            await dispatch(denyRegistration(selectedUserId, rejectionReason, currentUser.id));
+            notification.error({ message: 'Registro denegado', description: `El usuario con ID ${selectedUserId} ha sido rechazado. Motivo: ${rejectionReason}` });
+            setUpdatedRegistrations(prev => prev.filter(user => user.id !== selectedUserId));
+            setIsModalVisible(false);
+            setRejectionReason('');
+        } catch (error) {
+            notification.error({ message: 'Error', description: 'No se pudo rechazar al usuario.' });
         }
     };
 
+    // Cerrar modal de rechazo
     const handleCancel = () => {
         setIsModalVisible(false);
+        setRejectionReason('');
     };
 
+    // Navegación
     const handleLogout = () => {
         localStorage.removeItem('userData');
-        notification.success({
-            message: 'Cierre de sesión exitoso',
-            description: 'Has cerrado sesión correctamente.',
-        });
+        notification.success({ message: 'Cierre de sesión exitoso', description: 'Has cerrado sesión correctamente.' });
         navigate('/home');
     };
 
-    const handleBack = () => {
-        navigate('/admin/dashboard');
-    };
+    const handleBack = () => navigate('/admin/dashboard');
 
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
             <div className="flex flex-col md:flex-row justify-between items-center mb-4">
-                <Button
-                    type="primary"
-                    icon={<ArrowLeftOutlined />}
-                    onClick={handleBack}
-                >
-                    Volver
-                </Button>
+                <Button type="primary" icon={<ArrowLeftOutlined />} onClick={handleBack}>Volver</Button>
                 <div className="flex space-x-4 mt-2 md:mt-0">
-                    <Button
-                        type="default"
-                        icon={<HomeOutlined />}
-                        onClick={() => navigate('/admin/dashboard')}
-                    >
-                        Inicio
-                    </Button>
-                    <Button
-                        type="primary"
-                        icon={<LogoutOutlined />}
-                        onClick={handleLogout}
-                    >
-                        Cerrar Sesión
-                    </Button>
+                    <Button type="default" icon={<HomeOutlined />} onClick={() => navigate('/admin/dashboard')}>Inicio</Button>
+                    <Button type="primary" icon={<LogoutOutlined />} onClick={handleLogout}>Cerrar Sesión</Button>
                 </div>
             </div>
 
@@ -142,34 +129,28 @@ const SolicitudesPendientes = () => {
                                     <td>{user.dni}</td>
                                     <td>{user.cuit || 'N/A'}</td>
                                     <td>
-    {user.direccion ? (
-        <div style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '5px' }}>
-            <div style={{ marginBottom: '8px' }}>
-                <strong>Calle:</strong> {user.direccion.calle || 'Sin calle'}
-            </div>
-            <div style={{ marginBottom: '8px' }}>
-                <strong>Altura:</strong> {user.direccion.altura || 'Sin altura'}
-            </div>
-            <div style={{ marginBottom: '8px' }}>
-                <strong>Barrio:</strong> {user.direccion.barrio || 'Sin barrio'}
-            </div>
-            <div style={{ marginBottom: '8px' }}>
-                <strong>Departamento:</strong> {user.direccion.departamento || 'Sin departamento'}
-            </div>
-        </div>
-    ) : (
-        'Sin Dirección'
-    )}
-</td>
-
+                                        {user.direccion ? (
+                                            <div style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '5px' }}>
+                                                <strong>Calle:</strong> {user.direccion.calle || 'Sin calle'}
+                                                <br />
+                                                <strong>Altura:</strong> {user.direccion.altura || 'Sin altura'}
+                                                <br />
+                                                <strong>Barrio:</strong> {user.direccion.barrio || 'Sin barrio'}
+                                                <br />
+                                                <strong>Departamento:</strong> {user.direccion.departamento || 'Sin departamento'}
+                                            </div>
+                                        ) : 'Sin Dirección'}
+                                    </td>
                                     <td>{user.rolDefinitivo}</td>
                                     <td>
-                                        <Button onClick={() => handleApprove(user.id)} className="bg-green-600 text-white rounded">
-                                            Aprobar
-                                        </Button>
-                                        <Button onClick={() => showModal(user.id)} className="bg-red-600 text-white rounded">
-                                            Denegar
-                                        </Button>
+                                        {isModerator ? (
+                                            <p className="text-gray-500">Acción no permitida para moderadores.</p>
+                                        ) : (
+                                            <div>
+                                                <Button onClick={() => handleApprove(user.id)} className="bg-green-600 text-white rounded">Aprobar</Button>
+                                                <Button onClick={() => showModal(user.id)} className="bg-red-600 text-white rounded">Denegar</Button>
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -177,26 +158,15 @@ const SolicitudesPendientes = () => {
                     </table>
                 </div>
             )}
-            <Modal 
-                title="Motivo de Rechazo"
-                open={isModalVisible}
-                onOk={handleDeny}
-                onCancel={handleCancel}
-            >
-                <Input.TextArea 
-                    rows={4} 
-                    placeholder="Ingresa el motivo de rechazo" 
+
+            <Modal title="Motivo de Rechazo" open={isModalVisible} onOk={handleDeny} onCancel={handleCancel}>
+                <Input.TextArea
+                    rows={4}
+                    placeholder="Ingresa el motivo de rechazo"
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                 />
             </Modal>
-            <Button 
-                type="primary" 
-                onClick={() => navigate('/usuarios-rechazados')}
-                className="mt-4"
-            >
-                Ver Usuarios Rechazados
-            </Button>
         </div>
     );
 };

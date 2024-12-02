@@ -1,23 +1,25 @@
+import { SEARCH_REQUEST, SEARCH_SUCCESS, SEARCH_ERROR } from '../actions/actionTypes';  // Importa los tipos de acción
+
 const initialState = {
+    usuarios: [],
+    bienes: [],
     loading: false,
-    users: [],     // Cambiar results a users
-    bienes: [], 
     error: null,
 };
 
 const searchReducer = (state = initialState, action) => {
     switch (action.type) {
-        case 'SEARCH_ITEMS_REQUEST':
-            return { ...state, loading: true, error: null };
-        case 'SEARCH_ITEMS_SUCCESS':
-            console.log('Reducer Search Results:', action.payload); // Verifica los datos en el reducer
-            return { 
-                ...state, 
-                loading: false, 
-                users: action.payload.users || [], 
-                bienes: action.payload.bienes || []
+        case SEARCH_REQUEST:
+            return { ...state, loading: true };
+        case SEARCH_SUCCESS:
+            console.log("Datos recibidos en el reducer:", action.payload);  // Para verificar la estructura
+            return {
+                ...state,
+                loading: false,
+                usuarios: action.payload.usuarios || [],  // Asegúrate de que 'usuarios' existe en la respuesta
+                bienes: action.payload.bienes || [],      // Asegúrate de que 'bienes' existe en la respuesta
             };
-        case 'SEARCH_ITEMS_ERROR':
+        case SEARCH_ERROR:
             return { ...state, loading: false, error: action.payload };
         default:
             return state;

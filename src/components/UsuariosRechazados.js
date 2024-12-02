@@ -12,14 +12,26 @@ const UsuariosRechazados = () => {
     const { rejectedUsers, loading, error } = useSelector(state => state.usuarios);
 
     const adminData = JSON.parse(localStorage.getItem('userData'));
+    const isModerator = adminData?.rolDefinitivo === 'moderador'; // Verificar si el usuario es moderador
 
     useEffect(() => {
         dispatch(fetchRejectedUsers());
     }, [dispatch]);
 
     const handleApprove = (userId) => {
+        if (isModerator) {
+            notification.warning({ 
+                message: 'Acción no permitida', 
+                description: 'Los moderadores no tienen permiso para aprobar usuarios.' 
+            });
+            return;
+        }
+
         dispatch(approveUser(userId));
-        notification.success({ message: 'Usuario aprobado', description: `El usuario con ID ${userId} ha sido aprobado.` });
+        notification.success({ 
+            message: 'Usuario aprobado', 
+            description: `El usuario con ID ${userId} ha sido aprobado.` 
+        });
     };
 
     const handleLogout = () => {
@@ -101,9 +113,16 @@ const UsuariosRechazados = () => {
                                     <td className="p-2">{horaRechazo}</td>
                                     <td className="p-2">{`${adminData.nombre} ${adminData.apellido}`}</td>
                                     <td className="p-2">
-                                        <Button onClick={() => handleApprove(user.id)} className="bg-green-600 text-white rounded">
-                                            Aprobar
-                                        </Button>
+                                        {isModerator ? (
+                                            <p className="text-gray-500">Acción no permitida.</p>
+                                        ) : (
+                                            <Button 
+                                                onClick={() => handleApprove(user.id)} 
+                                                className="bg-green-600 text-white rounded"
+                                            >
+                                                Aprobar
+                                            </Button>
+                                        )}
                                     </td>
                                 </tr>
                             );
