@@ -107,56 +107,57 @@ const SolicitudesPendientes = () => {
                 <p>Error al cargar solicitudes: {error}</p>
             ) : (
                 <div className="overflow-x-auto">
-                    <table className="table-auto w-full bg-white rounded shadow-md">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Apellido</th>
-                                <th>Email</th>
-                                <th>DNI</th>
-                                <th>CUIT</th>
-                                <th>Dirección</th>
-                                <th>Rol</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {updatedRegistrations.map(user => (
-                                <tr key={user.id}>
-                                    <td>{user.nombre}</td>
-                                    <td>{user.apellido}</td>
-                                    <td>{user.email}</td>
-                                    <td>{user.dni}</td>
-                                    <td>{user.cuit || 'N/A'}</td>
-                                    <td>
-                                        {user.direccion ? (
-                                            <div style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '5px' }}>
-                                                <strong>Calle:</strong> {user.direccion.calle || 'Sin calle'}
-                                                <br />
-                                                <strong>Altura:</strong> {user.direccion.altura || 'Sin altura'}
-                                                <br />
-                                                <strong>Barrio:</strong> {user.direccion.barrio || 'Sin barrio'}
-                                                <br />
-                                                <strong>Departamento:</strong> {user.direccion.departamento || 'Sin departamento'}
-                                            </div>
-                                        ) : 'Sin Dirección'}
-                                    </td>
-                                    <td>{user.rolDefinitivo}</td>
-                                    <td>
-                                        {isModerator ? (
-                                            <p className="text-gray-500">Acción no permitida para moderadores.</p>
-                                        ) : (
-                                            <div>
-                                                <Button onClick={() => handleApprove(user.id)} className="bg-green-600 text-white rounded">Aprobar</Button>
-                                                <Button onClick={() => showModal(user.id)} className="bg-red-600 text-white rounded">Denegar</Button>
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+    <table className="table-auto w-full bg-white rounded shadow-md">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Apellido</th>
+                <th style={{ minWidth: '200px' }}>Email</th> {/* Ancho mínimo ajustado */}
+                <th style={{ minWidth: '100px', paddingRight: '20px' }}>DNI</th> {/* Más espacio */}
+                <th style={{ minWidth: '100px', paddingLeft: '20px' }}>CUIT</th> {/* Más espacio */}
+                <th>Dirección</th>
+                <th>Rol</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {updatedRegistrations.map(user => (
+                <tr key={user.id}>
+                    <td>{user.nombre}</td>
+                    <td>{user.apellido}</td>
+                    <td style={{ wordBreak: 'break-word' }}>{user.email}</td> {/* Permitir quiebre de línea */}
+                    <td style={{ textAlign: 'center', paddingRight: '20px' }}>{user.dni}</td>
+                    <td style={{ textAlign: 'center', paddingLeft: '20px' }}>{user.cuit || 'N/A'}</td>
+                    <td>
+                        {user.direccion ? (
+                            <div style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '5px' }}>
+                                <strong>Calle:</strong> {user.direccion.calle || 'Sin calle'}
+                                <br />
+                                <strong>Altura:</strong> {user.direccion.altura || 'Sin altura'}
+                                <br />
+                                <strong>Barrio:</strong> {user.direccion.barrio || 'Sin barrio'}
+                                <br />
+                                <strong>Departamento:</strong> {user.direccion.departamento || 'Sin departamento'}
+                            </div>
+                        ) : 'Sin Dirección'}
+                    </td>
+                    <td>{user.rolDefinitivo}</td>
+                    <td>
+                        {isModerator ? (
+                            <p className="text-gray-500">Acción no permitida para moderadores.</p>
+                        ) : (
+                            <div>
+                                <Button onClick={() => handleApprove(user.id)} className="bg-green-600 text-white rounded">Aprobar</Button>
+                                <Button onClick={() => showModal(user.id)} className="bg-red-600 text-white rounded">Denegar</Button>
+                            </div>
+                        )}
+                    </td>
+                </tr>
+            ))}
+        </tbody>
+    </table>
+</div>
+
             )}
 
             <Modal title="Motivo de Rechazo" open={isModalVisible} onOk={handleDeny} onCancel={handleCancel}>

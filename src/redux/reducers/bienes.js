@@ -15,6 +15,9 @@ import {
     FETCH_TRAZABILIDAD_REQUEST,
     FETCH_TRAZABILIDAD_SUCCESS,
     FETCH_TRAZABILIDAD_ERROR,
+    GET_BIENES_USUARIO_REQUEST,
+    GET_BIENES_USUARIO_SUCCESS,
+    GET_BIENES_USUARIO_FAILURE,
 } from '../actions/actionTypes';
 
 const initialState = {
@@ -143,6 +146,14 @@ const bienesReducer = (state = initialState, action) => {
                 loading: false,
                 error: action.payload,
             };
+
+            case GET_BIENES_USUARIO_REQUEST:
+                return { ...state, loading: true };
+              case GET_BIENES_USUARIO_SUCCESS:
+                return { ...state, loading: false, items: action.payload };
+              case GET_BIENES_USUARIO_FAILURE:
+                return { ...state, loading: false, error: action.payload };
+                
         default:
             return state;
     }

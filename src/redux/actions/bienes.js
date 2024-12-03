@@ -25,7 +25,10 @@ import {
     REGISTRAR_COMPRA_EXITO,
     FETCH_TRAZABILIDAD_REQUEST,
     FETCH_TRAZABILIDAD_SUCCESS,
-    FETCH_TRAZABILIDAD_ERROR
+    FETCH_TRAZABILIDAD_ERROR,
+    GET_BIENES_USUARIO_REQUEST,
+    GET_BIENES_USUARIO_SUCCESS,
+    GET_BIENES_USUARIO_FAILURE,
 } from './actionTypes';
 
 const handleRequestError = (error) => {
@@ -296,5 +299,61 @@ export const actualizarStockPorParametros = (updatedData) => async (dispatch) =>
 };
 
 
-  
+export const fetchBienesStock = (search = '', userId) => async (dispatch) => {
+  dispatch({ type: FETCH_BIENES_REQUEST });
+
+  try {
+    const token = getToken();
+    if (!token) throw new Error('Token no encontrado en localStorage');
+
+    // Construir la URL con los parámetros de búsqueda y el userId
+    let url = '/bienes/stock';
+    const params = new URLSearchParams();
+    
+    if (search) {
+      params.append('search', search);
+    }
+
+    if (userId) {
+      params.append('userId', userId);
+    }
+
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    dispatch({ type: FETCH_BIENES_SUCCESS, payload: response.data.bienes });
+    
+  } catch (error) {
+    dispatch({ type: FETCH_BIENES_ERROR, payload: error.response ? error.response.data : error.message });
+  }
+};
+
+
+
+
+// Acción para obtener bienes de un usuario específico
+export const fetchBienesPorUsuario = (userId) => async (dispatch) => {
+  dispatch({ type: GET_BIENES_USUARIO_REQUEST });
+
+  try {
+    const response = await axios.get(`/bienes/bien/usuario/${userId}`);
+    dispatch({
+      type: GET_BIENES_USUARIO_SUCCESS,
+      payload: response.data.bienes,
+    });
+  } catch (error) {
+    dispatch({
+      type: GET_BIENES_USUARIO_FAILURE,
+      payload: error.response ? error.response.data : error.message,
+    });
+  }
+};
+
   
