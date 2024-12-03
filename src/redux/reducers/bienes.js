@@ -149,11 +149,19 @@ const bienesReducer = (state = initialState, action) => {
 
             case GET_BIENES_USUARIO_REQUEST:
                 return { ...state, loading: true };
-              case GET_BIENES_USUARIO_SUCCESS:
-                return { ...state, loading: false, items: action.payload };
-              case GET_BIENES_USUARIO_FAILURE:
+            
+            case GET_BIENES_USUARIO_SUCCESS:
+                console.log("Bienes obtenidos:", action.payload);
+                return {
+                    ...state,
+                    loading: false,
+                    items: action.payload, // Asigna los bienes obtenidos al estado
+                    error: null,
+                };
+            
+            case GET_BIENES_USUARIO_FAILURE:
                 return { ...state, loading: false, error: action.payload };
-                
+            
         default:
             return state;
     }

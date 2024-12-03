@@ -153,24 +153,50 @@ const OperacionesUsuario = () => {
             key: 'fecha',
         },
     ];
-    
-    
-    
+
     const handleBack = () => navigate(-1);
     const handleHome = () => navigate('/userdashboard');
     const handleLogout = () => {
         localStorage.removeItem('token');
         navigate('/home');
     };
-    
+
     if (loading) {
         return <Spin tip="Cargando..." />;
     }
     
-    if (error) {
-        return <Alert message="Error" description={error} type="error" />;
+    // En lugar de mostrar error, muestra un mensaje amigable si no hay transacciones
+    if (transaccionesArray.length === 0) {
+        return (
+            <div className="p-6 bg-gray-100 min-h-screen">
+                <Space style={{ marginBottom: 16 }}>
+                    <Button icon={<LeftOutlined />} onClick={handleBack}>Volver</Button>
+                    <Button icon={<HomeOutlined />} onClick={handleHome}>Home</Button>
+                    <Button
+                        type="primary"
+                        icon={<LogoutOutlined />}
+                        onClick={handleLogout}
+                        danger
+                    >
+                        Cerrar Sesión
+                    </Button>
+                </Space>
+                <Title level={2}>Operaciones de {usuarioActual?.nombre || 'Usuario'}</Title>
+                <div>
+                    <Alert
+                        message="¡Aún no tienes transacciones!"
+                        description="Parece que aún no has realizado ninguna compra o venta. ¿Por qué no exploras los productos?"
+                        type="info"
+                        showIcon
+                    />
+                    <Button type="primary" onClick={handleBack} style={{ marginTop: 16 }}>
+                        Volver
+                    </Button>
+                </div>
+            </div>
+        );
     }
-    
+
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
             <Space style={{ marginBottom: 16 }}>
@@ -216,7 +242,6 @@ const OperacionesUsuario = () => {
             </div>
         </div>
     );
-    
 };
 
 export default OperacionesUsuario;

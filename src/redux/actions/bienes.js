@@ -343,7 +343,8 @@ export const fetchBienesPorUsuario = (userId) => async (dispatch) => {
   dispatch({ type: GET_BIENES_USUARIO_REQUEST });
 
   try {
-    const response = await axios.get(`/bienes/bien/usuario/${userId}`);
+    const response = await axios.get(`http://localhost:5005/bienes/bien/usuario/${userId}`);
+
     dispatch({
       type: GET_BIENES_USUARIO_SUCCESS,
       payload: response.data.bienes,

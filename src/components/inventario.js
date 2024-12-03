@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchBienesPorUsuario } from '../redux/actions/bienes';
-import { Table, Typography, Spin, Alert, Button, Space, Input } from 'antd';
+import { Table, Typography, Spin, Alert, Button, Space, Input, Modal } from 'antd';
 import { LeftOutlined, HomeOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,19 +10,12 @@ const { Search } = Input;
 const Inventario = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
   const [filteredItems, setFilteredItems] = useState([]);
-  const { items = [], error, loading } = useSelector(state => state.bienes);
+  const [selectedImage, setSelectedImage] = useState(null); // Estado para imagen seleccionada
+  const [isModalVisible, setIsModalVisible] = useState(false); // Estado para el Modal
 
-  useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    const userId = userData?.id;
-
-    if (userId) {
-      dispatch(fetchBienesPorUsuario(userId));  // Llamar a la acción con el userId
-    } else {
-      console.error('ID del usuario no encontrado en localStorage');
-    }
-  }, [dispatch]);
+  const { items = [], error, loading } = useSelector((state) => state.bienes);
 
   useEffect(() => {
     const sortedItems = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -32,7 +24,7 @@ const Inventario = () => {
 
   const handleSearch = (value) => {
     const lowercasedValue = value.toLowerCase();
-    const filtered = items.filter(item =>
+    const filtered = items.filter((item) =>
       (item.tipo && item.tipo.toLowerCase().includes(lowercasedValue)) ||
       (item.marca && item.marca.toLowerCase().includes(lowercasedValue)) ||
       (item.modelo && item.modelo.toLowerCase().includes(lowercasedValue))
@@ -48,27 +40,15 @@ const Inventario = () => {
     navigate('/home');
   };
 
-  // Si el usuario no tiene bienes registrados
-  if (!loading && !filteredItems.length) {
-    return (
-      <div style={{ textAlign: 'center', marginTop: '50px' }}>
-        <Title level={3}>No tienes bienes registrados</Title>
-        <p>Parece que aún no has añadido ningún bien a tu inventario.</p>
-        <Button type="primary" icon={<LeftOutlined />} onClick={handleBack}>
-          Volver a la página anterior
-        </Button>
-      </div>
-    );
-  }
+  const handleImageClick = (image) => {
+    setSelectedImage(image); // Selecciona la imagen
+    setIsModalVisible(true); // Muestra el Modal
+  };
 
-  if (error) {
-    const errorMessage = error.message || 'Ocurrió un error desconocido';
-    return <Alert message="Error" description={errorMessage} type="error" />;
-  }
-
-  if (loading) {
-    return <Spin tip="Cargando..." />;
-  }
+  const handleModalClose = () => {
+    setIsModalVisible(false); // Cierra el Modal
+    setSelectedImage(null); // Limpia la imagen seleccionada
+  };
 
   const columns = [
     {
@@ -88,17 +68,46 @@ const Inventario = () => {
       dataIndex: 'stock',
     },
     {
+      title: 'IMEI',
+      dataIndex: 'imei',
+      render: (imei) => imei || 'No aplica',
+    },
+    {
+      title: 'Foto',
+      dataIndex: 'foto',
+      render: (fotos) =>
+        fotos && fotos.length > 0 ? (
+          <img
+            src={fotos[0]} // Muestra la primera foto
+            alt="Foto del bien"
+            style={{ width: '100px', height: 'auto', cursor: 'pointer' }} // Hacemos clickeable la imagen
+            onClick={() => handleImageClick(fotos[0])} // Maneja el click
+          />
+        ) : (
+          'Sin imagen'
+        ),
+    },
+    {
       title: 'Fecha de creación',
       dataIndex: 'createdAt',
     },
   ];
 
+  if (loading) return <Spin tip="Cargando..." />;
+  if (error) return <Alert message="Error" description={error} type="error" />;
+
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
-        <Button icon={<LeftOutlined />} onClick={handleBack}>Volver</Button>
-        <Button icon={<HomeOutlined />} onClick={handleHome}>Home</Button>
-        <Button icon={<LogoutOutlined />} onClick={handleLogout} danger>Cerrar sesión</Button>
+        <Button icon={<LeftOutlined />} onClick={handleBack}>
+          Volver
+        </Button>
+        <Button icon={<HomeOutlined />} onClick={handleHome}>
+          Home
+        </Button>
+        <Button icon={<LogoutOutlined />} onClick={handleLogout} danger>
+          Cerrar sesión
+        </Button>
         <Search
           placeholder="Buscar por tipo, marca o modelo"
           onSearch={handleSearch}
@@ -107,12 +116,17 @@ const Inventario = () => {
         />
       </Space>
       <Title level={2}>Inventario</Title>
-      <Table
-        dataSource={filteredItems}
-        columns={columns}
-        rowKey="uuid"
-        pagination={{ pageSize: 10 }}
-      />
+      <Table dataSource={filteredItems} columns={columns} rowKey="uuid" pagination={{ pageSize: 10 }} />
+
+      {/* Modal para la imagen */}
+      <Modal
+        visible={isModalVisible}
+        footer={null}
+        onCancel={handleModalClose}
+        centered
+      >
+        <img src={selectedImage} alt="Vista ampliada" style={{ width: '100%' }} />
+      </Modal>
     </div>
   );
 };
