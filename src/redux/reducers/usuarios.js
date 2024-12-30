@@ -57,14 +57,20 @@ import {
     APPROVE_USER_SUCCESS,
     CHECK_USER_REQUEST,
     CHECK_USER_SUCCESS,
-    CHECK_USER_ERROR
-    
+    CHECK_USER_ERROR,
+    REGISTER_USER_THIRD_PARTY_REQUEST,
+    REGISTER_USER_THIRD_PARTY_SUCCESS,
+    REGISTER_USER_THIRD_PARTY_ERROR,
+    FETCH_HISTORIAL_CAMBIOS_REQUEST,
+    FETCH_HISTORIAL_CAMBIOS_SUCCESS,
+    FETCH_HISTORIAL_CAMBIOS_ERROR,    
 } from '../actions/actionTypes';
 
 const initialState = {
     isAuthenticated: false,
     usuarios: [],
     rejectedUsers: [],
+    approvedUsers: [], // Agrega esta línea
     user: null,
     userDetails: {},
     items: [],
@@ -79,7 +85,6 @@ const initialState = {
         bienesVendidos: [],
     },
     transacciones: [], 
-    
 };
 
 
@@ -125,15 +130,17 @@ const usuariosReducer = (state = initialState, action) => {
                 ...state,
                 loading: true
             };
-        case LOGIN_SUCCESS:
-            return {
-                ...state,
-                isAuthenticated: true,
-                user: action.payload.usuario,
-                token: action.payload.token,
-                loading: false,
-                error: null,
-            };
+            case LOGIN_SUCCESS:
+                return {
+                    ...state,
+                    isAuthenticated: true,
+                    user: action.payload.usuario,
+                    role: action.payload.usuario.rolDefinitivo, // Guarda el rol en el estado global
+                    token: action.payload.token,
+                    loading: false,
+                    error: null,
+                };
+            
         case LOGIN_FAIL:
             return {
                 ...state,
@@ -198,15 +205,18 @@ const usuariosReducer = (state = initialState, action) => {
                 ...state,
                 loading: true
             };
-        case ASSIGN_ROLE_SUCCESS:
-            return {
-                ...state,
-                userDetails: {
+            case ASSIGN_ROLE_SUCCESS:
+                console.log('Payload de ASSIGN_ROLE_SUCCESS:', action.payload);
+                return {
+                  ...state,
+                  userDetails: {
                     ...state.userDetails,
-                    rolTemporal: action.payload.rolTemporal
-                },
-                loading: false
-            };
+                    rolDefinitivo: action.payload.usuario.rolDefinitivo,
+                  },
+                  loading: false,
+                };
+              
+              
         case ASSIGN_ROLE_ERROR:
             return {
                 ...state,
@@ -393,8 +403,13 @@ const usuariosReducer = (state = initialState, action) => {
             };
             case FETCH_APPROVED_USERS_REQUEST:
                 return { ...state, loading: true, error: null };
-            case FETCH_APPROVED_USERS_SUCCESS:
-                return { ...state, loading: false, usuarios: action.payload }; // Asegúrate de que el payload sea el array de usuarios
+                case FETCH_APPROVED_USERS_SUCCESS:
+                    return {
+                        ...state,
+                        loading: false,
+                        approvedUsers: action.payload, // Asigna los usuarios aprobados al array correcto
+                    };
+                
             case FETCH_APPROVED_USERS_FAILURE:
                 return { ...state, loading: false, error: action.payload };
 
@@ -415,13 +430,13 @@ const usuariosReducer = (state = initialState, action) => {
                         loading: false,
                         error: action.error,
                     };
-
                     case APPROVE_USER_SUCCESS:
-    return {
-        ...state,
-        approvedUsers: [...state.approvedUsers, action.payload],
-        pendingRegistrations: state.pendingRegistrations.filter(user => user.id !== action.payload.id),
-    };
+                        return {
+                            ...state,
+                            approvedUsers: [...state.approvedUsers, action.payload], // Agrega el nuevo usuario aprobado
+                            pendingRegistrations: state.pendingRegistrations.filter(user => user.uuid !== action.payload.uuid),
+                        };
+                    
     case CHECK_USER_REQUEST:
             return { ...state, loading: true, error: null };
         case CHECK_USER_SUCCESS:
@@ -429,11 +444,48 @@ const usuariosReducer = (state = initialState, action) => {
         case CHECK_USER_ERROR:
             return { ...state, loading: false, error: action.error };
 
-    
-   
+            case REGISTER_USER_THIRD_PARTY_REQUEST:
+                return {
+                  ...state,
+                  loading: true,
+                  error: null,
+                };
+              case REGISTER_USER_THIRD_PARTY_SUCCESS:
+                return {
+                  ...state,
+                  loading: false,
+                  usuario: action.payload,
+                };
+              case REGISTER_USER_THIRD_PARTY_ERROR:
+                return {
+                  ...state,
+                  loading: false,
+                  error: action.error,
+                };
+
+                // Fetch historial de cambios
+case FETCH_HISTORIAL_CAMBIOS_REQUEST:
+    return {
+        ...state,
+        loading: true,
+    };
+case FETCH_HISTORIAL_CAMBIOS_SUCCESS:
+    return {
+        ...state,
+        historialCambios: action.payload,
+        loading: false,
+    };
+case FETCH_HISTORIAL_CAMBIOS_ERROR:
+    return {
+        ...state,
+        loading: false,
+        error: action.error,
+    };
+
         default:
             return state;
-    }
+    };
+    
 
     
 };

@@ -34,24 +34,18 @@ const UserProfile = () => {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    // Recuperar datos del usuario desde localStorage
     const storedUser = JSON.parse(localStorage.getItem('userData')) || {};
-
+    console.log('Usuario almacenado:', storedUser); // Log para verificar
     setFormData({
-      id: storedUser.id || '', // Incluye el ID del usuario
+      id: storedUser.uuid || '', // Asegúrate de cargar el UUID
       nombre: storedUser.nombre || '',
       apellido: storedUser.apellido || '',
       dni: storedUser.dni || '',
       email: storedUser.email || '',
-      contraseña: '', // Por seguridad, no almacenamos contraseñas en localStorage
-      direccion: storedUser.direccion || {
-        calle: '',
-        altura: '',
-        barrio: '',
-        departamento: '',
-      },
+      direccion: storedUser.direccion || { calle: '', altura: '', barrio: '', departamento: '' },
     });
   }, []);
+  
 
   const handleEdit = () => {
     setEditing(true);
@@ -73,15 +67,9 @@ const UserProfile = () => {
   };
 
   const handleSave = () => {
-    if (formData.nombre.trim() === '' || formData.apellido.trim() === '') {
-      notification.error({
-        message: 'Error',
-        description: 'Por favor, complete todos los campos obligatorios.',
-      });
-      return;
-    }
+    const { id: uuid, ...userData } = formData; // Extraer el UUID (id)
 
-    if (!formData.id) {
+    if (!uuid) {
       notification.error({
         message: 'Error',
         description: 'No se pudo identificar al usuario.',
@@ -89,24 +77,28 @@ const UserProfile = () => {
       return;
     }
 
-    dispatch(updateUser(formData.id, formData))
+    console.log('UUID que se envía:', uuid); // Log para depurar que el UUID está correcto
+
+    dispatch(updateUser(uuid, userData)) // Asegúrate de enviar el UUID
       .then(() => {
         setEditing(false);
         notification.success({
           message: 'Éxito',
           description: 'Datos actualizados correctamente!',
         });
-
-        // Actualizar localStorage
-        localStorage.setItem('userData', JSON.stringify(formData));
+        localStorage.setItem('userData', JSON.stringify(formData)); // Actualiza localStorage
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error('Error en la actualización:', error);
         notification.error({
           message: 'Error',
           description: 'Hubo un problema al actualizar los datos.',
         });
       });
-  };
+};
+
+  
+  
 
   const handleLogout = () => {
     dispatch(logout());

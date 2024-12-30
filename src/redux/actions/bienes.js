@@ -1,10 +1,14 @@
+
+import api from '../axiosConfig';
 import axios from '../axiosConfig';
 import { message } from 'antd';
 import prepareFormData from '../../utils/prepareFormData';  // Ajusta la ruta si es necesario
 
 
+
 import {
     FETCH_BIENES,
+    FETCH_BIENES_FAILURE,
     ADD_BIEN,
     ADD_BIEN_REQUEST,
     ADD_BIEN_ERROR,
@@ -23,6 +27,7 @@ import {
     COMPRA_SUCCESS,
     COMPRA_ERROR,
     REGISTRAR_COMPRA_EXITO,
+    REGISTRAR_COMPRA_ERROR,
     FETCH_TRAZABILIDAD_REQUEST,
     FETCH_TRAZABILIDAD_SUCCESS,
     FETCH_TRAZABILIDAD_ERROR,
@@ -30,6 +35,9 @@ import {
     GET_BIENES_USUARIO_SUCCESS,
     GET_BIENES_USUARIO_FAILURE,
 } from './actionTypes';
+
+
+
 
 const handleRequestError = (error) => {
   if (error.response) {
@@ -48,81 +56,65 @@ const handleRequestError = (error) => {
 // Función para obtener el token del localStorage
 const getToken = () => localStorage.getItem('token');
 
-// Acción para obtener todos los bienes disponibles
 export const fetchAllBienes = () => async (dispatch) => {
-    dispatch({ type: FETCH_BIENES_REQUEST });
+  dispatch({ type: FETCH_BIENES_REQUEST });
 
-    try {
-        const token = getToken();
-        if (!token) throw new Error('Token no encontrado en localStorage');
-
-        const response = await axios.get('/bienes', {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        });
-
-        dispatch({ type: FETCH_BIENES_SUCCESS, payload: response.data });
-    } catch (error) {
-        dispatch({ type: FETCH_BIENES_ERROR, payload: error.response ? error.response.data : error.message });
-    }
-};
-
-// Acción para obtener los bienes del usuario
-export const fetchBienes = (userId) => async (dispatch) => {
-    dispatch({ type: FETCH_BIENES_REQUEST });
-
-    try {
-        const token = getToken();
-        if (!token) throw new Error('Token no encontrado en localStorage');
-        if (!userId) throw new Error('ID de usuario no encontrado');
-
-        const response = await axios.get(`/bienes/usuario/${userId}/stock`, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        });
-        
-        console.log(response.data);  // Verifica la estructura de los datos
-        
-        dispatch({ type: FETCH_BIENES_SUCCESS, payload: response.data });
-        
-    } catch (error) {
-        dispatch({ type: FETCH_BIENES_ERROR, payload: error.response ? error.response.data : error.message });
-    }
-};
-// Acción para agregar un nuevo bien
-export const addBien = (formData) => async (dispatch) => {
-  dispatch({ type: ADD_BIEN_REQUEST }); // Despacha el inicio de la solicitud
   try {
-    const response = await axios.post('/bienes/add/', formData);
-
-    if (response && response.data) {
-      dispatch({ type: ADD_BIEN_SUCCESS, payload: response.data });
-      return response.data; // Retornar los datos para manejar en el componente
-    } else {
-      throw new Error('Respuesta del servidor no contiene datos.');
-    }
+    const response = await api.get('/bienes');
+    const sortedBienes = response.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    dispatch({ type: FETCH_BIENES_SUCCESS, payload: sortedBienes });
   } catch (error) {
-    console.error('Error al agregar el bien:', error);
-
-    if (error.response) {
-      console.error('Respuesta del servidor:', error.response.data);
-    }
-
-    dispatch({
-      type: ADD_BIEN_ERROR,
-      payload: error.response ? error.response.data.message || error.response.data : error.message,
-    });
-
-    throw new Error(
-      error.response
-        ? error.response.data.message || 'Error al agregar el bien.'
-        : 'Error de conexión con el servidor.'
-    );
+    dispatch({ type: FETCH_BIENES_ERROR, payload: error.message });
   }
 };
 
+
+// Acción para obtener los bienes del usuario 
+export const fetchBienes = (uuid) => async (dispatch) => {
+  dispatch({ type: FETCH_BIENES_REQUEST });
+
+  try {
+    const response = await axios.get(`/bienes/usuario/${uuid}`);
+    console.log('Datos recibidos:', response.data);
+
+    dispatch({
+      type: FETCH_BIENES_SUCCESS,
+      payload: response.data,
+    });
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Error en fetchBienes:', error);
+
+    dispatch({
+      type: FETCH_BIENES_ERROR,
+      payload: error.response?.data || error.message,
+    });
+
+    return { success: false, error: error.response?.data || error.message };
+  }
+};
+
+
+
+
+
+// Acción para agregar un nuevo bien
+export const addBien = (formData) => async (dispatch) => {
+  dispatch({ type: ADD_BIEN_REQUEST });
+
+  try {
+    const response = await axios.post('/bienes/add', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    dispatch({ type: ADD_BIEN_SUCCESS, payload: response.data });
+    return response.data;
+  } catch (error) {
+    const errorMessage = handleRequestError(error);
+    dispatch({ type: ADD_BIEN_ERROR, payload: errorMessage });
+    throw new Error(errorMessage);
+  }
+};
 
 
 
@@ -173,63 +165,60 @@ export const updateBien = (uuid, bienData) => async dispatch => {
 
 
 // Acción para registrar una venta
-// Acción para registrar una venta
 export const registrarVenta = (ventaData) => async (dispatch) => {
-    try {
-        // Log para verificar los datos que se envían
-        console.log('Datos de venta que se envían al backend:', ventaData);
-        
-        const token = getToken();
-        const response = await axios.post('bienes/vender', ventaData, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        // Log para verificar la respuesta del backend
-        console.log('Respuesta del backend:', response.data);
-
-        dispatch({ type: REGISTRAR_VENTA_EXITO, payload: response.data });
-        dispatch({ type: UPDATE_STOCK, payload: response.data.bien });
-    } catch (error) {
-        // Log para verificar el error en caso de que ocurra
-        console.error('Error al registrar la venta:', error.response ? error.response.data : error.message);
-        
-        dispatch({
-            type: REGISTRAR_VENTA_ERROR,
-            payload: error.response ? error.response.data : error.message
-        });
-    }
-};
-
-
-
-
-
-export const registrarCompra = (formDataToSend) => async (dispatch) => {
   try {
-    const config = {
+    const token = localStorage.getItem('token'); // O donde almacenes el token
+
+    const response = await fetch('http://localhost:5005/transacciones/vender', {
+      method: 'POST',
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`, // Envía el token aquí
       },
-    };
-
-    const response = await axios.post('/bienes/comprar', formDataToSend, config);
-    
-    dispatch({
-      type: 'REGISTRAR_COMPRA_SUCCESS',
-      payload: response.data,
+      body: JSON.stringify(ventaData),
     });
 
-    return response.data;
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Error al registrar la venta.');
+    }
+
+    return data; // Retorna la respuesta si es exitosa
   } catch (error) {
-    dispatch({
-      type: 'REGISTRAR_COMPRA_FAIL',
-      payload: error.response && error.response.data.message ? error.response.data.message : error.message,
-    });
-
+    console.error('Error en registrarVenta:', error.message);
     throw error;
   }
 };
 
+
+
+
+// Acción para registrar una compra
+export const registrarCompra = (formData) => async (dispatch) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No se encontró el token de autenticación.');
+    }
+
+    const response = await axios.post('http://localhost:5005/transacciones/comprar', formData, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Enviar el token en el encabezado
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    console.log('Respuesta del servidor en registrarCompra:', response.data);
+
+    return response.data;
+  } catch (error) {
+    console.error('Error en registrarCompra:', error.response?.data || error.message);
+    throw error.response?.data || error.message;
+  }
+};
+
+  
 
 
   
@@ -240,7 +229,7 @@ export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {
 
     try {
         const token = getToken();
-        const response = await axios.get(`/bienes/trazabilidad/${bienUuid}`, {
+        const response = await axios.get(`http://localhost:5005/bienes/trazabilidad/${bienUuid}`, {
             headers: {
                 Authorization: `Bearer ${token}`
             }
@@ -253,22 +242,15 @@ export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {
         dispatch({ type: FETCH_TRAZABILIDAD_ERROR, payload: errorMessage });
     }
 };
-
 export const actualizarStockPorParametros = (updatedData) => async (dispatch) => {
-  const { tipo, marca, modelo, cantidad } = updatedData;
+  const { tipo, marca, modelo, cantidad, tipoOperacion } = updatedData;
 
   // Verificar parámetros requeridos
-  if (!tipo || !marca || !modelo || !cantidad) {
-    const missingParams = [];
-    if (!tipo) missingParams.push('tipo');
-    if (!marca) missingParams.push('marca');
-    if (!modelo) missingParams.push('modelo');
-    if (!cantidad) missingParams.push('cantidad');
-
-    throw new Error(`Faltan parámetros requeridos: ${missingParams.join(', ')}`);
+  if (!tipo || !marca || !modelo || !cantidad || !tipoOperacion) {
+    throw new Error('Faltan parámetros requeridos: tipo, marca, modelo, cantidad, tipoOperacion.');
   }
 
-  console.log('Datos recibidos en actualizarStockPorParametros:', updatedData);
+  console.log('Datos enviados para actualizar stock:', updatedData);
 
   try {
     const response = await axios.put('/bienes/actualizar-por-parametros', updatedData);
@@ -276,27 +258,20 @@ export const actualizarStockPorParametros = (updatedData) => async (dispatch) =>
     if (response && response.data) {
       dispatch({
         type: UPDATE_STOCK,
-        payload: response.data, // Actualización exitosa del stock
+        payload: response.data, // Actualización exitosa
       });
       return response.data;
     } else {
       throw new Error('La respuesta del servidor no contiene datos.');
     }
   } catch (error) {
-    if (error.response) {
-      console.error('Error al actualizar stock:', error.response.data);
-      throw new Error(
-        error.response.data.message || 'Error al actualizar stock desde el servidor.'
-      );
-    } else if (error.request) {
-      console.error('Error de solicitud:', error.request);
-      throw new Error('No se recibió respuesta del servidor al intentar actualizar el stock.');
-    } else {
-      console.error('Error en configuración de solicitud:', error.message);
-      throw new Error(`Error al actualizar stock: ${error.message}`);
-    }
+    console.error('Error al actualizar stock:', error);
+    throw new Error(
+      error.response?.data?.message || 'Error al actualizar el stock desde el servidor.'
+    );
   }
 };
+
 
 
 export const fetchBienesStock = (search = '', userId) => async (dispatch) => {
@@ -339,15 +314,18 @@ export const fetchBienesStock = (search = '', userId) => async (dispatch) => {
 
 
 // Acción para obtener bienes de un usuario específico
-export const fetchBienesPorUsuario = (userId) => async (dispatch) => {
+// Acción para obtener bienes de un usuario específico
+export const fetchBienesPorUsuario = (uuid) => async (dispatch) => {
   dispatch({ type: GET_BIENES_USUARIO_REQUEST });
 
   try {
-    const response = await axios.get(`http://localhost:5005/bienes/bien/usuario/${userId}`);
+    // El frontend usa 'uuid' en lugar de 'userId'
+    const response = await axios.get(`/bienes/usuario/${uuid}`);
+    console.log('Bienes del usuario:', response.data);
 
     dispatch({
       type: GET_BIENES_USUARIO_SUCCESS,
-      payload: response.data.bienes,
+      payload: response.data,
     });
   } catch (error) {
     dispatch({
@@ -357,4 +335,34 @@ export const fetchBienesPorUsuario = (userId) => async (dispatch) => {
   }
 };
 
-  
+
+
+export const agregarMarca = (tipo, marca) => async (dispatch) => {
+  try {
+    const response = await axios.post('bienes/bienes/marcas', { tipo, marca });
+    return response.data;
+  } catch (error) {
+    console.error('Error al agregar marca:', error);
+    throw error;
+  }
+};
+
+export const agregarModelo = (tipo, marca, modelo) => async (dispatch) => {
+  try {
+    const response = await axios.post('bienes/bienes/modelos', { tipo, marca, modelo });
+    return response.data;
+  } catch (error) {
+    console.error('Error al agregar modelo:', error);
+    throw error;
+  }
+};
+
+export const actualizarStock = (params) => async (dispatch) => {
+  try {
+    const response = await axios.put('/bienes/actualizar-stock', params);
+    dispatch({ type: UPDATE_STOCK, payload: response.data });
+  } catch (error) {
+    console.error('Error al actualizar stock:', error);
+    throw error;
+  }
+};

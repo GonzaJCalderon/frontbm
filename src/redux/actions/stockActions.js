@@ -1,3 +1,4 @@
+import axios from 'axios';
 import api from '../axiosConfig'; // Importa tu instancia de Axios
 import { 
     UPDATE_STOCK, 
@@ -7,7 +8,12 @@ import {
     REGISTRAR_COMPRA_ERROR,
     UPDATE_STOCK_REQUEST,
     UPDATE_STOCK_SUCCESS, 
-    UPDATE_STOCK_FAILURE
+    UPDATE_STOCK_FAILURE,
+    UPLOAD_STOCK_REQUEST, 
+    UPLOAD_STOCK_SUCCESS, 
+    UPLOAD_STOCK_FAILURE, 
+    STOCK_IMAGES_UPLOAD_SUCCESS,
+    STOCK_IMAGES_UPLOAD_FAIL,
 } from './actionTypes';
 
 export const registrarVenta = (ventaData) => async (dispatch) => {
@@ -61,30 +67,93 @@ export const registrarCompra = (compraData) => async (dispatch, getState) => {
     }
 };
 
-export const uploadStockExcel = (file) => async (dispatch) => {
+export const finalizarCreacionBienes = (bienes) => async (dispatch) => {
     try {
-        dispatch({ type: FETCH_USUARIO_COMPRAS_VENTAS_REQUEST });
+        const response = await api.post('/excel/finalizar-creacion', { bienes });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const uploadStockExcel = (file, propietario_uuid) => async (dispatch) => {
+    dispatch({ type: UPLOAD_STOCK_REQUEST });
+
+    const formData = new FormData();
+    formData.append('archivoExcel', file);
+
+    try {
+        console.log('Iniciando subida de archivo Excel:', file); // Log para verificar el archivo enviado
+        console.log('Propietario UUID:', propietario_uuid);
+
+        const response = await api.post('/excel/upload-stock', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'X-Propietario-UUID': propietario_uuid,
+            },
+        });
+
+        console.log('Respuesta del servidor al subir la planilla:', response.data); // Log para verificar respuesta
+
+        dispatch({ type: UPLOAD_STOCK_SUCCESS, payload: response.data });
+        return Promise.resolve(response.data);
+    } catch (error) {
+        console.error('Error al subir el archivo Excel:', error);
+        dispatch({
+            type: UPLOAD_STOCK_FAILURE,
+            payload: error.response?.data?.message || 'Error al subir el archivo.',
+        });
+        return Promise.reject(error);
+    }
+};
+
+
+export const uploadStockImages = (mapaFotos) => async (dispatch) => {
+    try {
+        if (!mapaFotos || typeof mapaFotos !== 'object') {
+            throw new Error('El mapa de fotos no es válido.');
+        }
 
         const formData = new FormData();
-        formData.append('archivoExcel', file);
 
-        const response = await api.post('/bienes/subir-stock', formData, {
+        Object.keys(mapaFotos).forEach((bienId) => {
+            const fotos = mapaFotos[bienId];
+            if (Array.isArray(fotos)) {
+                fotos.forEach((foto) => {
+                    formData.append(`fotos[${bienId}]`, foto);
+                });
+            }
+        });
+
+        console.log('Enviando fotos con el siguiente mapa:', mapaFotos);
+
+        const response = await api.post('/excel/subir-fotos', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
         });
 
+        console.log('Respuesta del servidor:', response.data);
+
         dispatch({
-            type: FETCH_USUARIO_COMPRAS_VENTAS_SUCCESS,
+            type: STOCK_IMAGES_UPLOAD_SUCCESS,
             payload: response.data,
         });
+
+        return Promise.resolve(response.data);
     } catch (error) {
+        console.error('Error en uploadStockImages:', error);
         dispatch({
-            type: FETCH_USUARIO_COMPRAS_VENTAS_ERROR,
-            payload: error.message,
+            type: STOCK_IMAGES_UPLOAD_FAIL,
+            payload: error.message || 'Error desconocido al subir las imágenes',
         });
+        return Promise.reject(error);
     }
 };
+
+
+
+
 
 export const fetchUsuarioComprasVentas = (userId) => async (dispatch) => {
     dispatch({ type: FETCH_USUARIO_COMPRAS_VENTAS_REQUEST });

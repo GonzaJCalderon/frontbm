@@ -1,39 +1,106 @@
-// src/components/UsuarioDetails.js
-
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { getUserIdFromCookies } from '../utils/cookieutils'; // Asegúrate de que la ruta sea correcta
+import { useDispatch } from 'react-redux';
+import { fetchUsuarioDetails } from '../redux/actions/usuarios';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button, notification } from 'antd';
+import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 
-const UsuarioDetalles = () => {
-    const [usuario, setUsuario] = useState(null);
-    const [error, setError] = useState(null);
+const UsuarioDetails = () => {
+  const { id } = useParams();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const [usuario, setUsuario] = useState(null);
+  const [error, setError] = useState(null);
 
-    const userId = getUserIdFromCookies(); // Ahora está importada
+  useEffect(() => {
+    dispatch(fetchUsuarioDetails(id))
+      .then((response) => setUsuario(response))
+      .catch((err) => {
+        const errorMessage = err.message || 'Error al obtener los detalles del usuario.';
+        setError(errorMessage);
+        notification.error({
+          message: 'Error',
+          description: errorMessage,
+        });
+      });
+  }, [dispatch, id]);
 
-    useEffect(() => {
-        if (userId) {
-            axios.get(`http://localhost:5000/usuarios/${userId}`)
-                .then(response => {
-                    setUsuario(response.data);
-                })
-                .catch(err => {
-                    setError(err);
-                });
-        } else {
-            setError('User ID is not defined');
-        }
-    }, [userId]);
+  if (error) {
+    return <div className="text-red-500 text-center">{error}</div>;
+  }
 
-    if (error) return <div>Error: {error.message}</div>;
-    if (!usuario) return <div>Cargando...</div>;
+  if (!usuario) {
+    return <div className="text-center">Cargando datos del usuario...</div>;
+  }
 
-    return (
-        <div>
-            <h2>{usuario.nombre}</h2>
-            <p>Email: {usuario.email}</p>
-            {/* Más detalles del usuario */}
+  const {
+    nombre,
+    apellido,
+    email,
+    dni,
+    direccion,
+    rolDefinitivo,
+    razonSocial,
+    fechaAprobacion,
+  } = usuario || {};
+  const { calle, altura, barrio, departamento } = direccion || {};
+
+  // Construcción del enlace y la URL del iframe de Google Maps
+  const addressString = `${calle || ''} ${altura || ''}, ${barrio || ''}, ${departamento || ''}`;
+  const googleMapsURL = `https://www.google.com/maps?q=${encodeURIComponent(addressString)}&output=embed`;
+
+  return (
+    <div className="p-6 bg-gray-100 min-h-screen">
+      <div className="flex justify-between items-center mb-4">
+        <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate('/usuarios')}>
+          Volver
+        </Button>
+        <Button type="primary" icon={<LogoutOutlined />} onClick={() => navigate('/home')}>
+          Cerrar Sesión
+        </Button>
+      </div>
+
+      <h1 className="text-2xl font-bold mb-4">Detalles del Usuario</h1>
+
+      <div className="bg-white p-4 rounded shadow-md">
+        <p><strong>Nombre:</strong> {nombre || 'No disponible'}</p>
+        <p><strong>Apellido:</strong> {apellido || 'No disponible'}</p>
+        <p><strong>Email:</strong> {email || 'No disponible'}</p>
+        <p><strong>DNI:</strong> {dni || 'No disponible'}</p>
+        <p><strong>Razón Social:</strong> {razonSocial || 'No disponible'}</p>
+        <p><strong>Rol:</strong> {rolDefinitivo || 'No disponible'}</p>
+        <p>
+          <strong>Dirección:</strong>{' '}
+          {direccion ? (
+            <a href={`https://www.google.com/maps?q=${encodeURIComponent(addressString)}`} target="_blank" rel="noopener noreferrer">
+              {addressString}
+            </a>
+          ) : (
+            'No disponible'
+          )}
+        </p>
+        <p>
+          <strong>Fecha de Aprobación:</strong>{' '}
+          {fechaAprobacion ? new Date(fechaAprobacion).toLocaleDateString() : 'No disponible'}
+        </p>
+      </div>
+
+      {direccion && (
+        <div className="mt-6">
+          <h2 className="text-lg font-bold mb-2">Ubicación en el Mapa</h2>
+          <iframe
+            title="Google Maps"
+            src={googleMapsURL}
+            width="100%"
+            height="400"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+          />
         </div>
-    );
+      )}
+    </div>
+  );
 };
 
-export default UsuarioDetalles;
+export default UsuarioDetails;

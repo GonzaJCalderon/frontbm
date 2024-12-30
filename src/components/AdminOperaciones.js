@@ -8,7 +8,7 @@ import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/ico
 const { Title } = Typography;
 
 const AdminOperaciones = () => {
-    const { userId } = useParams();
+    const { uuid } = useParams();
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
@@ -19,20 +19,20 @@ const AdminOperaciones = () => {
     const transaccionesPorPagina = 10;
 
     useEffect(() => {
-        if (userId) {
+        if (uuid) {
             dispatch(fetchUsuarios());
-            dispatch(fetchTransaccionesByAdmin(userId));
+            dispatch(fetchTransaccionesByAdmin(uuid));
         }
-    }, [dispatch, userId]);
+    }, [dispatch, uuid]);
 
     const transaccionesArray = Array.isArray(transacciones) ? transacciones : [];
 
     // Separar las transacciones en compras y ventas
     const compras = transaccionesArray
-        .filter(transaccion => transaccion.compradorId === parseInt(userId))
+        .filter(transaccion => transaccion.comprador_uuid === uuid) // Filtrar por comprador_uuid
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
     const ventas = transaccionesArray
-        .filter(transaccion => transaccion.vendedorId === parseInt(userId))
+        .filter(transaccion => transaccion.vendedor_uuid === uuid) // Filtrar por vendedor_uuid
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
     // Función para renderizar la dirección
@@ -44,16 +44,16 @@ const AdminOperaciones = () => {
     const columnsCompras = [
         {
             title: 'Imagen',
-            dataIndex: ['bien', 'foto'],
+            dataIndex: 'fotos', // Cambiar de ['bien', 'fotos'] a 'fotos'
             key: 'imagen',
-            render: (text, record) => {
-                return Array.isArray(record.bien?.foto) && record.bien.foto.length > 0 ? (
-                    record.bien.foto.map((url, index) => (
+            render: (fotos) => {
+                return Array.isArray(fotos) && fotos.length > 0 ? (
+                    fotos.map((url, index) => (
                         <Image
                             key={index}
                             width={80}
                             src={url}
-                            alt={record.bien.descripcion || 'Imagen del bien'}
+                            alt="Imagen del bien"
                             onError={(e) => {
                                 e.target.src = '/images/placeholder.png';
                             }}
@@ -64,20 +64,20 @@ const AdminOperaciones = () => {
                 );
             },
         },
-        { title: 'Descripción', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
-        { title: 'Marca', dataIndex: ['bien', 'marca'], key: 'marca' },
-        { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
-        { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
+        { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
+        { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
+        { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
+        { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' },  // Accediendo correctamente al campo tipo
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
         {
             title: 'Vendedor',
             render: (text, record) => (
                 <span>
-                    {record.vendedor.nombre} {record.vendedor.apellido} <br />
-                    DNI: {record.vendedor.dni} <br />
-                    CUIT: {record.vendedor.cuit} <br />
-                    Email: {record.vendedor.email} <br />
-                    Dirección: {renderDireccion(record.vendedor.direccion)} <br />
+                    {record.vendedorTransaccion.nombre} {record.vendedorTransaccion.apellido} <br />
+                    DNI: {record.vendedorTransaccion.dni} <br />
+                    CUIT: {record.vendedorTransaccion.cuit} <br />
+                    Email: {record.vendedorTransaccion.email} <br />
+                    Dirección: {renderDireccion(record.vendedorTransaccion.direccion)} <br />
                 </span>
             ),
             key: 'vendedor',
@@ -92,16 +92,16 @@ const AdminOperaciones = () => {
     const columnsVentas = [
         {
             title: 'Imagen',
-            dataIndex: ['bien', 'foto'],
+            dataIndex: 'fotos', // Cambiar de ['bien', 'fotos'] a 'fotos'
             key: 'imagen',
-            render: (text, record) => {
-                return Array.isArray(record.bien?.foto) && record.bien.foto.length > 0 ? (
-                    record.bien.foto.map((url, index) => (
+            render: (fotos) => {
+                return Array.isArray(fotos) && fotos.length > 0 ? (
+                    fotos.map((url, index) => (
                         <Image
                             key={index}
                             width={80}
                             src={url}
-                            alt={record.bien.descripcion || 'Imagen del bien'}
+                            alt="Imagen del bien"
                             onError={(e) => {
                                 e.target.src = '/images/placeholder.png';
                             }}
@@ -112,20 +112,20 @@ const AdminOperaciones = () => {
                 );
             },
         },
-        { title: 'Descripción', dataIndex: ['bien', 'descripcion'], key: 'descripcion' },
-        { title: 'Marca', dataIndex: ['bien', 'marca'], key: 'marca' },
-        { title: 'Modelo', dataIndex: ['bien', 'modelo'], key: 'modelo' },
-        { title: 'Tipo', dataIndex: ['bien', 'tipo'], key: 'tipo' },
+        { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
+        { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
+        { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
+        { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' }, // Accediendo correctamente al campo tipo
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
         {
             title: 'Comprador',
             render: (text, record) => (
                 <span>
-                    {record.comprador.nombre} {record.comprador.apellido} <br />
-                    DNI: {record.comprador.dni} <br />
-                    CUIT: {record.comprador.cuit} <br />
-                    Email: {record.comprador.email} <br />
-                    Dirección: {renderDireccion(record.comprador.direccion)} <br />
+                    {record.compradorTransaccion.nombre} {record.compradorTransaccion.apellido} <br />
+                    DNI: {record.compradorTransaccion.dni} <br />
+                    CUIT: {record.compradorTransaccion.cuit} <br />
+                    Email: {record.compradorTransaccion.email} <br />
+                    Dirección: {renderDireccion(record.compradorTransaccion.direccion)} <br />
                 </span>
             ),
             key: 'comprador',
@@ -137,7 +137,7 @@ const AdminOperaciones = () => {
         },
     ];
 
-    const usuario = usuarios.find(u => u.id === parseInt(userId));
+    const usuario = usuarios.find(u => u.uuid === uuid);
     const nombreCompleto = usuario
         ? `${usuario.nombre || 'Sin nombre'} ${usuario.apellido || ''}`.trim()
         : 'Sin nombre';
@@ -145,7 +145,7 @@ const AdminOperaciones = () => {
     if (loading) {
         return <Spin tip="Cargando..." />;
     }
-    
+
     if (error) {
         return <Alert message="Error" description={error} type="error" />;
     }
@@ -167,7 +167,7 @@ const AdminOperaciones = () => {
                     Cerrar Sesión
                 </Button>
             </Space>
-            
+
             <Title level={2}>Operaciones de {nombreCompleto}</Title>
 
             <div>
@@ -181,7 +181,7 @@ const AdminOperaciones = () => {
                         total: compras.length,
                         onChange: (page) => setPaginaCompras(page),
                     }}
-                    rowKey="id"
+                    rowKey="uuid"
                 />
 
                 <Title level={3} style={{ marginTop: '32px' }}>Ventas</Title>
@@ -194,7 +194,7 @@ const AdminOperaciones = () => {
                         total: ventas.length,
                         onChange: (page) => setPaginaVentas(page),
                     }}
-                    rowKey="id"
+                    rowKey="uuid"
                 />
             </div>
         </div>

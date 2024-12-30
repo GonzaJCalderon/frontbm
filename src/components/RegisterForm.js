@@ -22,34 +22,58 @@ const Register = () => {
       calle: '',
       altura: '',
       barrio: '',
-      departamento: '', // El departamento debe estar dentro del objeto direccion
+      departamento: '',
     },
     cuit: '',
     dni: '',
-    tipo: 'persona', // 'persona' o 'juridica'
-    razonSocial: '', // Para 'persona juridica'
+    tipo: 'fisica',
+    razonSocial: '',
   });
-  
+
+  const [errors, setErrors] = useState({
+    email: '',
+    password: '',
+    calle: '',
+    altura: '',
+    cuit: '',
+    dni: '',
+  });
 
   const [showPassword, setShowPassword] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  const {
-    nombre,
-    apellido,
-    email,
-    password,
-    direccion,
-    cuit,
-    dni,
-    tipo,
-    razonSocial,
-    departamento // Agregar el nuevo campo aquí
-  } = formData;
+  const validateField = (name, value) => {
+    let error = '';
+    if (name === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) error = 'Por favor, ingresa un correo electrónico válido.';
+      else if (value.toLowerCase().includes('mail.com')) error = 'Por favor, ingresa un correo electrónico real.';
+    }
 
-  const handleChange = e => {
+    if (name === 'password') {
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(value)) {
+        error = 'La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y caracteres especiales.';
+      }
+    }
+
+    if (name === 'calle' && value.trim() === '') error = 'La calle es obligatoria.';
+    if (name === 'altura' && !/^\d+$/.test(value)) error = 'La altura debe ser un número.';
+    if (name === 'cuit') {
+      const cuitRegex = /^\d{11}$/;
+      if (value && !cuitRegex.test(value)) error = 'El CUIT debe ser un número de 11 dígitos.';
+    }
+    if (name === 'dni') {
+      const dniRegex = /^\d{7,8}$/;
+      if (!dniRegex.test(value)) error = 'El DNI debe ser un número de 7 u 8 dígitos.';
+    }
+
+    setErrors((prev) => ({ ...prev, [name]: error }));
+  };
+
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    if (name === 'calle' || name === 'altura' || name === 'barrio' || name === 'departamento') {
+    if (['calle', 'altura', 'barrio', 'departamento'].includes(name)) {
       setFormData({
         ...formData,
         direccion: { ...formData.direccion, [name]: value },
@@ -57,81 +81,85 @@ const Register = () => {
     } else {
       setFormData({ ...formData, [name]: value });
     }
+    validateField(name, value);
   };
-  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Datos del formulario enviados:', formData);
 
-    try {
-      const resultAction = await dispatch(register(formData));
-
-      if (register.fulfilled.match(resultAction)) {
-        setNotification({
-          message: 'Registro exitoso',
-          type: 'success',
-        });
-      } else {
-        setNotification({
-          message: resultAction.payload || 'Registro fallido',
-          type: 'error',
-        });
-      }
-    } catch (error) {
+    const hasErrors = Object.values(errors).some((err) => err !== '');
+    if (hasErrors) {
       setNotification({
-        message: error.message || 'Error inesperado',
+        message: 'Por favor, corrige los errores antes de enviar.',
         type: 'error',
       });
+      return;
+    }
+
+    if (!formData.direccion.calle || !formData.direccion.altura) {
+      setNotification({
+        message: 'Por favor, ingresa la calle y altura. El barrio es opcional solo si ambos campos están llenos.',
+        type: 'error',
+      });
+      return;
+    }
+    const userData = {
+      ...formData,
+      direccion: {
+          calle: formData.direccion.calle,
+          altura: formData.direccion.altura, // Usa el mismo nombre que en el backend
+          ...(formData.direccion.barrio && { barrio: formData.direccion.barrio }),
+          ...(formData.direccion.departamento && { departamento: formData.direccion.departamento }),
+      },
+      rolDefinitivo: 'usuario',
+  };
+  
+
+    try {
+      const resultAction = await dispatch(register(userData));
+      if (register.fulfilled.match(resultAction)) {
+        setNotification({ message: 'Registro exitoso. Redirigiendo al login...', type: 'success' });
+        setTimeout(() => window.location.href = '/', 3000);
+      } else {
+        setNotification({ message: resultAction.payload || 'Error durante el registro.', type: 'error' });
+      }
+    } catch (error) {
+      setNotification({ message: 'Ocurrió un error inesperado.', type: 'error' });
     }
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const handleCloseNotification = () => {
-    setNotification(null);
-  };
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+  const handleCloseNotification = () => setNotification(null);
 
   return (
     <div className="font-sans bg-white min-h-screen md:flex md:items-center md:justify-center">
       <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto p-6">
         <div className="hidden md:block">
-          <img
-            src={registerImage}
-            className="w-full h-auto object-cover"
-            alt="register-image"
-          />
+          <img src={registerImage} className="w-full h-auto object-cover" alt="register-image" />
         </div>
         <div className="bg-gray-50 p-8 md:p-12 rounded-lg shadow-lg overflow-auto">
-          <h3 className="text-blue-500 text-3xl font-extrabold text-center md:text-left mb-8">
-            Crea una cuenta
-          </h3>
+          <h3 className="text-blue-500 text-3xl font-extrabold text-center md:text-left mb-8">Crea una cuenta</h3>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="tipo">
-                Tipo de Sujeto
-              </label>
-
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="tipo">Tipo de Sujeto</label>
               <div className="flex items-center space-x-4">
                 <label>
                   <input
                     type="radio"
                     name="tipo"
-                    value="persona"
-                    checked={tipo === 'persona'}
+                    value="fisica"
+                    checked={formData.tipo === 'fisica'}
                     onChange={handleChange}
                     className="mr-2"
                   />
-                  Persona
+                  Persona Física
                 </label>
                 <label>
                   <input
                     type="radio"
                     name="tipo"
                     value="juridica"
-                    checked={tipo === 'juridica'}
+                    checked={formData.tipo === 'juridica'}
                     onChange={handleChange}
                     className="mr-2"
                   />
@@ -140,16 +168,14 @@ const Register = () => {
               </div>
             </div>
 
-            {tipo === 'juridica' && (
+            {formData.tipo === 'juridica' && (
               <div className="mb-6">
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="razonSocial">
-                  Razón Social
-                </label>
+                <label className="text-gray-800 text-xs block mb-2" htmlFor="razonSocial">Razón Social</label>
                 <input
                   id="razonSocial"
                   type="text"
                   name="razonSocial"
-                  value={razonSocial}
+                  value={formData.razonSocial}
                   onChange={handleChange}
                   className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                   placeholder="Ingresa la razón social"
@@ -159,28 +185,24 @@ const Register = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="nombre">
-                  Nombre
-                </label>
+                <label className="text-gray-800 text-xs block mb-2" htmlFor="nombre">Nombre</label>
                 <input
                   id="nombre"
                   type="text"
                   name="nombre"
-                  value={nombre}
+                  value={formData.nombre}
                   onChange={handleChange}
                   className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                   placeholder="Ingresa tu nombre"
                 />
               </div>
               <div>
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="apellido">
-                  Apellido
-                </label>
+                <label className="text-gray-800 text-xs block mb-2" htmlFor="apellido">Apellido</label>
                 <input
                   id="apellido"
                   type="text"
                   name="apellido"
-                  value={apellido}
+                  value={formData.apellido}
                   onChange={handleChange}
                   className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                   placeholder="Ingresa tu apellido"
@@ -189,30 +211,27 @@ const Register = () => {
             </div>
 
             <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="email">
-                Correo Electrónico
-              </label>
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="email">Correo Electrónico</label>
               <input
                 id="email"
                 type="email"
                 name="email"
-                value={email}
+                value={formData.email}
                 onChange={handleChange}
                 className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                 placeholder="Ingresa tu correo electrónico"
               />
+              {errors.email && <p className="text-red-500 text-xs mt-2">{errors.email}</p>}
             </div>
 
             <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="password">
-                Contraseña
-              </label>
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="password">Contraseña</label>
               <div className="relative">
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   name="password"
-                  value={password}
+                  value={formData.password}
                   onChange={handleChange}
                   className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                   placeholder="Ingresa tu contraseña"
@@ -222,135 +241,97 @@ const Register = () => {
                   onClick={togglePasswordVisibility}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
-                  {showPassword ? (
-                    <svg
-                      className="w-5 h-5 text-gray-500"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                  ) : (
-                    <svg
-                      className="w-5 h-5 text-gray-500"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                      <path d="M4.93 4.93l14.14 14.14"></path>
-                    </svg>
-                  )}
+                  {showPassword ? 'Ocultar' : 'Mostrar'}
                 </button>
               </div>
+              {errors.password && <p className="text-red-500 text-xs mt-2">{errors.password}</p>}
             </div>
+
             <div className="mb-6">
-  <label className="text-gray-800 text-xs block mb-2" htmlFor="calle">
-    Calle
-  </label>
-  <input
-    id="calle"
-    type="text"
-    name="calle"
-    value={formData.direccion.calle}
-    onChange={handleChange}
-    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-    placeholder="Ingresa la calle"
-  />
-</div>
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="calle">Calle</label>
+              <input
+                id="calle"
+                type="text"
+                name="calle"
+                value={formData.direccion.calle}
+                onChange={handleChange}
+                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                placeholder="Ingresa la calle"
+              />
+              {errors.calle && <p className="text-red-500 text-xs mt-2">{errors.calle}</p>}
+            </div>
 
-<div className="mb-6">
-  <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">
-    Altura
-  </label>
-  <input
-    id="altura"
-    type="text"
-    name="altura"
-    value={formData.direccion.altura}
-    onChange={handleChange}
-    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-    placeholder="Ingresa la altura"
-  />
-</div>
+            <div className="mb-6">
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">Altura</label>
+              <input
+                id="altura"
+                type="text"
+                name="altura"
+                value={formData.direccion.altura}
+                onChange={handleChange}
+                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                placeholder="Ingresa la altura"
+              />
+              {errors.altura && <p className="text-red-500 text-xs mt-2">{errors.altura}</p>}
+            </div>
 
-<div className="mb-6">
-  <label className="text-gray-800 text-xs block mb-2" htmlFor="barrio">
-    Barrio
-  </label>
-  <input
-    id="barrio"
-    type="text"
-    name="barrio"
-    value={formData.direccion.barrio}
-    onChange={handleChange}
-    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-    placeholder="Ingresa el barrio"
-  />
-</div>
+            <div className="mb-6">
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="barrio">Barrio</label>
+              <input
+                id="barrio"
+                type="text"
+                name="barrio"
+                value={formData.direccion.barrio}
+                onChange={handleChange}
+                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                placeholder="Ingresa el barrio"
+              />
+            </div>
 
-{/* Departamento */}
-<div className="mb-6">
-  <label className="text-gray-800 text-xs block mb-2" htmlFor="departamento">
-    Departamento
-  </label>
-  <select
-    id="departamento"
-    name="departamento"
-    value={formData.direccion.departamento}
-    onChange={handleChange}
-    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-  >
-    <option value="">Selecciona un departamento</option>
-    {departments.map((dep, index) => (
-      <option key={index} value={dep}>{dep}</option>
-    ))}
-  </select>
-</div>
-
+            <div className="mb-6">
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="departamento">Departamento</label>
+              <select
+                id="departamento"
+                name="departamento"
+                value={formData.direccion.departamento}
+                onChange={handleChange}
+                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+              >
+                <option value="">Selecciona un departamento</option>
+                {departments.map((dep, index) => (
+                  <option key={index} value={dep}>{dep}</option>
+                ))}
+              </select>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="cuit">
-                  CUIT
-                </label>
+                <label className="text-gray-800 text-xs block mb-2" htmlFor="cuit">CUIT</label>
                 <input
                   id="cuit"
                   type="text"
                   name="cuit"
-                  value={cuit}
+                  value={formData.cuit}
                   onChange={handleChange}
                   className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                   placeholder="Ingresa tu CUIT"
                 />
+                {errors.cuit && <p className="text-red-500 text-xs mt-2">{errors.cuit}</p>}
               </div>
               <div>
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="dni">
-                  DNI
-                </label>
+                <label className="text-gray-800 text-xs block mb-2" htmlFor="dni">DNI</label>
                 <input
                   id="dni"
                   type="text"
                   name="dni"
-                  value={dni}
+                  value={formData.dni}
                   onChange={handleChange}
                   className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                   placeholder="Ingresa tu DNI"
                 />
+                {errors.dni && <p className="text-red-500 text-xs mt-2">{errors.dni}</p>}
               </div>
             </div>
-
 
             <button
               type="submit"

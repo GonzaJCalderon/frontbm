@@ -6,16 +6,25 @@ export const searchItems = (term, category) => async (dispatch) => {
 
     try {
         const lowerCaseTerm = term.toLowerCase();
-        console.log("Buscando término:", lowerCaseTerm);  // Verifica el término de búsqueda
-        // Enviamos tanto el término como la categoría de búsqueda al backend
-        const response = await api.get(`/search/buscar`, {
-            params: {
-                query: lowerCaseTerm,
-                category: category, // Se incluye la categoría para filtrar la búsqueda
-            }
-        });
+        const userId = localStorage.getItem('userId');
+        const role = localStorage.getItem('role'); // Asumimos que el rol del usuario también se guarda en localStorage
+        console.log("Buscando término:", lowerCaseTerm);
 
-        console.log("Respuesta de la API:", response);  // Imprime la respuesta completa
+        if (!userId || !role) {
+            throw new Error("userId o role no encontrados en localStorage.");
+        }
+
+        const params = { query: lowerCaseTerm, userId, role };
+        if (category && category !== 'todos') {
+            params.category = category;
+        }
+
+        const response = await api.get('/search/buscar', { params });
+        console.log("Respuesta completa de la API:", response);
+console.log("Usuarios:", response.data.usuarios);
+console.log("Bienes:", response.data.bienes);
+
+        console.log("Respuesta de la API:", response);
         dispatch({
             type: SEARCH_SUCCESS,
             payload: {

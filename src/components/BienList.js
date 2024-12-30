@@ -3,7 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchAllBienes } from '../redux/actions/bienes';
 import { useNavigate } from 'react-router-dom';
 import { FaSignOutAlt, FaHome, FaArrowLeft } from 'react-icons/fa';
-import { Table, Image, Alert, Modal, Carousel } from 'antd';
+import { Table, Image, Modal, Carousel, Button } from 'antd';
+import { notification } from 'antd';
 
 const BienList = () => {
     const dispatch = useDispatch();
@@ -13,139 +14,213 @@ const BienList = () => {
     const [visibleGallery, setVisibleGallery] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [visibleImage, setVisibleImage] = useState(false);
-
+    const [trazabilidad, setTrazabilidad] = useState(null); // Estado para almacenar la trazabilidad
+    // Ordenar bienes por fecha de más nuevo a más antiguo
+    
+    
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    const isAdmin = userData?.rolDefinitivo === 'admin';
+    
+    // Redirige si no es admin
+    useEffect(() => {
+        if (!isAdmin) {
+            notification.error({
+                message: 'Acción no permitida',
+                description: 'Solo los administradores pueden gestionar bienes.',
+            });
+            navigate('/home');
+        }
+    }, [isAdmin, navigate]);
+    
     useEffect(() => {
         dispatch(fetchAllBienes());
     }, [dispatch]);
 
-    const handleBienClick = (bien) => {
-        setSelectedBien(bien);
-        navigate(`/admin/trazabilidad/${bien.uuid}`);
+    // Obtener trazabilidad de un bien
+    const obtenerTrazabilidad = async (uuid) => {
+        try {
+            const response = await fetch(`http://localhost:5005/bienes/trazabilidad/${uuid}`);
+            if (!response.ok) {
+                throw new Error('Error al obtener la trazabilidad.');
+            }
+            const data = await response.json();
+            setTrazabilidad(data); // Guardar la trazabilidad en el estado
+            console.log('Trazabilidad:', data);
+        } catch (error) {
+            console.error('Error al obtener trazabilidad:', error);
+            notification.error({
+                message: 'Error',
+                description: 'Hubo un problema al obtener la trazabilidad.',
+            });
+        }
     };
+    
+    const handleBienClick = (bien) => {
+        setSelectedBien(bien); // Guardar el bien seleccionado en el estado
+        if (bien && bien.uuid) { // Verificar que el bien y su uuid existan
+            obtenerTrazabilidad(bien.uuid); // Usar el uuid correcto
+            navigate(`/bienes/trazabilidad/${bien.uuid}`); // Navegar usando el uuid
+        } else {
+            // Manejar el caso donde no hay uuid disponible
+            notification.error({
+                message: 'Error',
+                description: 'El bien seleccionado no tiene un identificador válido.',
+            });
+        }
+    };
+    
+
 
     const closeModal = () => {
         setSelectedBien(null);
     };
-
+    
     const handleLogout = () => {
         navigate('/home');
     };
-
+    
     const showGallery = (images, index) => {
         setCurrentImageIndex(index);
         setVisibleGallery(true);
     };
-
+    
     const closeGallery = () => {
         setVisibleGallery(false);
     };
-
+    
     const openImage = (image) => {
         setVisibleImage(image);
     };
-
+    
     const closeImage = () => {
         setVisibleImage(false);
     };
 
     if (error) {
-        return <Alert message="Error" description={error} type="error" />;
+        return (
+            <div className="text-center mt-10">
+                <h2 className="text-red-500 text-2xl font-bold">Error al cargar los bienes</h2>
+                <p className="text-gray-500">{error}</p>
+                <button
+                    onClick={() => navigate('/home')}
+                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                    >
+                    Ir al inicio
+                </button>
+            </div>
+        );
     }
-
-    if (!bienes) {
-        return <div className="text-center text-gray-500">Cargando bienes...</div>;
+    
+    if (!bienes || bienes.length === 0) {
+        return (
+            <div className="text-center mt-10">
+                <h2 className="text-gray-700 text-2xl font-bold">No hay bienes disponibles</h2>
+                <p className="text-gray-500">Actualmente no hay bienes para mostrar.</p>
+                <button
+                    onClick={() => navigate(-1)}
+                    className="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                    Volver
+                </button>
+            </div>
+        );
     }
-
-    if (bienes.length === 0) {
-        return <div className="text-center text-gray-500">No hay bienes disponibles.</div>;
-    }
-
+    
     // Ordenar bienes por fecha de más nuevo a más antiguo
-    const sortedBienes = bienes.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
+    const sortedBienes = [...bienes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
     const columns = [
         {
             title: 'Tipo',
             dataIndex: 'tipo',
             key: 'tipo',
-            render: text => text || 'N/A',
         },
         {
             title: 'Modelo',
             dataIndex: 'modelo',
             key: 'modelo',
-            render: text => text || 'N/A',
         },
         {
             title: 'Marca',
             dataIndex: 'marca',
             key: 'marca',
-            render: text => text || 'N/A',
         },
         {
             title: 'Descripción',
             dataIndex: 'descripcion',
             key: 'descripcion',
-            render: text => text || 'N/A',
         },
         {
             title: 'Precio',
             dataIndex: 'precio',
             key: 'precio',
-            render: text => text || 'N/A',
+            render: (text) => text ? `$${text}` : 'Sin precio',
         },
         {
+            title: 'Cantidad en Stock',
+            key: 'stock',
+            render: (_, record) => record.stock ? record.stock.cantidad : 'Sin stock',
+        },
+        {
+            title: 'Propietario',
+            key: 'propietario',
+            render: (_, record) =>
+              record.propietario
+                ? `${record.propietario.nombre} ${record.propietario.apellido}`
+                : 'Sin propietario',
+          },
+          
+        {
             title: 'Vendedor',
-            dataIndex: 'vendedor',
             key: 'vendedor',
-            render: (text, record) => record.vendedor ? `${record.vendedor.nombre} ${record.vendedor.apellido}` : 'N/A',
+            render: (_, record) =>
+                record.transacciones && record.transacciones.length > 0 && record.transacciones[0].vendedorTransaccion
+                    ? `${record.transacciones[0].vendedorTransaccion.nombre} ${record.transacciones[0].vendedorTransaccion.apellido}`
+                    : 'No asignado',
         },
         {
             title: 'Comprador',
-            dataIndex: 'comprador',
             key: 'comprador',
-            render: (text, record) => record.comprador ? `${record.comprador.nombre} ${record.comprador.apellido}` : 'N/A',
+            render: (_, record) =>
+                record.transacciones && record.transacciones.length > 0 && record.transacciones[0].compradorTransaccion
+                    ? `${record.transacciones[0].compradorTransaccion.nombre} ${record.transacciones[0].compradorTransaccion.apellido}`
+                    : 'No asignado',
         },
         {
             title: 'Fecha',
-            dataIndex: 'fecha',
+            dataIndex: 'createdAt',
             key: 'fecha',
-            render: text => text ? new Date(text).toLocaleDateString() : 'N/A',
+            render: (text) => text ? new Date(text).toLocaleDateString() : 'Sin fecha',
         },
         {
             title: 'Foto',
-            dataIndex: 'foto',
             key: 'foto',
-            render: (text, record) => (
-                <div onClick={() => showGallery(record.fotos, 0)} style={{ cursor: 'pointer' }}>
-                    {text ? (
-                        <Image
-                            src={text} 
-                            alt="Foto del bien"
-                            width={50}
-                            preview={false}
-                            onClick={() => openImage(text)} 
-                            onError={(e) => {
-                                e.target.src = '/images/defecto.jpg';
-                            }}
-                        />
-                    ) : 'No disponible'}
-                </div>
-            ),
+            render: (_, record) =>
+                record.fotos && record.fotos.length > 0 ? (
+                    <Image
+                        src={record.fotos[0]}
+                        alt="Foto del bien"
+                        width={50}
+                        preview={false}
+                    />
+                ) : 'Sin foto',
         },
         {
             title: 'Acción',
             key: 'action',
-            render: (text, bien) => (
-                <button
+            render: (_, bien) => (
+                <Button
+                    type="primary"
                     onClick={() => handleBienClick(bien)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600"
                 >
                     Ver Trazabilidad
-                </button>
+                </Button>
             ),
         },
     ];
+    
+    
 
     return (
         <div className="container flex-grow p-4">
@@ -179,80 +254,35 @@ const BienList = () => {
             <Table
                 dataSource={sortedBienes}
                 columns={columns}
-                rowKey="id" // Asegúrate de que 'id' es único
+                rowKey="id"
                 pagination={{ pageSize: 10 }}
             />
 
-            {selectedBien && (
-                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg relative w-3/4 md:w-1/2 lg:w-1/3">
-                        <button
-                            onClick={closeModal}
-                            className="absolute top-2 right-2 text-gray-600 hover:text-gray-800"
-                        >
-                            <i className="fas fa-times fa-lg"></i>
-                        </button>
-                        <h3 className="text-xl font-semibold mb-2">Detalles del Bien</h3>
-                        <p><strong>Tipo:</strong> {selectedBien.tipo || 'N/A'}</p>
-                        <p><strong>Modelo:</strong> {selectedBien.modelo || 'N/A'}</p>
-                        <p><strong>Marca:</strong> {selectedBien.marca || 'N/A'}</p>
-                        <p><strong>Descripción:</strong> {selectedBien.descripcion || 'N/A'}</p>
-                        <p><strong>Precio:</strong> {selectedBien.precio || 'N/A'}</p>
-                        <p><strong>Fecha:</strong> {selectedBien.fecha ? new Date(selectedBien.fecha).toLocaleDateString() : 'N/A'}</p>
-                        {selectedBien.fotos && selectedBien.fotos.length > 0 && (
-    <div className="mt-4">
-        <h4 className="text-lg font-semibold">Galería de Imágenes</h4>
-        <img
-            src={selectedBien.fotos[0]} // URL de Cloudinary
-            alt="Foto del bien"
-            className="w-full h-auto rounded-lg cursor-pointer"
-            onClick={() => showGallery(selectedBien.fotos, 0)} // Al hacer clic, abre la galería
-        />
-    </div>
-)}
-
-                        <div className="mt-4">
-                            <h4 className="text-lg font-semibold">Datos del Vendedor</h4>
-                            <p><strong>Nombre:</strong> {selectedBien.vendedor ? `${selectedBien.vendedor.nombre} ${selectedBien.vendedor.apellido}` : 'N/A'}</p>
-                                <p><strong>Email:</strong> {selectedBien.vendedor?.email || 'N/A'}</p>
-                                <p><strong>Dirección:</strong> {selectedBien.vendedor?.direccion ? `${selectedBien.vendedor.direccion.calle || ''}, ${selectedBien.vendedor.direccion.altura || ''}, ${selectedBien.vendedor.direccion.barrio || ''}, ${selectedBien.vendedor.direccion.departamento || ''}` : 'N/A'}</p>
-                            </div>
-        
-                            <div className="mt-4">
-                                <h4 className="text-lg font-semibold">Datos del Comprador</h4>
-                                <p><strong>Nombre:</strong> {selectedBien.comprador ? `${selectedBien.comprador.nombre} ${selectedBien.comprador.apellido}` : 'N/A'}</p>
-                                <p><strong>Email:</strong> {selectedBien.comprador?.email || 'N/A'}</p>
-                                <p><strong>Dirección:</strong> {selectedBien.comprador?.direccion || 'N/A'}</p>
-                            </div>
+            {/* Modal para mostrar la galería de imágenes */}
+            <Modal open={visibleGallery} onCancel={closeGallery} footer={null} width={800}>
+                <Carousel autoplay>
+                    {selectedBien && selectedBien.fotos && selectedBien.fotos.map((foto, index) => (
+                        <div key={index}>
+                            <img
+                                src={foto}
+                                alt={`Foto ${index + 1}`}
+                                style={{ width: '100%', height: 'auto', cursor: 'pointer' }}
+                                onClick={() => openImage(foto)}
+                            />
                         </div>
-                    </div>
-                )}
-        
-                {/* Modal para mostrar la imagen grande */}
-                <Modal visible={visibleImage} footer={null} onCancel={closeImage} width={800}>
-                    <img src={visibleImage} alt="Imagen grande" style={{ width: '100%', height: 'auto' }} />
-                </Modal>
-        
-                {/* Modal para mostrar la galería de imágenes */}
-                <Modal open={visibleGallery} onCancel={closeGallery} footer={null} width={800}>
-                    <Carousel autoplay>
-                        {selectedBien && selectedBien.fotos && selectedBien.fotos.map((foto, index) => (
-                            <div key={index}>
-                                <img
-                                    src={foto} // Cambiar a la URL de Firebase
-                                    alt={`Foto ${index + 1}`}
-                                    style={{ width: '100%', height: 'auto', cursor: 'pointer' }}
-                                    onClick={() => openImage(foto)} // Abre la imagen grande
-                                />
-                            </div>
-                        ))}
-                    </Carousel>
-                </Modal>
-            </div>
-        );
-        
+                    ))}
+                </Carousel>
+            </Modal>
 
-        
+            {/* Modal para mostrar la trazabilidad del bien */}
+            {trazabilidad && (
+                <Modal open={true} onCancel={() => setTrazabilidad(null)} footer={null}>
+                    <h3>Trazabilidad del Bien</h3>
+                    <pre>{JSON.stringify(trazabilidad, null, 2)}</pre> {/* Muestra la trazabilidad */}
+                </Modal>
+            )}
+        </div>
+    );
 };
 
 export default BienList;

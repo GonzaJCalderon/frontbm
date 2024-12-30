@@ -1,525 +1,585 @@
+import axios from 'axios'; 
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Button, Select, message, Typography, notification, Radio, Modal, Upload } from 'antd';
+import { Form, Input, InputNumber, Button, Select, message, Typography, Upload, Modal } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchBienes, addBien, registrarCompra, actualizarStockPorParametros } from '../redux/actions/bienes';
-import { addUsuario, checkExistingUser } from '../redux/actions/usuarios';
+import { fetchBienes, registrarCompra,agregarMarca, agregarModelo } from '../redux/actions/bienes';
+import { checkExistingUser, registerUsuarioPorTercero } from '../redux/actions/usuarios';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, HomeOutlined, LogoutOutlined, UploadOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { Title } = Typography;
 
-// Utilidad para generar UUID
-const generateUUID = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
-
 const departments = [
   'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén', 'Rivadavia',
   'San Martín', 'La Paz', 'Santa Rosa', 'General Alvear', 'Malargüe', 'San Carlos',
-  'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo', ''
-];
-const tiposDeBienes = [
-  'bicicleta', 'TV', 'equipo de audio', 
-  'cámara fotográfica', 'laptop', 'tablet', 'teléfono'
+  'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo'
 ];
 
+const tiposDeBienesIniciales = [
+  'bicicleta', 'TV', 'equipo de audio', 'cámara fotográfica', 'laptop', 'tablet', 'teléfono movil'
+];
 
 const ComprarPage = () => {
-  const [form] = Form.useForm();
+  const [formStep1] = Form.useForm();
+  const [formStep2] = Form.useForm();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { items = [] } = useSelector((state) => state.bienes);
-  // Default a lista vacía
-
-  const [formData, setFormData] = useState({
-    nombre: '',
-    apellido: '',
-    email: '',
-    direccion: { calle: '', altura: '', barrio: '', departamento: '' },
-    cuit: '',
-    dni: '',
-    tipo: 'persona',
-    razonSocial: '',
-    id: null // Asegurar que id esté presente en el estado inicial
-  });
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [fileList, setFileList] = useState([]);
-  const [newBienDetails, setNewBienDetails] = useState([]);
-  const [selectedTipo, setSelectedTipo] = useState('');
-  const [selectedMarca, setSelectedMarca] = useState('');
-  const [selectedModelo, setSelectedModelo] = useState('');
+  const [tiposDeBienes] = useState(tiposDeBienesIniciales);
+  const [marcas, setMarcas] = useState([]);
+  const [modelos, setModelos] = useState([]);
+  const [isVisible, setIsVisible] = useState(false);
+  const handleCancel = () => {
+    setIsVisible(false); // Cierra el Modal
+  };
+  const showModal = () => {
+    setIsVisible(true); // Abre el Modal
+  };
 
-
+  const [vendedorId, setVendedorId] = useState(null);
+  
+  // Estado para manejar nuevas marcas y modelos
   const [nuevaMarca, setNuevaMarca] = useState('');
   const [nuevoModelo, setNuevoModelo] = useState('');
-  const [selectedMetodoPago, setSelectedMetodoPago] = useState('');
-
-  // Obtener tipos de bienes, marcas y modelos disponibles
-  const bienesTipos = items?.length > 0
-  ? [...new Set(items.filter((bien) => bien && bien.tipo).map((bien) => bien.tipo))]
-  : [];
-
-  const marcasDisponibles = items?.length > 0 && selectedTipo
-  ? items.filter((bien) => bien?.tipo === selectedTipo).map((bien) => bien.marca)
-  : [];
+  const [error, setError] = useState(null); // Define el estado para manejar errores
+  const [bienes, setBienes] = useState([]); // Si también necesitas manejar los bienes directamente
+  console.log('Bienes desde Redux:', bienes); // Agregar log
 
 
-const marcasUnicas = [...new Set(marcasDisponibles)];
+  const token = localStorage.getItem('authToken');
+console.log('Token de autenticación:', token);
 
-const modelosDisponibles = items?.length > 0 && selectedTipo && selectedMarca
-? items.filter((bien) => bien?.tipo === selectedTipo && bien?.marca === selectedMarca).map((bien) => bien.modelo)
-: [];
+  const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
 
-  
-
-  const handleFileChange = ({ fileList: newFileList }) => {
-    setFileList(newFileList); // Actualizar el estado de fileList
-  };
+  const uuid = JSON.parse(localStorage.getItem('userData') || '{}').uuid;
 
   useEffect(() => {
-    const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
-    if (usuario && usuario.id) {
-      dispatch(fetchBienes(usuario.id));
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      message.error('Debe iniciar sesión para continuar.');
+      navigate('/login');
     }
-  }, [dispatch]);
+  }, []);
   
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    if (['calle', 'altura', 'barrio', 'departamento'].includes(name)) {
-      setFormData((prevData) => ({
-        ...prevData,
-        direccion: {
-          ...prevData.direccion,
-          [name]: value || '', // Asegura un valor predeterminado
-        },
-      }));
-    } else {
-      setFormData((prevData) => ({
-        ...prevData,
-        [name]: value || '', // Asegura un valor predeterminado
-      }));
-    }
-  };
-  const handleFinishStep1 = async () => {
-    const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
-    if (!usuario) {
-      message.error('No se pudo obtener la información del usuario actual.');
-      return;
-    }
+  useEffect(() => {
+    const cargarBienes = async () => {
+      if (!uuid) {
+        console.error('El UUID del usuario no está disponible.');
+        return;
+      }
   
-    if (!formData.dni || !formData.email) {
-      message.error('Por favor, complete todos los campos requeridos.');
-      return;
-    }
+      try {
+        const response = await dispatch(fetchBienes(uuid));
+        console.log('Respuesta de fetchBienes:', response);
   
-    // Validar que los campos no contengan valores no deseados y asegurar el formato JSON correcto
-    const cleanFormData = {
-      dni: formData.dni.trim(),
-      email: formData.email.trim(),
-      nombre: formData.nombre ? formData.nombre.trim() : undefined,
-      apellido: formData.apellido ? formData.apellido.trim() : undefined,
-      cuit: formData.cuit ? formData.cuit.trim() : undefined,
-    };
-  
-    try {
-      // Verificamos si el usuario ya existe con DNI y email
-      const existingUser = await dispatch(checkExistingUser(cleanFormData.dni, cleanFormData.email, usuario.dni));
-      if (existingUser && existingUser.usuario) {
-        if (existingUser.usuario.dni === usuario.dni) {
-          message.error('No puedes comprar a ti mismo.');
+        if (!response.success) {
+          console.error('Error desde el backend:', response.error);
+          setError(response.error); 
           return;
         }
   
-        setFormData(prevData => ({
-          ...prevData,
-          ...existingUser.usuario,
-          direccion: {
-            ...prevData.direccion,
-            ...existingUser.usuario.direccion,
-          },
-          id: existingUser.usuario.id, 
-        }));
-        setStep(2);
-        message.success('Usuario encontrado, procediendo con la compra.');
-      } else {
-        const newUser = await dispatch(addUsuario(cleanFormData));
-        if (newUser && newUser.usuario) {
-          if (newUser.usuario.dni === usuario.dni) {
-            message.error('No puedes comprar a ti mismo.');
-            return;
-          }
-  
-          setFormData(prevData => ({
-            ...prevData,
-            ...newUser.usuario,
-            direccion: {
-              ...prevData.direccion,
-              ...newUser.usuario.direccion,
-            },
-            id: newUser.usuario.id,
-          }));
-          setStep(2);
-          message.success('Usuario registrado correctamente, procediendo con la compra.');
-        } else {
-          message.error('Error en el registro del usuario.');
-        }
+        console.log('Bienes cargados:', response.data);
+        setBienes(response.data); 
+      } catch (error) {
+        console.error('Error en la llamada fetchBienes:', error);
+        setError('Error al cargar los bienes.');
       }
-    } catch (error) {
-      console.error('Error en handleFinishStep1:', error);
-      message.error(`Error en la verificación del usuario: ${error.message}`);
+    };
+  
+    cargarBienes();
+  }, [dispatch, uuid]);
+  
+  ;
+  const handleTipoChange = async (tipo) => {
+    if (!tipo) {
+      message.warning('Selecciona un tipo para cargar las marcas.');
+      return;
     }
-  };
   
+    const token = localStorage.getItem('authToken'); // Obtén el token desde localStorage
   
-  
-  
-  const handleFinishStep2 = async () => {
     try {
-      setLoading(true);
+      // Llamar al backend para obtener las marcas asociadas al tipo seleccionado
+      const response = await axios.get(`http://localhost:5005/bienes/bienes/marcas?tipo=${tipo}`, {
+        headers: {
+          Authorization: `Bearer ${token}`, // Envía el token en el encabezado
+        },
+      });
   
-      const tipo = selectedTipo;
-      const marca = selectedMarca || nuevaMarca;
-      const modelo = selectedModelo || nuevoModelo;
-      const descripcion = form.getFieldValue('bienDescripcion') || '';
-      const precio = parseFloat(form.getFieldValue('bienPrecio'));
-      const cantidad = parseInt(form.getFieldValue('bienStock'), 10);
-      const metodoPago = selectedMetodoPago;
-      const userData = JSON.parse(localStorage.getItem('userData')) || {};
-      const compradorId = userData.id;
-      const vendedorId = formData.id;
-      const imei = tipo === 'teléfono' ? form.getFieldValue('imei') : null;
-  
-      if (!tipo || !marca || !modelo || isNaN(precio) || isNaN(cantidad) || !metodoPago) {
-        message.error('Por favor, complete todos los campos obligatorios.');
-        return;
-      }
-  
-      const formDataToSend = new FormData();
-      formDataToSend.append('tipo', tipo);
-      formDataToSend.append('marca', marca);
-      formDataToSend.append('modelo', modelo);
-      formDataToSend.append('descripcion', descripcion);
-      formDataToSend.append('precio', precio);
-      formDataToSend.append('cantidad', cantidad);
-      formDataToSend.append('metodoPago', metodoPago);
-      formDataToSend.append('vendedorId', vendedorId);
-      formDataToSend.append('compradorId', compradorId);
-  
-      if (imei) {
-        formDataToSend.append('imei', imei);
-      }
-  
-      // Añadir fotos al formData
-      if (fileList.length > 0) {
-        fileList.forEach((file) => {
-          formDataToSend.append('fotos', file.originFileObj);
-        });
-      }
-  
-      // Verificar FormData antes de enviarlo
-      for (let pair of formDataToSend.entries()) {
-        console.log(pair[0]+ ', ' + pair[1]); 
-      }
-  
-      // Enviar datos al backend
-      const response = await dispatch(registrarCompra(formDataToSend));
-  
-      if (response?.success || response?.mensaje.includes('Compra registrada con éxito')) {
-        notification.success({
-          message: 'Compra exitosa',
-          description: `La compra del bien  se registró correctamente.`,
-          duration: 3,
-        });
-  
-        setTimeout(() => {
-          navigate('/userdashboard');
-        }, 3000);
+      if (response.status === 200 && response.data.marcas) {
+        console.log('Marcas cargadas:', response.data.marcas);
+        setMarcas(response.data.marcas); // Actualizar el estado de marcas
+        formStep2.setFieldsValue({ marca: undefined }); // Limpiar la selección de marca
       } else {
-        throw new Error(response?.mensaje || 'Error desconocido.');
+        setMarcas([]); // Si no hay marcas disponibles
       }
     } catch (error) {
-      console.error('Error en handleFinishStep2:', error);
-      if (error.message.includes('Compra registrada con éxito')) {
-        notification.success({
-          message: 'Compra exitosa',
-          description: `La compra del bien se registró correctamente.`,
-          duration: 3,
-        });
-        setTimeout(() => {
-          navigate('/userdashboard');
-        }, 3000);
+      console.error('Error al cargar las marcas:', error);
+      if (error.response?.status === 401) {
+        message.error('No autorizado. Inicia sesión nuevamente.');
+        navigate('/home'); // Redirige al usuario al inicio de sesión
       } else {
-        message.error(error.message || 'Error al procesar la compra.');
+        message.error('No se pudieron cargar las marcas para este tipo.');
       }
-    } finally {
-      setLoading(false);
     }
   };
   
- 
+  const handleMarcaChange = async (marca) => {
+    const tipoSeleccionado = formStep2.getFieldValue('tipo');
+    if (!tipoSeleccionado || !marca) {
+      setModelos([]);
+      return;
+    }
+  
+    // Obtener el token desde localStorage
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      message.error('Debe iniciar sesión para continuar.');
+      navigate('/home'); // Redirige al login si no hay token
+      return;
+    }
+  
+    try {
+      // Llamar al backend para obtener los modelos asociados
+      const response = await axios.get(
+        `http://localhost:5005/bienes/bienes/modelos?tipo=${tipoSeleccionado}&marca=${marca}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Agregar el token al encabezado
+          },
+        }
+      );
+  
+      if (response.status === 200 && response.data.modelos) {
+        console.log('Modelos cargados:', response.data.modelos);
+        setModelos(response.data.modelos);
+        formStep2.setFieldsValue({ modelo: undefined }); // Limpiar selección de modelo
+      } else {
+        setModelos([]);
+      }
+    } catch (error) {
+      console.error('Error al cargar los modelos:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        message.error('No autorizado. Por favor, inicia sesión nuevamente.');
+        localStorage.removeItem('authToken'); // Limpiar token inválido
+        navigate('/home'); // Redirigir al login
+      } else {
+        message.error('No se pudieron cargar los modelos para esta marca.');
+      }
+    }
+  };
+  
+  
+  
   
 
-  const handleConfirm = async () => {
+  const agregarNuevaMarca = async () => {
+    if (!nuevaMarca.trim()) {
+      message.warning('La marca no puede estar vacía.');
+      return;
+    }
+  
+    const tipoSeleccionado = formStep2.getFieldValue('tipo');
+    if (!tipoSeleccionado) {
+      message.warning('Selecciona un tipo de bien antes de agregar una marca.');
+      return;
+    }
+  
     try {
-      const userData = JSON.parse(localStorage.getItem('userData'));
-      if (!userData || !userData.id) {
-        message.error('Usuario no autenticado. Por favor, inicie sesión.');
-        return;
+      const response = await axios.post('http://localhost:5005/bienes/bienes/marcas', {
+        tipo: tipoSeleccionado,
+        marca: nuevaMarca.trim(),
+      });
+  
+      console.log('Respuesta al agregar marca:', response.data);
+  
+      if (response.status === 201) {
+        message.success(`Marca "${nuevaMarca}" registrada con éxito.`);
+        setMarcas((prevMarcas) => [...prevMarcas, nuevaMarca.trim()]);
+        formStep2.setFieldsValue({ marca: nuevaMarca.trim() });
+        setNuevaMarca('');
       }
-  
-      for (const bien of newBienDetails) {
-        try {
-          const compraData = {
-            bienId: bien.id, // Asumiendo que este ID viene del backend
-            compradorId: userData.id,
-            vendedorId: bien.vendedorId, // Esto debe venir con el bien seleccionado
-            precio: bien.precio,
-            cantidad: bien.cantidad,
-            metodoPago: bien.metodoPago,
-          };
-  
-          // Registrar compra en el backend
-          const response = await dispatch(registrarCompra(compraData));
-          if (response.success) {
-            message.success(`Compra registrada: ${bien.modelo}`);
-          } else {
-            throw new Error(response.error || 'Error desconocido');
-          }
-        } catch (error) {
-          console.error(`Error al procesar la compra del bien ${bien.modelo}:`, error);
-          message.error(`Error en el bien ${bien.modelo}: ${error.message}`);
-        }
-      }
-  
-      notification.success({ message: 'Todas las compras han sido procesadas con éxito.' });
-      navigate('/userdashboard');
     } catch (error) {
-      console.error('Error general al registrar la compra:', error);
-      message.error('Error al registrar la compra. Por favor, inténtelo de nuevo.');
+      if (error.response?.status === 409) {
+        message.warning(`La marca "${nuevaMarca}" ya existe. Actualizando marcas...`);
+        // Actualiza las marcas cargándolas desde el backend
+        await handleTipoChange(formStep2.getFieldValue('tipo'));
+      } else {
+        message.error('No se pudo registrar la marca. Intenta de nuevo.');
+      }
+      console.error('Error al registrar la marca:', error);
     }
   };
   
   
+
+  const agregarNuevoModelo = async () => {
+    if (!nuevoModelo.trim()) {
+      message.warning('El modelo no puede estar vacío.');
+      return;
+    }
+    const tipoSeleccionado = formStep2.getFieldValue('tipo');
+    const marcaSeleccionada = formStep2.getFieldValue('marca');
+    if (!tipoSeleccionado || !marcaSeleccionada) {
+      message.warning('Selecciona un tipo y una marca antes de agregar un modelo.');
+      return;
+    }
+    try {
+      const response = await axios.post('http://localhost:5005/bienes/bienes/modelos', {
+        tipo: tipoSeleccionado,
+        marca: marcaSeleccionada,
+        modelo: nuevoModelo.trim(),
+      });
+
+      console.log('Respuesta al agregar modelo:', response.data); // Agregar log
+
+      if (response.status === 201) {
+        message.success(`Modelo "${nuevoModelo}" registrado con éxito.`);
+        setModelos((prevModelos) => [...prevModelos, nuevoModelo.trim()]);
+        formStep2.setFieldsValue({ modelo: nuevoModelo.trim() });
+        setNuevoModelo('');
+      }
+    } catch (error) {
+      if (error.response?.status === 409) {
+        message.error('El modelo ya existe.');
+      } else {
+        message.error('No se pudo registrar el modelo. Intenta de nuevo.');
+      }
+      console.error('Error al registrar el modelo:', error);
+    }
+  };
+
+  const handleFinishStep1 = async (values) => {
+    try {
+        const { nombre, apellido, email, dni, cuit, tipo, razonSocial, direccion } = values;
+
+        // Verificar si el usuario ya está registrado
+        const existingUserResponse = await dispatch(checkExistingUser({ dni, email }));
+        
+        if (existingUserResponse?.existe) {
+            const existingUser = existingUserResponse.usuario;
+
+            if (existingUser.rolDefinitivo !== 'vendedor') {
+                // Actualizar el rol si no es vendedor
+                const updateResponse = await dispatch(registerUsuarioPorTercero({
+                    uuid: existingUser.uuid,
+                    rolTemporal: 'vendedor',
+                    ...values,
+                }));
+
+                if (updateResponse.error) {
+                    throw new Error(updateResponse.error);
+                }
+            }
+
+            setVendedorId(existingUser.uuid); // Asignar el UUID del usuario existente
+            message.success('Usuario identificado como vendedor.');
+            setStep(2);
+            return;
+        }
+
+        // Registrar un nuevo usuario como vendedor
+        const newUserResponse = await dispatch(registerUsuarioPorTercero({
+            nombre,
+            apellido,
+            email,
+            dni,
+            cuit,
+            tipo,
+            razonSocial: tipo === 'juridica' ? razonSocial : null,
+            direccion,
+            rolTemporal: 'vendedor',
+        }));
+
+        if (newUserResponse?.uuid) {
+            setVendedorId(newUserResponse.uuid); // Asignar el UUID del nuevo usuario
+            message.success('Usuario registrado como vendedor con éxito.');
+            setStep(2);
+        } else {
+            throw new Error('No se pudo registrar al usuario.');
+        }
+    } catch (error) {
+        console.error('Error en el paso 1:', error.message || error);
+        message.error(error.message || 'Ocurrió un error en el registro del usuario.');
+    }
+};
+
+const handleFinishStep2 = async (values) => {
+  try {
+      const { tipo, marca, modelo, bienDescripcion, bienPrecio, bienStock, metodoPago } = values;
+
+      if (!vendedorId) {
+          throw new Error("El vendedorId no está definido.");
+      }
+
+      const formData = new FormData();
+      formData.append('tipo', tipo);
+      formData.append('marca', marca);
+      formData.append('modelo', modelo);
+      formData.append('descripcion', bienDescripcion);
+      formData.append('precio', parseFloat(bienPrecio));
+      formData.append('cantidad', parseInt(bienStock, 10));
+      formData.append('metodoPago', metodoPago);
+      formData.append('vendedorId', vendedorId);
+
+      // Adjuntar fotos
+      fileList.forEach((file) => {
+          formData.append('fotos', file.originFileObj);
+      });
+      console.log('Fotos enviadas:', fileList.map(file => file.name));
+
+
+      // Log para depuración
+      console.log('Datos enviados al backend:', {
+          tipo,
+          marca,
+          modelo,
+          descripcion: bienDescripcion,
+          precio: parseFloat(bienPrecio),
+          cantidad: parseInt(bienStock, 10),
+          metodoPago,
+          vendedorId,
+          fotos: fileList.map(file => file.name),
+      });
+
+      // Usar la acción para registrar la compra
+      const result = await dispatch(registrarCompra(formData));
+
+      // Validar la respuesta del servidor
+      if (result && result.message === "Compra registrada con éxito.") {
+          message.success(result.message);
+          navigate('/user/dashboard');
+      } else {
+          throw new Error(result.message || 'Error al registrar la compra.');
+      }
+  } catch (error) {
+      console.error('Error al registrar el bien:', error);
+      message.error(error.message || 'No se pudo registrar el bien.');
+  }
+};
+
 
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)} style={{ marginRight: '10px' }}>Volver</Button>
-        <Button icon={<HomeOutlined />} onClick={() => navigate('/userdashboard')} style={{ marginRight: '10px' }}>Inicio</Button>
-        <Button icon={<LogoutOutlined />} onClick={() => { localStorage.removeItem('userData'); navigate('/home'); }} type="primary">Cerrar Sesión</Button>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
+        <Button icon={<LogoutOutlined />} onClick={() => { localStorage.removeItem('userData'); navigate('/home'); }}>Cerrar Sesión</Button>
       </div>
 
       <Title level={3}>{step === 1 ? 'Paso 1: Datos del Vendedor' : 'Paso 2: Datos del Bien'}</Title>
-
+      
       {step === 1 && (
-        <Form layout="vertical" onFinish={handleFinishStep1}>
-        <Form.Item label="Tipo de Sujeto" name="tipo" required>
-  <Radio.Group
-    onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
-    value={formData.tipo || 'persona'}
-  >
-    <Radio value="persona">Persona</Radio>
-    <Radio value="juridica">Persona Jurídica</Radio>
-  </Radio.Group>
-</Form.Item>
+        <Form
+          layout="vertical"
+          onFinish={handleFinishStep1}
+          form={formStep1}
+        >
+          <Form.Item label="Tipo de Sujeto" name="tipo" rules={[{ required: true, message: 'Por favor, selecciona un tipo de sujeto.' }]}>
+            <Select>
+              <Option value="persona">Persona</Option>
+              <Option value="juridica">Persona Jurídica</Option>
+            </Select>
+          </Form.Item>
 
-          {formData.tipo === 'juridica' && (
-            <Form.Item label="Razón Social" name="razonSocial" required>
-              <Input placeholder="Razón Social" name="razonSocial" value={formData.razonSocial} onChange={handleChange} />
+          {formStep1.getFieldValue('tipo') === 'juridica' && (
+            <Form.Item label="Razón Social" name="razonSocial" rules={[{ required: true, message: 'Por favor, ingresa la razón social.' }]}>
+              <Input placeholder="Razón Social" />
             </Form.Item>
           )}
-          <Form.Item label="Nombre" name="nombre" required>
-            <Input placeholder="Nombre" name="nombre" value={formData.nombre} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="Apellido" name="apellido" required>
-            <Input placeholder="Apellido" name="apellido" value={formData.apellido} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="Correo Electrónico" name="email" required>
-            <Input placeholder="Correo Electrónico" name="email" value={formData.email} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="DNI" name="dni" required>
-            <Input placeholder="DNI" name="dni" value={formData.dni} onChange={handleChange} />
-          </Form.Item>
-          <Form.Item label="CUIT" name="cuit" required>
-            <Input placeholder="CUIT" name="cuit" value={formData.cuit} onChange={handleChange} />
-          </Form.Item>
 
-          <Title level={4}>Dirección</Title>
-          <Form.Item label="Calle" name="calle" required>
-            <Input placeholder="Calle" name="calle" value={formData.direccion.calle} onChange={handleChange} />
+          <Form.Item label="Nombre" name="nombre" rules={[{ required: true, message: 'Por favor, ingresa tu nombre.' }]}>
+            <Input />
           </Form.Item>
-          <Form.Item label="Altura" name="altura" required>
-            <Input placeholder="Altura" name="altura" value={formData.direccion.altura} onChange={handleChange} />
+          <Form.Item label="Apellido" name="apellido" rules={[{ required: true, message: 'Por favor, ingresa tu apellido.' }]}>
+            <Input />
           </Form.Item>
-          <Form.Item label="Barrio" name="barrio" required>
-            <Input placeholder="Barrio" name="barrio" value={formData.direccion.barrio} onChange={handleChange} />
+          <Form.Item label="Correo Electrónico" name="email" rules={[
+            { required: true, message: 'Por favor, ingresa tu correo electrónico.' },
+            { type: 'email', message: 'Por favor, ingresa un correo electrónico válido.' }
+          ]}>
+            <Input />
           </Form.Item>
-          <Form.Item label="Departamento" name="departamento" required>
-            <Select onChange={(value) => setFormData({ ...formData, direccion: { ...formData.direccion, departamento: value } })} value={formData.direccion.departamento}>
-              {departments.map(department => (
+          <Form.Item label="DNI" name="dni" rules={[{ required: true, message: 'Por favor, ingresa tu DNI.' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item label="CUIT" name="cuit" rules={[{ required: true, message: 'Por favor, ingresa tu CUIT.' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item label="Calle" name={['direccion', 'calle']} rules={[{ required: true, message: 'Por favor, ingresa la calle.' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item label="Altura" name={['direccion', 'altura']} rules={[{ required: true, message: 'Por favor, ingresa la altura.' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item label="Barrio" name={['direccion', 'barrio']}>
+            <Input />
+          </Form.Item>
+          <Form.Item label="Departamento" name={['direccion', 'departamento']} rules={[{ required: true, message: 'Por favor, selecciona un departamento.' }]}>
+            <Select>
+              {departments.map((department) => (
                 <Option key={department} value={department}>{department}</Option>
               ))}
             </Select>
           </Form.Item>
-
           <Button type="primary" htmlType="submit" block loading={loading}>Siguiente</Button>
         </Form>
       )}
-
 {step === 2 && (
-  <Form form={form} layout="vertical" onFinish={handleFinishStep2}>
-  {/* Tipo de Bien */}
-  <Form.Item label="Tipo de Bien" name="tipoBien" required>
-  <Select
-  placeholder="Seleccionar tipo de bien"
-  value={selectedTipo || undefined}
-  onChange={(value) => setSelectedTipo(value)}
+  <Form layout="vertical" onFinish={handleFinishStep2} form={formStep2}>
+    {/* Tipo de Bien */}
+    <Form.Item label="Tipo de Bien" name="tipo" rules={[{ required: true, message: 'Por favor, selecciona un tipo de bien.' }]}>
+    <Select
+  onChange={(value) => {
+    handleTipoChange(value); // Cargar marcas basadas en el tipo
+    setMarcas([]);
+    setModelos([]);
+    formStep2.setFieldsValue({ marca: undefined, modelo: undefined });
+  }}
 >
-  {tiposDeBienes.map((tipo) => (
-    <Option key={tipo} value={tipo}>{tipo}</Option>
-  ))}
-</Select>
 
-  </Form.Item>
+        {tiposDeBienes.map((tipo) => (
+          <Option key={tipo} value={tipo}>{tipo}</Option>
+        ))}
+      </Select>
+    </Form.Item>
 
-  {/* IMEI para teléfonos */}
-  {selectedTipo === 'teléfono' && (
-      <Form.Item
-          label="IMEI"
-          name="imei"
-          rules={[
-              { required: true, message: 'El IMEI es obligatorio para teléfonos.' },
-              { pattern: /^\d{15}$/, message: 'El IMEI debe tener exactamente 15 dígitos.' }
-          ]}
-      >
-          <Input placeholder="Ingrese el IMEI del teléfono" />
-      </Form.Item>
-  )}
-
-  {/* Marca */}
-  <Form.Item label="Marca" name="bienMarca" required>
-  <Select
-    placeholder="Seleccionar o agregar nueva marca"
-    value={selectedMarca || nuevaMarca}
-    onChange={setSelectedMarca}
-    dropdownRender={(menu) => (
-        <>
+    {/* Marca */}
+    <Form.Item label="Marca" name="marca" rules={[{ required: true, message: 'Por favor, selecciona una marca.' }]}>
+      <Select
+        placeholder="Selecciona o agrega una nueva marca"
+        onChange={(marca) => handleMarcaChange(marca)}
+        dropdownRender={(menu) => (
+          <>
             {menu}
             <div style={{ display: 'flex', padding: 8 }}>
-                <Input
-                    style={{ flex: 'auto' }}
-                    placeholder="Nueva marca"
-                    value={nuevaMarca}
-                    onChange={(e) => setNuevaMarca(e.target.value)}
-                />
-                <Button type="text" onClick={() => message.success('Marca agregada')}>Agregar</Button>
+              <Input
+                value={nuevaMarca}
+                onChange={(e) => setNuevaMarca(e.target.value)}
+                placeholder="Nueva marca"
+              />
+              <Button type="text" onClick={agregarNuevaMarca}>
+                Agregar
+              </Button>
             </div>
-        </>
-    )}
+          </>
+        )}
+      >
+        {marcas.length > 0 ? (
+          marcas.map((marca) => (
+            <Option key={marca} value={marca}>
+              {marca}
+            </Option>
+          ))
+        ) : (
+          <Option disabled>No hay marcas disponibles</Option>
+        )}
+      </Select>
+    </Form.Item>
+
+    {/* Modelo */}
+    <Form.Item label="Modelo" name="modelo" rules={[{ required: true, message: 'Por favor, selecciona un modelo.' }]}>
+      <Select
+        placeholder="Selecciona o agrega un nuevo modelo"
+        dropdownRender={(menu) => (
+          <>
+            {menu}
+            <div style={{ display: 'flex', padding: 8 }}>
+              <Input
+                value={nuevoModelo}
+                onChange={(e) => setNuevoModelo(e.target.value)}
+                placeholder="Nuevo modelo"
+              />
+              <Button type="text" onClick={agregarNuevoModelo}>
+                Agregar
+              </Button>
+            </div>
+          </>
+        )}
+      >
+        {modelos.length > 0 ? (
+          modelos.map((modelo) => (
+            <Option key={modelo} value={modelo}>
+              {modelo}
+            </Option>
+          ))
+        ) : (
+          <Option disabled>No hay modelos disponibles</Option>
+        )}
+      </Select>
+    </Form.Item>
+
+{/* Cantidad */}
+<Form.Item
+  label="Cantidad"
+  name="bienStock"
+  rules={[
+    { required: true, message: 'Por favor, ingresa una cantidad válida.' },
+    { type: 'number', min: 1, message: 'La cantidad debe ser mayor a 0.' },
+  ]}
 >
-{marcasUnicas.map((marca) => (
-    <Option key={marca} value={marca}>{marca}</Option>
-))}
+  <InputNumber min={1} placeholder="Cantidad" style={{ width: '100%' }} />
+</Form.Item>
 
-</Select>
 
-  </Form.Item>
+    {/* Precio */}
+    <Form.Item label="Precio" name="bienPrecio" rules={[{ required: true, message: 'Por favor, ingresa un precio válido.' }]}>
+      <InputNumber min={0} placeholder="Precio" style={{ width: '100%' }} />
+    </Form.Item>
 
-  {/* Modelo */}
-  <Form.Item label="Modelo" name="bienModelo" required>
-      <Select
-          placeholder="Seleccionar o agregar nuevo modelo"
-          value={selectedModelo || nuevoModelo}
-          onChange={setSelectedModelo}
-          dropdownRender={(menu) => (
-              <>
-                  {menu}
-                  <div style={{ display: 'flex', padding: 8 }}>
-                      <Input
-                          style={{ flex: 'auto' }}
-                          placeholder="Nuevo modelo"
-                          value={nuevoModelo}
-                          onChange={(e) => setNuevoModelo(e.target.value)}
-                      />
-                      <Button type="text" onClick={() => message.success('Modelo agregado')}>Agregar</Button>
-                  </div>
-              </>
-          )}
-      >
-          {modelosDisponibles.map((modelo) => (
-              <Option key={modelo} value={modelo}>{modelo}</Option>
-          ))}
+    {/* Descripción */}
+    <Form.Item label="Descripción" name="bienDescripcion" rules={[{ required: true, message: 'Por favor, ingrese una descripción.' }]}>
+      <Input.TextArea placeholder="Describe el bien que estás registrando" rows={4} />
+    </Form.Item>
+
+    {/* Método de Pago */}
+    <Form.Item label="Método de Pago" name="metodoPago" rules={[{ required: true, message: 'Por favor, selecciona un método de pago.' }]}>
+      <Select>
+        <Option value="tarjeta">Tarjeta de Crédito</Option>
+        <Option value="efectivo">Efectivo</Option>
+        <Option value="transferencia">Transferencia Bancaria</Option>
       </Select>
-  </Form.Item>
+    </Form.Item>
 
-  {/* Descripción */}
-  <Form.Item label="Descripción" name="bienDescripcion" required>
-      <Input.TextArea placeholder="Descripción del bien" />
-  </Form.Item>
-
-  {/* Precio */}
-  <Form.Item label="Precio" name="bienPrecio" required>
-      <InputNumber style={{ width: '100%' }} placeholder="Precio" />
-  </Form.Item>
-
-  {/* Stock */}
-  <Form.Item label="Stock" name="bienStock" required>
-      <InputNumber style={{ width: '100%' }} placeholder="Cantidad" />
-  </Form.Item>
-
-  {/* Fotos */}
-  <Form.Item label="Fotos del Bien" name="fotos">
+    {/* Fotos */}
+    <Form.Item label="Fotos del Bien">
       <Upload
-          action={null}
-          listType="picture-card"
-          fileList={fileList}
-          onChange={handleFileChange}
-          beforeUpload={() => false} // Evita subida automática
+        listType="picture"
+        fileList={fileList}
+        onChange={({ fileList: newFileList }) => setFileList(newFileList)}
+        beforeUpload={() => false}
       >
-          <Button icon={<UploadOutlined />}>Subir Archivos</Button>
+        <Button>Subir Fotos</Button>
       </Upload>
-  </Form.Item>
+    </Form.Item>
 
-  {/* Método de Pago */}
-  <Form.Item label="Método de Pago" name="metodoPago" required>
-      <Select
-          placeholder="Seleccionar método de pago"
-          value={selectedMetodoPago}
-          onChange={(value) => setSelectedMetodoPago(value)}
-      >
-          <Option value="tarjeta">Tarjeta de Crédito/Débito</Option>
-          <Option value="efectivo">Efectivo</Option>
-          <Option value="transferencia">Transferencia Bancaria</Option>
-      </Select>
-  </Form.Item>
-
-  {/* Botón de envío */}
-  <Button type="primary" htmlType="submit" block loading={loading}>Registrar Bien</Button>
-</Form>
-
+    {/* Botón de Envío */}
+    <Button type="primary" htmlType="submit" block loading={loading}>
+      Continuar
+    </Button>
+  </Form>
 )}
 
+<Modal
+  title="Confirmar Compra"
+  open={isVisible}
+  onOk={() => {
+    formStep2.submit();
+    setIsVisible(false);
+  }}
+  onCancel={handleCancel}
+  okText="Confirmar"
+  cancelText="Cancelar"
+>
+  <p>¿Estás seguro de registrar esta compra?</p>
+</Modal>
 
-      <Modal
-        title="Confirmar compra"
-        visible={isModalOpen}
-        onOk={handleConfirm}
-        onCancel={() => setIsModalOpen(false)}
-        okText="Confirmar"
-        cancelText="Cancelar"
-      >
-        <p>¿Estás seguro de que deseas realizar la compra de los bienes registrados?</p>
-      </Modal>
+
+
+
     </div>
   );
 };

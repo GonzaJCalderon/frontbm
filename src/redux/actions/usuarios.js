@@ -1,7 +1,8 @@
+
 import axios from 'axios';
 import api from '../axiosConfig';
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { notification } from 'antd';
+import { notification, message  } from 'antd';
 
 import {
     FETCH_USUARIOS_REQUEST,
@@ -68,7 +69,11 @@ import {
     APPROVE_USER_ERROR,
     CHECK_USER_REQUEST, 
     CHECK_USER_SUCCESS,
-     CHECK_USER_ERROR
+     CHECK_USER_ERROR, 
+     REGISTER_USER_THIRD_PARTY_REQUEST,
+  REGISTER_USER_THIRD_PARTY_SUCCESS,
+  REGISTER_USER_THIRD_PARTY_ERROR,
+  
     
 } from './actionTypes';
 
@@ -103,31 +108,20 @@ const getCurrentUserId = () => {
 
 // Asegúrate de que la función esté definida antes de ser utilizada
 export const fetchUsuarioDetails = (id) => async (dispatch) => {
-    dispatch({ type: FETCH_USUARIO_DETAILS_REQUEST });
-    try {
-        const token = getToken();
-        if (!token) {
-            console.error('No token found in localStorage');
-            throw new Error('No token found');
-        }
-        console.log('Token enviado:', token);
-
-        const response = await api.get(`/usuarios/${id}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        // Almacena los datos en el localStorage para el usuario activo
-        if (id === getCurrentUserId()) { // Verifica si el ID corresponde al usuario actual
-            localStorage.setItem('currentUser', JSON.stringify(response.data));
-        }
-
-        dispatch({ type: FETCH_USUARIO_DETAILS_SUCCESS, payload: response.data });
-    } catch (error) {
-        console.error('Error al obtener los detalles del usuario:', error);
-        dispatch({ type: FETCH_USUARIO_DETAILS_FAILURE, payload: error.message });
-    }
+  dispatch({ type: 'FETCH_USUARIO_DETAILS_REQUEST' });
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await api.get(`/usuarios/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    dispatch({ type: 'FETCH_USUARIO_DETAILS_SUCCESS', payload: response.data });
+    return response.data; // Importante para usarlo en el componente
+  } catch (error) {
+    dispatch({ type: 'FETCH_USUARIO_DETAILS_FAILURE', payload: error.message });
+    throw error; // Propaga el error al componente
+  }
 };
 
 
@@ -179,107 +173,104 @@ export const addUsuario = (newUser) => async dispatch => {
     dispatch({ type: ADD_USUARIO_REQUEST });
     
     console.log("Estructura de newUser antes de enviar al backend:", newUser);
-
+  
     // Verificación de campos obligatorios
     const requiredFields = ['dni', 'cuit', 'nombre', 'apellido', 'email', 'direccion', 'tipo'];
     for (let field of requiredFields) {
-        if (!newUser[field]) {
-            console.error(`Falta el campo: ${field}`);
-            return; // Detiene el proceso si falta algún campo
-        }
+      if (!newUser[field]) {
+        console.error(`Falta el campo: ${field}`);
+        dispatch({
+          type: ADD_USUARIO_ERROR,
+          error: `Falta el campo: ${field}`
+        });
+        return; // Detiene el proceso si falta algún campo
+      }
     }
-
+  
+    // Asegurar que los campos de dirección estén presentes
+    if (!newUser.direccion || !newUser.direccion.calle || !newUser.direccion.altura || !newUser.direccion.departamento) {
+      console.error('Faltan campos en la dirección');
+      dispatch({
+        type: ADD_USUARIO_ERROR,
+        error: 'Faltan campos en la dirección'
+      });
+      return;
+    }
+  
     // Asignar valor por defecto a password si no está presente
     if (!newUser.password) {
-        newUser.password = 'default_password'; // Valor por defecto para la contraseña
+      newUser.password = 'default_password'; // Valor por defecto para la contraseña
     }
-
+  
     try {
-        const response = await api.post('/usuarios/register-usuario-por-tercero', {
-            dni: newUser.dni,
-            cuit: newUser.cuit,
-            nombre: newUser.nombre,
-            apellido: newUser.apellido,
-            email: newUser.email,
-            direccion: {
-                calle: newUser.direccion.calle,
-                altura: newUser.direccion.altura,
-                barrio: newUser.direccion.barrio,
-                departamento: newUser.direccion.departamento || '',
-            },
-            password: newUser.password, // Ahora se asegura que password esté presente
-            tipo: newUser.tipo,
-            razonSocial: newUser.tipo === 'juridica' ? (newUser.razonSocial || '') : undefined,
-        });
-
-        console.log("Respuesta del backend:", response.data);
-
-        if (response.data && response.data.usuario) {
-            dispatch({
-                type: ADD_USUARIO_SUCCESS,
-                payload: response.data.usuario
-            });
-            return response.data;
-        } else {
-            throw new Error('Estructura de respuesta inesperada');
-        }
-    } catch (error) {
-        console.log("Error al registrar usuario:", error.response ? error.response.data : error.message);
+      const response = await api.post('/usuarios/register-usuario-por-tercero', {
+        dni: newUser.dni,
+        cuit: newUser.cuit,
+        nombre: newUser.nombre,
+        apellido: newUser.apellido,
+        email: newUser.email,
+        direccion: {
+          calle: newUser.direccion.calle,
+          altura: newUser.direccion.altura,
+          barrio: newUser.direccion.barrio || '', // Valor por defecto para el barrio
+          departamento: newUser.direccion.departamento,
+        },
+        password: newUser.password,
+        tipo: newUser.tipo,
+        razonSocial: newUser.tipo === 'juridica' ? newUser.razonSocial || '' : undefined,
+      });
+  
+      console.log("Respuesta del backend:", response.data);
+  
+      if (response.data && response.data.usuario) {
         dispatch({
-            type: ADD_USUARIO_ERROR,
-            error: error.response ? error.response.data : { message: error.message }
+          type: ADD_USUARIO_SUCCESS,
+          payload: response.data.usuario
         });
-        throw error;
+        return response.data;
+      } else {
+        throw new Error('Estructura de respuesta inesperada');
+      }
+    } catch (error) {
+      console.log("Error al registrar usuario:", error.response ? error.response.data : error.message);
+      dispatch({
+        type: ADD_USUARIO_ERROR,
+        error: error.response ? error.response.data : { message: error.message }
+      });
+      throw error;
     }
-};
-
-
-
-
+  };
+  
   
 
 
 
 // Acción para obtener compras y ventas de usuario
-export const obtenerTransacciones = async (userId, isAdmin) => {
+export const obtenerTransacciones = async (uuid) => {
     try {
-        const response = await api.get(`/bienes/transacciones/usuario/${userId}`);
-        console.log('Respuesta de transacciones:', response.data); // Agrega este log para depuración
-        if (Array.isArray(response.data)) {
-            return response.data.map(transaccion => {
-                return {
-                    ...transaccion,
-                    esAdmin: isAdmin
-                };
-            });
-        }
-        throw new Error('No se encontraron transacciones.');
+      const response = await api.get(`/transacciones/usuario/${uuid}`);
+      console.log('Transacciones obtenidas:', response.data);
+      return response.data;
     } catch (error) {
-        console.error('Error en obtenerTransacciones:', error); // Log para depuración
-        throw new Error(error.message);
+      console.error('Error en obtenerTransacciones:', error);
+      throw new Error(error.response?.data?.message || 'Error al cargar las transacciones.');
     }
-};
+  };
+  
+  
 
 
 
 // Acción para el Administrador
-export const fetchTransaccionesByAdmin = (userId) => async (dispatch) => {
-    dispatch({ type: FETCH_TRANSACCIONES_REQUEST });
-    try {
-      const response = await api.get(`bienes/transacciones/usuario/${userId}`);
-      console.log('Respuesta de la API:', response.data); // Agrega este log para depuración
-  
-      if (!Array.isArray(response.data)) {
-        throw new Error('La respuesta no es un array de transacciones.');
-      }
-  
-      dispatch({ type: FETCH_TRANSACCIONES_SUCCESS, payload: response.data });
-    } catch (error) {
-      dispatch({ type: FETCH_TRANSACCIONES_ERROR, payload: error.message });
-      throw error;  // Asegura que el error se propague
-    }
-  };
-  
+export const fetchTransaccionesByAdmin = (uuid) => async (dispatch) => {
+  try {
+      const response = await api.get(`/transacciones/usuario/${uuid}`);
+      dispatch({ type: 'FETCH_TRANSACCIONES_SUCCESS', payload: response.data });
+  } catch (error) {
+      console.error('Error fetching transactions:', error);
+      dispatch({ type: 'FETCH_TRANSACCIONES_ERROR', payload: error.message });
+  }
+};
 
 
 
@@ -314,33 +305,48 @@ export const fetchUsuarioComprasVentas = (userId) => async (dispatch) => {
 
 
 // Acción para eliminar un usuario
-export const deleteUsuario = (userId) => async dispatch => {
-    dispatch({ type: DELETE_USUARIO_REQUEST });
-    try {
-        await api.delete(`/usuarios/${userId}`);
-        dispatch({ type: DELETE_USUARIO_SUCCESS, payload: userId });
-    } catch (error) {
-        dispatch({ type: DELETE_USUARIO_ERROR, payload: error.message });
-    }
+export const deleteUsuario = (uuid) => async (dispatch) => {
+  dispatch({ type: 'DELETE_USUARIO_REQUEST' });
+
+  try {
+    await api.delete(`/usuarios/${uuid}`); // Asegúrate de que el uuid se envíe correctamente
+    dispatch({ type: 'DELETE_USUARIO_SUCCESS', payload: uuid });
+  } catch (error) {
+    dispatch({ type: 'DELETE_USUARIO_ERROR', payload: error.message });
+    throw error; // Lanza el error para que el componente lo maneje
+  }
 };
 
+
 // Asignar rol a usuario
-export const assignRole = (userId, role) => async dispatch => {
-    dispatch({ type: ASSIGN_ROLE_REQUEST });
-    try {
-        const response = await api.patch(`usuarios/usuarios/${userId}/rol`, { nuevoRol: role }); // Ajusta el campo "nuevoRol"
-        dispatch({
-            type: ASSIGN_ROLE_SUCCESS,
-            payload: response.data
-        });
-    } catch (error) {
-        console.error('Error assigning role:', error);
-        dispatch({
-            type: ASSIGN_ROLE_ERROR,
-            error: error.response ? error.response.data : error.message
-        });
-    }
+export const assignRole = (uuid, role) => async (dispatch) => {
+  dispatch({ type: ASSIGN_ROLE_REQUEST });
+  try {
+    // Asegúrate de que `uuid` y `rolDefinitivo` son correctos
+    console.log('Enviando PATCH a /usuarios/:uuid/rol:', uuid, 'con rol:', role);
+
+    const response = await api.patch(`usuarios/usuarios/${uuid}/rol`, { rolDefinitivo: role });
+
+    dispatch({
+      type: ASSIGN_ROLE_SUCCESS,
+      payload: response.data,
+    });
+
+    console.log('Rol actualizado exitosamente:', response.data);
+  } catch (error) {
+    const errorMessage =
+      error.response?.data?.message || error.message || 'Error al asignar rol';
+
+    console.error('Error asignando rol:', errorMessage);
+
+    dispatch({
+      type: ASSIGN_ROLE_ERROR,
+      payload: errorMessage,
+    });
+  }
 };
+
+
 
 
 // Resetear contraseña
@@ -354,17 +360,45 @@ export const resetPassword = (userId) => async dispatch => {
     }
 };
 
-// Acción para actualizar un usuario
-export const updateUser = (userId, userData) => async (dispatch) => {
-    dispatch({ type: 'UPDATE_USER_REQUEST' });
-    try {
-        const response = await api.put(`/usuarios/${userId}`, userData);
-        dispatch({ type: 'UPDATE_USER_SUCCESS', payload: response.data });
-        return Promise.resolve(response.data);
-    } catch (error) {
-        dispatch({ type: 'UPDATE_USER_ERROR', payload: error.message });
-        return Promise.reject(error);
-    }
+// Redux Action - Actualizar Usuario
+export const updateUser = (uuid, userData) => async (dispatch) => {
+  dispatch({ type: 'UPDATE_USER_REQUEST' });
+
+  try {
+      const token = localStorage.getItem('authToken');
+
+      const response = await api.put(`/usuarios/${uuid}`, userData, {
+          headers: {
+              Authorization: `Bearer ${token}`,
+          },
+      });
+
+      dispatch({ type: 'UPDATE_USER_SUCCESS', payload: response.data });
+
+      notification.success({
+          message: 'Usuario actualizado',
+          description: 'Los datos del usuario fueron actualizados correctamente.',
+      });
+
+      return Promise.resolve(response.data);
+  } catch (error) {
+      const errorMessage =
+          error.response?.data?.message || error.message || 'Error desconocido';
+
+      console.error('Error en la actualización:', errorMessage);
+
+      notification.error({
+          message: 'Error al actualizar usuario',
+          description: errorMessage,
+      });
+
+      dispatch({
+          type: 'UPDATE_USER_ERROR',
+          payload: errorMessage,
+      });
+
+      return Promise.reject(new Error(errorMessage));
+  }
 };
 
 
@@ -428,155 +462,168 @@ export const fetchPendingRegistrations = () => async (dispatch) => {
     dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
 
     try {
-        // Recuperar el token desde el almacenamiento local (ajusta según tu implementación)
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('Token de autenticación no encontrado.');
-        }
-
-        // Realizar la solicitud con el encabezado de autorización
-        const response = await api.get(`usuarios/usuarios/pendientes`, {
-            headers: {
-                Authorization: `Bearer ${token}`, // Incluye el token
-            },
-        });
-
-        dispatch({ type: FETCH_PENDING_REGISTRATIONS_SUCCESS, payload: response.data });
-    } catch (error) {
-        // Manejar errores
-        console.error('Error al obtener registros pendientes:', error);
-        dispatch({ type: FETCH_PENDING_REGISTRATIONS_ERROR, error: error.message });
-
-        // Opcional: mostrar un mensaje de error al usuario
-        // message.error(error.response?.data?.mensaje || 'Error al obtener los registros pendientes.');
-    }
-};
-
-
-export const approveUser = (userId) => async (dispatch) => {
-    dispatch({ type: APPROVE_USER_REQUEST });
-    try {
-        const response = await api.put(`usuarios/${userId}/aprobar`); // Verifica que esta ruta sea correcta
-        dispatch({ type: APPROVE_USER_SUCCESS, payload: response.data.usuario });
-    } catch (error) {
-        dispatch({ type: APPROVE_USER_ERROR, error: error.message });
-    }
-};
-
-
-export const fetchApprovedUsers = () => {
-    return async (dispatch) => {
-        dispatch({ type: FETCH_APPROVED_USERS_REQUEST });
-        try {
-            const response = await api.get('usuarios/usuarios/aprobados'); // Asegúrate de que esta URL sea correcta
-            dispatch({
-                type: FETCH_APPROVED_USERS_SUCCESS,
-                payload: response.data, // Asegúrate de que la respuesta contenga el array de usuarios
-            });
-        } catch (error) {
-            dispatch({
-                type: FETCH_APPROVED_USERS_FAILURE,
-                payload: error.message,
-            });
-        }
-    };
-};
-
-export const denyRegistration = (userId, motivoRechazo, adminId) => async (dispatch) => {
-    dispatch({ type: DENY_REGISTRATION_REQUEST });
-    try {
-        console.log("Datos a enviar:", { userId, motivoRechazo, adminId }); // Asegúrate de que estos datos sean correctos
-        await api.put(`usuarios/${userId}/rechazar`, { motivoRechazo, rechazadoPor: adminId }); // Cambia 'reason' por 'motivoRechazo'
-        dispatch({ type: DENY_REGISTRATION_SUCCESS, payload: { id: userId } });
-    } catch (error) {
-        dispatch({ type: DENY_REGISTRATION_ERROR, error: error.message });
-    }
-};
-
-
-export const fetchRejectedUsers = () => async (dispatch) => {
-    dispatch({ type: FETCH_REJECTED_USERS_REQUEST });
-
-    try {
-        // Recuperar el token desde el almacenamiento local
-        const token = localStorage.getItem('token');
-        if (!token) {
-            throw new Error('Token de autenticación no encontrado.');
-        }
-
-        // Realizar la solicitud con el encabezado de autorización
-        const response = await api.get('usuarios/usuarios/rechazados', {
-            headers: {
-                Authorization: `Bearer ${token}`, // Incluye el token
-            },
-        });
+        const response = await api.get('/usuarios/usuarios/pendientes'); // Ajusta la ruta si es necesario
+        console.log("Usuarios pendientes obtenidos:", response.data);
 
         dispatch({
-            type: FETCH_REJECTED_USERS_SUCCESS,
+            type: FETCH_PENDING_REGISTRATIONS_SUCCESS,
             payload: response.data,
         });
     } catch (error) {
-        console.error('Error al obtener usuarios rechazados:', error);
-
+        console.error('Error al obtener usuarios pendientes:', error);
         dispatch({
-            type: FETCH_REJECTED_USERS_ERROR,
+            type: FETCH_PENDING_REGISTRATIONS_ERROR,
             error: error.message,
         });
-
-        // Opcional: notificar al usuario
-        // message.error(error.response?.data?.mensaje || 'Error al obtener los usuarios rechazados.');
     }
 };
+
+
+
+export const approveUser = (userUuid, data) => async (dispatch) => {
+  dispatch({ type: 'APPROVE_USER_REQUEST' });
+
+  try {
+      const token = localStorage.getItem('token'); // Usar token si es necesario
+
+      console.log('Payload enviado al backend:', data);
+
+      const response = await api.put(`/usuarios/${userUuid}/aprobar`, data, {
+          headers: {
+              Authorization: `Bearer ${token}`,
+          },
+      });
+
+      dispatch({ type: 'APPROVE_USER_SUCCESS', payload: response.data });
+      return response.data;
+  } catch (error) {
+      console.error('Error al aprobar usuario:', error.response?.data || error.message);
+      dispatch({ type: 'APPROVE_USER_ERROR', payload: error.response?.data || error.message });
+      throw error;
+  }
+};
+
+
+
+
+export const fetchApprovedUsers = () => async (dispatch) => {
+    dispatch({ type: FETCH_APPROVED_USERS_REQUEST });
+
+    try {
+        const response = await api.get('/usuarios/usuarios/aprobados'); // Ruta del backend
+        console.log("Usuarios aprobados obtenidos:", response.data);
+
+        dispatch({
+            type: FETCH_APPROVED_USERS_SUCCESS,
+            payload: Array.isArray(response.data) ? response.data : [], // Siempre un array
+        });
+    } catch (error) {
+        console.error('Error al obtener usuarios aprobados:', error);
+        dispatch({
+            type: FETCH_APPROVED_USERS_FAILURE,
+            error: error.message,
+        });
+    }
+};
+
+
+
+export const denyRegistration = (userUuid, data) => async (dispatch) => {
+  dispatch({ type: 'DENY_REGISTRATION_REQUEST' });
+
+  try {
+      const response = await api.put(`/usuarios/${userUuid}/rechazar`, data);
+      dispatch({ type: 'DENY_REGISTRATION_SUCCESS', payload: response.data });
+  } catch (error) {
+      dispatch({ type: 'DENY_REGISTRATION_FAILURE', payload: error.message });
+      throw error;
+  }
+};
+
+  
+
+  export const fetchRejectedUsers = () => async (dispatch) => {
+    try {
+        const response = await api.get('/usuarios/usuarios/rechazados');
+        console.log('Usuarios rechazados obtenidos:', response.data); // Log para confirmar
+        dispatch({ type: FETCH_REJECTED_USERS_SUCCESS, payload: response.data });
+    } catch (error) {
+        console.error('Error al obtener usuarios rechazados:', error.message);
+        dispatch({ type: FETCH_REJECTED_USERS_ERROR, payload: error.message });
+    }
+};
+
 
 
 
 // Acción para verificar si el usuario existe
-export const checkExistingUser = (dni, email, usuarioActualDni) => async (dispatch) => {
-    dispatch({ type: CHECK_USER_REQUEST });
-  
-    console.log('Iniciando verificación de usuario con:', { dni, email });
-  
+export const checkExistingUser = (params) => async (dispatch) => {
     try {
-      const response = await api.post('usuarios/check', { dni, email });
-  
-      console.log('Respuesta del servidor en checkExistingUser:', response.data);
-  
-      if (response.data.existe) {
-        if (response.data.mensaje === 'Datos inconsistentes') {
-          const inconsistencias = response.data.inconsistencias || [];
-          const mensajeError = `Los siguientes datos son inconsistentes: ${inconsistencias.join(', ')}`;
-          throw new Error(mensajeError);
+        const { dni, email } = params;
+
+        if (!dni || !email) {
+            throw new Error('El DNI y el email son requeridos.');
         }
-  
-        // Compara el DNI del usuario actual con el DNI del comprador
-        if (usuarioActualDni === dni) {
-          throw new Error('No puedes vender a ti mismo.');
-        }
-  
-        dispatch({
-          type: CHECK_USER_SUCCESS,
-          payload: response.data.usuario,
-        });
-        console.log('Usuario encontrado:', response.data.usuario);
+
+        const response = await api.post('/usuarios/check', { dni, email });
         return response.data;
-      } else {
-        dispatch({
-          type: CHECK_USER_SUCCESS,
-          payload: null,
-        });
-        console.log('Usuario no encontrado.');
-        return { usuario: null };
-      }
     } catch (error) {
-      console.error('Error al verificar el usuario en checkExistingUser:', error.message);
-      dispatch({
-        type: CHECK_USER_ERROR,
-        error: error.message,
-      });
-      throw error;
+        console.error('Error en checkExistingUser:', error);
+        throw error;
     }
-  };
+};
+
+
+// Acción para enviar el enlace de actualización de cuenta
+export const sendUpdateAccountLink = (userId) => async () => {
+  try {
+    const response = await axios.post('/usuarios/send-update-link', { userId });
+    message.success(response.data.mensaje || 'Enlace enviado con éxito.');
+  } catch (error) {
+    const errorMsg = error.response?.data?.mensaje || 'Error al enviar el enlace de actualización.';
+    message.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+};
+
+
+export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
+  dispatch({ type: REGISTER_USER_THIRD_PARTY_REQUEST });
+
+  try {
+      const response = await api.post('/usuarios/register-usuario-por-tercero', usuarioData);
+      
+      if (response.data?.usuario) {
+          dispatch({
+              type: REGISTER_USER_THIRD_PARTY_SUCCESS,
+              payload: response.data.usuario,
+          });
+
+          return response.data.usuario; // Asegúrate de retornar el usuario registrado
+      }
+
+      throw new Error('No se pudo registrar el usuario.');
+  } catch (error) {
+      dispatch({
+          type: REGISTER_USER_THIRD_PARTY_ERROR,
+          error: error.message,
+      });
+      throw error; // Propaga el error para manejarlo en el UI
+  }
+};
+
   
+  // Acción para obtener historial de cambios
+export const fetchHistorialCambios = async (uuid) => {
+  try {
+    const response = await api.get(`/historialcambios/historial-cambios/${uuid}`);
+    console.log('Respuesta de la API:', response.data); // Verifica que sea un array
+    return response.data; // Devuelve los datos directamente
+  } catch (error) {
+    console.error('Error al obtener historial de cambios:', error.message);
+    throw error; // Propaga el error para manejarlo en el componente
+  }
+};
   
   
   

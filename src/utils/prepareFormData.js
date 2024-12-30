@@ -1,12 +1,20 @@
-// utils/prepareFormData.js
 const prepareFormData = (bienData, files) => {
     const formData = new FormData();
-    Object.keys(bienData).forEach(key => {
+
+    // Agregar datos del bien
+    Object.keys(bienData).forEach((key) => {
         formData.append(key, bienData[key]);
     });
-    files.forEach(file => {
-        formData.append('fotos', file);
-    });
+
+    // Agregar archivos (asegúrate de que files sea un array de objetos File o Blob)
+    if (files && files.length > 0) {
+        files.forEach((file) => {
+            formData.append('fotos', file); // 'fotos' debe coincidir con el campo que espera el backend
+        });
+    } else {
+        console.error("No se pasaron archivos al FormData.");
+    }
+
     return formData;
 };
 

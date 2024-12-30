@@ -15,11 +15,12 @@ const TrazabilidadBien = () => {
   useEffect(() => {
     const fetchTrazabilidad = async () => {
       try {
-        const response = await axios.get(`/bienes/trazabilidad/${uuid}`);
+        const response = await axios.get(`http://localhost:5005/bienes/trazabilidad/${uuid}`);
         if (response.data.message) {
-          setMensaje(response.data.message);
+          setMensaje(response.data.message); // Guarda el mensaje cuando no hay transacciones
+          setTransacciones([]); // Asegúrate de que transacciones esté vacío
         } else {
-          setTransacciones(response.data);
+          setTransacciones(response.data); // Guarda las transacciones
         }
         setLoading(false);
       } catch (err) {
@@ -27,9 +28,10 @@ const TrazabilidadBien = () => {
         setLoading(false);
       }
     };
-
+  
     fetchTrazabilidad();
   }, [uuid]);
+  
 
   const renderDireccion = (direccion) => {
     if (!direccion) return 'N/A';
@@ -95,10 +97,16 @@ const TrazabilidadBien = () => {
       {mensaje ? (
         <Alert message="Información" description={mensaje} type="info" showIcon />
       ) : (
-        <Table dataSource={transacciones} columns={columns} rowKey="id" pagination={{ pageSize: 5 }} />
+        <Table
+          dataSource={transacciones}
+          columns={columns}
+          rowKey="uuid"
+          pagination={{ pageSize: 5 }}
+        />
       )}
     </div>
   );
+  
 };
 
 export default TrazabilidadBien;
