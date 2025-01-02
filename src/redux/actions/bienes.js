@@ -1,7 +1,7 @@
 
 import api from '../axiosConfig';
 import axios from '../axiosConfig';
-import { message } from 'antd';
+import { message,notification  } from 'antd';
 import prepareFormData from '../../utils/prepareFormData';  // Ajusta la ruta si es necesario
 
 
@@ -16,6 +16,7 @@ import {
     FETCH_BIEN_DETAILS,
     FETCH_BIEN_DETAILS_REQUEST,
     UPDATE_BIEN,
+    DELETE_BIEN,
     REGISTRAR_VENTA_EXITO,
     REGISTRAR_VENTA_ERROR,
     UPDATE_STOCK,
@@ -119,18 +120,20 @@ export const addBien = (formData) => async (dispatch) => {
 
 
 // Acción para obtener los detalles de un bien específico
-export const fetchBienDetails = (bienId) => async (dispatch) => {
-    dispatch({ type: FETCH_BIEN_DETAILS_REQUEST }); // Asegúrate de tener este tipo de acción
-    try {
-        const res = await axios.get(`/bienes/${bienId}`);
-        dispatch({ type: FETCH_BIEN_DETAILS, payload: res.data });
-    } catch (error) {
-        dispatch({
-            type: FETCH_BIEN_DETAILS_ERROR,
-            payload: error.response ? error.response.data : error.message
-        });
-    }
+export const fetchBienDetails = (uuid) => async (dispatch) => {
+  dispatch({ type: 'FETCH_BIEN_DETAILS_REQUEST' });
+
+  try {
+      const response = await api.get(`/bienes/${uuid}`);
+      dispatch({ type: 'FETCH_BIEN_DETAILS_SUCCESS', payload: response.data });
+      return response.data; // Devuelve los datos al componente
+  } catch (error) {
+      dispatch({ type: 'FETCH_BIEN_DETAILS_FAILURE', error });
+      console.error('Error fetching bien details:', error);
+      throw error; // Lanza el error al componente
+  }
 };
+
 
 // Acción para actualizar un bien existente
 export const updateBien = (uuid, bienData) => async dispatch => {
@@ -165,56 +168,33 @@ export const updateBien = (uuid, bienData) => async dispatch => {
 
 
 // Acción para registrar una venta
+// Acción para registrar una venta
 export const registrarVenta = (ventaData) => async (dispatch) => {
   try {
-    const token = localStorage.getItem('token'); // O donde almacenes el token
-
-    const response = await fetch('http://localhost:5005/transacciones/vender', {
-      method: 'POST',
+    const response = await api.post('/transacciones/vender', ventaData, {
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`, // Envía el token aquí
       },
-      body: JSON.stringify(ventaData),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Error al registrar la venta.');
-    }
-
-    return data; // Retorna la respuesta si es exitosa
+    return response.data; // Retorna la respuesta si es exitosa
   } catch (error) {
-    console.error('Error en registrarVenta:', error.message);
-    throw error;
+    console.error('Error en registrarVenta:', error);
+    throw handleRequestError(error); // Usar la función de manejo de errores
   }
 };
-
 
 
 
 // Acción para registrar una compra
 export const registrarCompra = (formData) => async (dispatch) => {
   try {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      throw new Error('No se encontró el token de autenticación.');
-    }
-
-    const response = await axios.post('http://localhost:5005/transacciones/comprar', formData, {
-      headers: {
-        Authorization: `Bearer ${token}`, // Enviar el token en el encabezado
-        'Content-Type': 'multipart/form-data',
-      },
+    const response = await api.post('/transacciones/comprar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
-
-    console.log('Respuesta del servidor en registrarCompra:', response.data);
-
     return response.data;
   } catch (error) {
-    console.error('Error en registrarCompra:', error.response?.data || error.message);
-    throw error.response?.data || error.message;
+    throw handleRequestError(error);
   }
 };
 
@@ -225,23 +205,17 @@ export const registrarCompra = (formData) => async (dispatch) => {
 
 // Acción para obtener la trazabilidad de un bien específico
 export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {
-    dispatch({ type: FETCH_TRAZABILIDAD_REQUEST });
+  dispatch({ type: FETCH_TRAZABILIDAD_REQUEST });
 
-    try {
-        const token = getToken();
-        const response = await axios.get(`http://localhost:5005/bienes/trazabilidad/${bienUuid}`, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        });
-
-        dispatch({ type: FETCH_TRAZABILIDAD_SUCCESS, payload: response.data });
-    } catch (error) {
-        const errorMessage = error.response ? error.response.data.message : error.message;
-        console.error(errorMessage); // Asegúrate de que el mensaje de error sea claro
-        dispatch({ type: FETCH_TRAZABILIDAD_ERROR, payload: errorMessage });
-    }
+  try {
+    const response = await api.get(`/bienes/trazabilidad/${bienUuid}`);
+    dispatch({ type: FETCH_TRAZABILIDAD_SUCCESS, payload: response.data });
+  } catch (error) {
+    dispatch({ type: FETCH_TRAZABILIDAD_ERROR, payload: handleRequestError(error) });
+  }
 };
+
+
 export const actualizarStockPorParametros = (updatedData) => async (dispatch) => {
   const { tipo, marca, modelo, cantidad, tipoOperacion } = updatedData;
 
@@ -364,5 +338,52 @@ export const actualizarStock = (params) => async (dispatch) => {
   } catch (error) {
     console.error('Error al actualizar stock:', error);
     throw error;
+  }
+};
+
+export const deleteBien = (uuid) => async (dispatch) => {
+  try {
+    const token = localStorage.getItem('token');
+    await axios.delete(`/bienes/${uuid}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    // Opcional: despachar acción para actualizar lista
+    dispatch(fetchAllBienes());
+    notification.success({ message: 'Bien eliminado correctamente.' });
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || 'Error al eliminar el bien.';
+    console.error('Error al eliminar bien:', errorMessage);
+    notification.error({ message: 'Error', description: errorMessage });
+    throw new Error(errorMessage);
+  }
+};
+
+
+export const editBien = (uuid, updatedData) => async (dispatch) => {
+  try {
+    const token = getToken(); // Obtén el token del localStorage
+
+    // Realiza la solicitud PUT al backend con los datos actualizados
+    const response = await axios.put(`/bienes/${uuid}`, updatedData, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Incluye el token en los headers
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Actualiza el estado en el frontend
+    dispatch({
+      type: UPDATE_BIEN,
+      payload: response.data,
+    });
+
+    // Opcional: mostrar un mensaje de éxito
+    message.success('El bien ha sido actualizado correctamente.');
+  } catch (error) {
+    const errorMessage = handleRequestError(error);
+    message.error(errorMessage);
   }
 };

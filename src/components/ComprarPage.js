@@ -5,7 +5,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchBienes, registrarCompra,agregarMarca, agregarModelo } from '../redux/actions/bienes';
 import { checkExistingUser, registerUsuarioPorTercero } from '../redux/actions/usuarios';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons'
+import api from '../redux/axiosConfig'; // Importa la instancia configurada
+
+
+;
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -96,162 +100,120 @@ console.log('Token de autenticación:', token);
   ;
   const handleTipoChange = async (tipo) => {
     if (!tipo) {
-      message.warning('Selecciona un tipo para cargar las marcas.');
-      return;
+        message.warning('Selecciona un tipo para cargar las marcas.');
+        return;
     }
-  
-    const token = localStorage.getItem('authToken'); // Obtén el token desde localStorage
-  
+
     try {
-      // Llamar al backend para obtener las marcas asociadas al tipo seleccionado
-      const response = await axios.get(`http://localhost:5005/bienes/bienes/marcas?tipo=${tipo}`, {
-        headers: {
-          Authorization: `Bearer ${token}`, // Envía el token en el encabezado
-        },
-      });
-  
-      if (response.status === 200 && response.data.marcas) {
-        console.log('Marcas cargadas:', response.data.marcas);
-        setMarcas(response.data.marcas); // Actualizar el estado de marcas
-        formStep2.setFieldsValue({ marca: undefined }); // Limpiar la selección de marca
-      } else {
-        setMarcas([]); // Si no hay marcas disponibles
-      }
+        const response = await api.get(`/bienes/bienes/marcas?tipo=${tipo}`);
+        if (response.status === 200 && response.data.marcas) {
+            console.log('Marcas cargadas:', response.data.marcas);
+            setMarcas(response.data.marcas);
+            formStep2.setFieldsValue({ marca: undefined });
+        } else {
+            setMarcas([]);
+        }
     } catch (error) {
-      console.error('Error al cargar las marcas:', error);
-      if (error.response?.status === 401) {
-        message.error('No autorizado. Inicia sesión nuevamente.');
-        navigate('/home'); // Redirige al usuario al inicio de sesión
-      } else {
+        console.error('Error al cargar las marcas:', error);
         message.error('No se pudieron cargar las marcas para este tipo.');
-      }
     }
-  };
-  
-  const handleMarcaChange = async (marca) => {
-    const tipoSeleccionado = formStep2.getFieldValue('tipo');
-    if (!tipoSeleccionado || !marca) {
+};
+
+const handleMarcaChange = async (marca) => {
+  const tipoSeleccionado = formStep2.getFieldValue('tipo');
+  if (!tipoSeleccionado || !marca) {
       setModelos([]);
       return;
-    }
-  
-    // Obtener el token desde localStorage
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      message.error('Debe iniciar sesión para continuar.');
-      navigate('/home'); // Redirige al login si no hay token
-      return;
-    }
-  
-    try {
-      // Llamar al backend para obtener los modelos asociados
-      const response = await axios.get(
-        `http://localhost:5005/bienes/bienes/modelos?tipo=${tipoSeleccionado}&marca=${marca}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // Agregar el token al encabezado
-          },
-        }
-      );
-  
-      if (response.status === 200 && response.data.modelos) {
-        console.log('Modelos cargados:', response.data.modelos);
-        setModelos(response.data.modelos);
-        formStep2.setFieldsValue({ modelo: undefined }); // Limpiar selección de modelo
-      } else {
-        setModelos([]);
-      }
-    } catch (error) {
-      console.error('Error al cargar los modelos:', error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        message.error('No autorizado. Por favor, inicia sesión nuevamente.');
-        localStorage.removeItem('authToken'); // Limpiar token inválido
-        navigate('/home'); // Redirigir al login
-      } else {
-        message.error('No se pudieron cargar los modelos para esta marca.');
-      }
-    }
-  };
-  
-  
-  
-  
+  }
 
-  const agregarNuevaMarca = async () => {
-    if (!nuevaMarca.trim()) {
+  try {
+      const response = await api.get(`/bienes/bienes/modelos?tipo=${tipoSeleccionado}&marca=${marca}`);
+      if (response.status === 200 && response.data.modelos) {
+          console.log('Modelos cargados:', response.data.modelos);
+          setModelos(response.data.modelos);
+          formStep2.setFieldsValue({ modelo: undefined });
+      } else {
+          setModelos([]);
+      }
+  } catch (error) {
+      console.error('Error al cargar los modelos:', error);
+      message.error('No se pudieron cargar los modelos para esta marca.');
+  }
+};
+
+  
+  
+  
+  
+const agregarNuevaMarca = async () => {
+  if (!nuevaMarca.trim()) {
       message.warning('La marca no puede estar vacía.');
       return;
-    }
-  
-    const tipoSeleccionado = formStep2.getFieldValue('tipo');
-    if (!tipoSeleccionado) {
+  }
+
+  const tipoSeleccionado = formStep2.getFieldValue('tipo');
+  if (!tipoSeleccionado) {
       message.warning('Selecciona un tipo de bien antes de agregar una marca.');
       return;
-    }
-  
-    try {
-      const response = await axios.post('http://localhost:5005/bienes/bienes/marcas', {
-        tipo: tipoSeleccionado,
-        marca: nuevaMarca.trim(),
-      });
-  
-      console.log('Respuesta al agregar marca:', response.data);
-  
-      if (response.status === 201) {
-        message.success(`Marca "${nuevaMarca}" registrada con éxito.`);
-        setMarcas((prevMarcas) => [...prevMarcas, nuevaMarca.trim()]);
-        formStep2.setFieldsValue({ marca: nuevaMarca.trim() });
-        setNuevaMarca('');
-      }
-    } catch (error) {
-      if (error.response?.status === 409) {
-        message.warning(`La marca "${nuevaMarca}" ya existe. Actualizando marcas...`);
-        // Actualiza las marcas cargándolas desde el backend
-        await handleTipoChange(formStep2.getFieldValue('tipo'));
-      } else {
-        message.error('No se pudo registrar la marca. Intenta de nuevo.');
-      }
-      console.error('Error al registrar la marca:', error);
-    }
-  };
-  
-  
+  }
 
-  const agregarNuevoModelo = async () => {
-    if (!nuevoModelo.trim()) {
+  try {
+      const response = await api.post('/bienes/bienes/marcas', {
+          tipo: tipoSeleccionado,
+          marca: nuevaMarca.trim(),
+      });
+
+      if (response.status === 201) {
+          message.success(`Marca "${nuevaMarca}" registrada con éxito.`);
+          setMarcas((prevMarcas) => [...prevMarcas, nuevaMarca.trim()]);
+          formStep2.setFieldsValue({ marca: nuevaMarca.trim() });
+          setNuevaMarca('');
+      }
+  } catch (error) {
+      console.error('Error al registrar la marca:', error);
+      message.error('No se pudo registrar la marca. Intenta de nuevo.');
+  }
+};
+
+  
+const agregarNuevoModelo = async () => {
+  if (!nuevoModelo.trim()) {
       message.warning('El modelo no puede estar vacío.');
       return;
-    }
-    const tipoSeleccionado = formStep2.getFieldValue('tipo');
-    const marcaSeleccionada = formStep2.getFieldValue('marca');
-    if (!tipoSeleccionado || !marcaSeleccionada) {
+  }
+
+  const tipoSeleccionado = formStep2.getFieldValue('tipo');
+  const marcaSeleccionada = formStep2.getFieldValue('marca');
+
+  if (!tipoSeleccionado || !marcaSeleccionada) {
       message.warning('Selecciona un tipo y una marca antes de agregar un modelo.');
       return;
-    }
-    try {
-      const response = await axios.post('http://localhost:5005/bienes/bienes/modelos', {
-        tipo: tipoSeleccionado,
-        marca: marcaSeleccionada,
-        modelo: nuevoModelo.trim(),
+  }
+
+  try {
+      const response = await api.post('/bienes/bienes/modelos', {
+          tipo: tipoSeleccionado,
+          marca: marcaSeleccionada,
+          modelo: nuevoModelo.trim(),
       });
 
       console.log('Respuesta al agregar modelo:', response.data); // Agregar log
 
       if (response.status === 201) {
-        message.success(`Modelo "${nuevoModelo}" registrado con éxito.`);
-        setModelos((prevModelos) => [...prevModelos, nuevoModelo.trim()]);
-        formStep2.setFieldsValue({ modelo: nuevoModelo.trim() });
-        setNuevoModelo('');
+          message.success(`Modelo "${nuevoModelo}" registrado con éxito.`);
+          setModelos((prevModelos) => [...prevModelos, nuevoModelo.trim()]);
+          formStep2.setFieldsValue({ modelo: nuevoModelo.trim() });
+          setNuevoModelo('');
       }
-    } catch (error) {
+  } catch (error) {
       if (error.response?.status === 409) {
-        message.error('El modelo ya existe.');
+          message.error('El modelo ya existe.');
       } else {
-        message.error('No se pudo registrar el modelo. Intenta de nuevo.');
+          message.error('No se pudo registrar el modelo. Intenta de nuevo.');
       }
       console.error('Error al registrar el modelo:', error);
-    }
-  };
+  }
+};
 
   const handleFinishStep1 = async (values) => {
     try {
@@ -307,58 +269,37 @@ console.log('Token de autenticación:', token);
         message.error(error.message || 'Ocurrió un error en el registro del usuario.');
     }
 };
-
 const handleFinishStep2 = async (values) => {
   try {
-      const { tipo, marca, modelo, bienDescripcion, bienPrecio, bienStock, metodoPago } = values;
+    const compradorDni = JSON.parse(localStorage.getItem('userData')).dni || '';
 
-      if (!vendedorId) {
-          throw new Error("El vendedorId no está definido.");
-      }
+    const formData = new FormData();
+    formData.append('tipo', values.tipo);
+    formData.append('marca', values.marca);
+    formData.append('modelo', values.modelo);
+    formData.append('descripcion', values.bienDescripcion);
+    formData.append('precio', parseFloat(values.bienPrecio));
+    formData.append('cantidad', parseInt(values.bienStock, 10));
+    formData.append('metodoPago', values.metodoPago);
+    formData.append('vendedorId', vendedorId);
+    formData.append('dniComprador', compradorDni);
 
-      const formData = new FormData();
-      formData.append('tipo', tipo);
-      formData.append('marca', marca);
-      formData.append('modelo', modelo);
-      formData.append('descripcion', bienDescripcion);
-      formData.append('precio', parseFloat(bienPrecio));
-      formData.append('cantidad', parseInt(bienStock, 10));
-      formData.append('metodoPago', metodoPago);
-      formData.append('vendedorId', vendedorId);
+    fileList.forEach((file) => {
+      formData.append('fotos', file.originFileObj);
+    });
 
-      // Adjuntar fotos
-      fileList.forEach((file) => {
-          formData.append('fotos', file.originFileObj);
-      });
-      console.log('Fotos enviadas:', fileList.map(file => file.name));
+    console.log('Datos enviados al backend:', formData);
 
-
-      // Log para depuración
-      console.log('Datos enviados al backend:', {
-          tipo,
-          marca,
-          modelo,
-          descripcion: bienDescripcion,
-          precio: parseFloat(bienPrecio),
-          cantidad: parseInt(bienStock, 10),
-          metodoPago,
-          vendedorId,
-          fotos: fileList.map(file => file.name),
-      });
-
-      // Usar la acción para registrar la compra
-      const result = await dispatch(registrarCompra(formData));
-
-      // Validar la respuesta del servidor
-      if (result && result.message === "Compra registrada con éxito.") {
-          message.success(result.message);
-          navigate('/user/dashboard');
-      } else {
-          throw new Error(result.message || 'Error al registrar la compra.');
-      }
+    const result = await dispatch(registrarCompra(formData));
+    if (result && result.message === 'Compra registrada con éxito.') {
+      message.success(result.message);
+      navigate('/user/dashboard');
+    } else {
+      throw new Error(result.message || 'Error al registrar la compra.');
+    }
   } catch (error) {
-      console.error('Error al registrar el bien:', error);
-      message.error(error.message || 'No se pudo registrar el bien.');
+    console.error('Error en registrar el bien:', error);
+    message.error(error.message || 'No se pudo registrar el bien.');
   }
 };
 

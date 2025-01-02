@@ -19,6 +19,7 @@ import {
   GET_BIENES_USUARIO_REQUEST,
   GET_BIENES_USUARIO_SUCCESS,
   GET_BIENES_USUARIO_FAILURE,
+  DELETE_BIEN,
 } from '../actions/actionTypes';
 
 const initialState = {
@@ -145,6 +146,12 @@ const bienesReducer = (state = initialState, action) => {
         loading: false,
         error: null,
       };
+
+      case DELETE_BIEN: // Si decides agregar una acción DELETE_BIEN explícita
+  return {
+    ...state,
+    items: state.items.filter((bien) => bien.uuid !== action.payload),
+  }
 
     default:
       return state;

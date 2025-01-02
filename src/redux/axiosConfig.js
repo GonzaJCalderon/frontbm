@@ -1,26 +1,39 @@
 import axios from 'axios';
 
+// Determinar la URL base según el entorno
+const baseURL =
+    process.env.REACT_APP_DB_USE === 'remote'
+        ? process.env.REACT_APP_API_URL_REMOTE
+        : process.env.REACT_APP_API_URL_LOCAL;
+
+if (!baseURL) {
+    console.error('Error: La baseURL no está configurada correctamente. Verifica las variables de entorno.');
+}
+
 // Crear una instancia de Axios
 const api = axios.create({
-    // baseURL: 'https://backbm-production-ca20.up.railway.app', // URL base de tu API en Railway
-    baseURL: 'http://localhost:5005',
+    baseURL,
     withCredentials: true, // Habilita el envío de cookies si es necesario
 });
 
-// Agregar un interceptor para incluir el token en los encabezados
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  }, (error) => Promise.reject(error));
-  
+// Interceptores (no necesitas modificarlos porque ya están bien escritos)
 
+
+// Agregar un interceptor para incluir el token en los encabezados
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
 
 // Agregar un interceptor para manejar errores de respuesta
 api.interceptors.response.use(
-    (response) => response, // Devolver la respuesta si todo está bien
+    (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
@@ -39,8 +52,7 @@ api.interceptors.response.use(
                 }
 
                 // Solicitar un nuevo access token usando el refresh token
-                const response = await axios.post('/refresh', { refreshToken });
-
+                const response = await axios.post(`${baseURL}/refresh`, { refreshToken });
                 const newAccessToken = response.data.accessToken;
 
                 // Guardar el nuevo token en localStorage

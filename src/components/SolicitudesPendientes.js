@@ -180,44 +180,49 @@ const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es m
                             </tr>
                         </thead>
                         <tbody>
-                            {updatedRegistrations.map((user) => (
-                                <tr key={user.uuid}>
-                                    <td>{user.nombre}</td>
-                                    <td>{user.apellido}</td>
-                                    <td>{user.email}</td>
-                                    <td>{user.dni}</td>
-                                    <td>{user.cuit || 'N/A'}</td>
-                                    <td>
-                                        {user.direccion
-                                            ? `${user.direccion.calle}, ${user.direccion.altura}, ${user.direccion.departamento}`
-                                            : 'Sin Dirección'}
-                                    </td>
-                                    <td>{user.rolDefinitivo}</td>
-                                    <td>
-                                        {isModerator ? (
-                                            <p className="text-gray-500">
-                                                Acción no permitida para moderadores.
-                                            </p>
-                                        ) : (
-                                            <div>
-                                                <Button
-                                                    onClick={() => handleApprove(user.uuid)}
-                                                    className="bg-green-600 text-white rounded"
-                                                >
-                                                    Aprobar
-                                                </Button>
-                                                <Button
-                                                    onClick={() => showModal(user.uuid)}
-                                                    className="bg-red-600 text-white rounded"
-                                                >
-                                                    Denegar
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
+  {updatedRegistrations.map((user) => (
+    <tr key={user.uuid}>
+      <td>{user.nombre}</td>
+      <td>{user.apellido}</td>
+      <td>{user.email}</td>
+      <td>{user.dni}</td>
+      <td>{user.cuit || 'N/A'}</td>
+      <td>
+        {user.direccion
+          ? `${user.direccion.calle}, ${user.direccion.altura}, ${user.direccion.departamento}`
+          : 'Sin Dirección'}
+      </td>
+      <td>
+        {user.estado === 'pendiente_revision' ? (
+          <span className="text-blue-600">Pendiente de Revisión</span>
+        ) : (
+          <span className="text-yellow-600">Pendiente</span>
+        )}
+      </td>
+      <td>
+        {isModerator ? (
+          <p className="text-gray-500">Acción no permitida para moderadores.</p>
+        ) : (
+          <div>
+            <Button
+              onClick={() => handleApprove(user.uuid)}
+              className="bg-green-600 text-white rounded"
+            >
+              Aprobar
+            </Button>
+            <Button
+              onClick={() => showModal(user.uuid)}
+              className="bg-red-600 text-white rounded"
+            >
+              Denegar
+            </Button>
+          </div>
+        )}
+      </td>
+    </tr>
+  ))}
+</tbody>
+
                     </table>
                 </div>
             )}

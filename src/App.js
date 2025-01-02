@@ -23,12 +23,15 @@ import HistorialCambios from './components/HistorialCambios';
 import BienesPorUsuario from './components/BienesPorUsuario';
 import UsuarioDetails from './components/UsuarioDetails';
 import UpdateAccount from './components/UpdateAccount';
+import BienEdit from './components/BienEdit';
+import ReintentarRegistro from './components/ReintentarRegistro';
 
 const App = () => {
   return (
     <div className="App">
       <Routes>
         <Route path="/bienes" element={<BienForm />} />
+        <Route path="/bienes/edit/:uuid" element={<BienEdit />} />
         <Route path="/seleccionar-rol" element={<SeleccionarRol />} />
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/lista-bienes" element={<BienList />} />
@@ -51,6 +54,7 @@ const App = () => {
         <Route path="/operaciones" element={<Operaciones />} />
         <Route path="/login" element={<Home />} />
         <Route path="/upload-stock" element={<ExcelUploadPage />} />
+        <Route path="/reintentar-registro/:uuid" element={<ReintentarRegistro />} />
         <Route path="/usuarios/update-account/:token" element={<UpdateAccount />} />
       </Routes>
     </div>

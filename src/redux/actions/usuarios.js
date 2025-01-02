@@ -625,6 +625,15 @@ export const fetchHistorialCambios = async (uuid) => {
   }
 };
   
-  
+export const reenviarRegistro = (uuid, userData) => async (dispatch) => {
+  try {
+    const response = await axios.put(`/usuarios/usuarios/${uuid}/reintentar`, userData);
+    dispatch({ type: 'REENVIAR_REGISTRO_SUCCESS', payload: response.data });
+    return response.data;
+  } catch (error) {
+    throw error.response ? error.response.data : error;
+  }
+};
+
   
   

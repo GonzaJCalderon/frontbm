@@ -102,18 +102,17 @@ const EditUsuario = () => {
       },
     }));
   };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    const { rol, ...userData } = formData;
+  
+    const descripcionCambio = `Actualización de usuario: ${formData.nombre} (${formData.email})`;
+  
+    const userData = {
+      ...formData,
+      descripcion: descripcionCambio, // Incluye la descripción
+    };
   
     dispatch(updateUser(id, userData))
-      .then(() => {
-        if (rol !== userDetails.rolDefinitivo) {
-          return dispatch(assignRole(id, rol))
-            .then(() => dispatch(fetchUsuarioDetails(id))); // Refrescar detalles del usuario
-        }
-      })
       .then(() => {
         notification.success({
           message: 'Éxito',
@@ -122,10 +121,9 @@ const EditUsuario = () => {
         navigate('/usuarios');
       })
       .catch((err) => {
-        const errorMessage = typeof err?.message === 'string' ? err.message : JSON.stringify(err);
         notification.error({
           message: 'Error',
-          description: errorMessage,
+          description: err.message || 'No se pudo actualizar el usuario.',
         });
       });
   };

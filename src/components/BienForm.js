@@ -23,6 +23,9 @@ const RegistrarBienPage = () => {
     const token = localStorage.getItem('token');
     const userUuid = localStorage.getItem('userUuid'); // Usar la clave consistente
 
+    // Seleccionar la base URL según el entorno
+    const baseURL = process.env.REACT_APP_API_URL_LOCAL || process.env.REACT_APP_API_URL_REMOTE;
+
     // Validar si el usuario está autenticado al cargar el componente
     useEffect(() => {
         if (!token || !userUuid) {
@@ -40,6 +43,7 @@ const RegistrarBienPage = () => {
         'teléfono movil',
         'bicicleta',
     ];
+
     const handleFinish = async () => {
         try {
             console.log('Fotos seleccionadas:', fileList); // Agrega este log
@@ -66,7 +70,8 @@ const RegistrarBienPage = () => {
                 formData.append('fotos', file.originFileObj);
             });
     
-            const response = await axios.post('http://localhost:5005/bienes/add', formData, {
+            // Usa la base URL dinámica para enviar el formulario
+            const response = await axios.post(`${baseURL}/bienes/add`, formData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data',

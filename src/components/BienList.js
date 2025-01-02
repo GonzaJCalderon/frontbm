@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchAllBienes } from '../redux/actions/bienes';
+import { fetchAllBienes,deleteBien } from '../redux/actions/bienes';
 import { useNavigate } from 'react-router-dom';
 import { FaSignOutAlt, FaHome, FaArrowLeft } from 'react-icons/fa';
-import { Table, Image, Modal, Carousel, Button } from 'antd';
+import { Table, Image, Modal, Carousel, Button, Spin } from 'antd';
 import { notification } from 'antd';
 
 const BienList = () => {
@@ -14,6 +14,8 @@ const BienList = () => {
     const [visibleGallery, setVisibleGallery] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [visibleImage, setVisibleImage] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); // Estado para manejar el loading
+
     const [trazabilidad, setTrazabilidad] = useState(null); // Estado para almacenar la trazabilidad
     // Ordenar bienes por fecha de más nuevo a más antiguo
     
@@ -33,27 +35,82 @@ const BienList = () => {
     }, [isAdmin, navigate]);
     
     useEffect(() => {
-        dispatch(fetchAllBienes());
+        const loadBienes = async () => {
+            setIsLoading(true); // Activa el estado de carga
+            try {
+                await dispatch(fetchAllBienes()); // Llama a la acción para cargar bienes
+            } catch (error) {
+                console.error('Error al cargar los bienes:', error);
+            } finally {
+                setIsLoading(false); // Desactiva el estado de carga
+            }
+        };
+    
+        loadBienes(); // Ejecuta la función de carga
     }, [dispatch]);
+    
+
+     // Configuración de baseURL usando las variables de entorno
+     const baseURL =
+     process.env.REACT_APP_DB_USE === 'remote'
+         ? process.env.REACT_APP_API_URL_REMOTE || 'http://10.100.1.80:5005'
+         : process.env.REACT_APP_API_URL_LOCAL || 'http://localhost:5005';
+ 
+ 
 
     // Obtener trazabilidad de un bien
     const obtenerTrazabilidad = async (uuid) => {
-        try {
-            const response = await fetch(`http://localhost:5005/bienes/trazabilidad/${uuid}`);
-            if (!response.ok) {
-                throw new Error('Error al obtener la trazabilidad.');
-            }
-            const data = await response.json();
-            setTrazabilidad(data); // Guardar la trazabilidad en el estado
-            console.log('Trazabilidad:', data);
-        } catch (error) {
-            console.error('Error al obtener trazabilidad:', error);
+        if (!baseURL) {
+            console.error('BaseURL no definida. Esto no debería ocurrir.');
             notification.error({
                 message: 'Error',
-                description: 'Hubo un problema al obtener la trazabilidad.',
+                description: 'La configuración del servidor no está definida correctamente.',
+            });
+            return;
+        }
+    
+        try {
+            const response = await fetch(`${baseURL}/bienes/trazabilidad/${uuid}`);
+    
+            if (!response.ok) {
+                const errorMessage = await response.text();
+                console.error(`Error al obtener trazabilidad: ${response.status} - ${errorMessage}`);
+                throw new Error(`Error al obtener trazabilidad: ${errorMessage}`);
+            }
+    
+            const data = await response.json();
+            setTrazabilidad(data);
+            console.log('Trazabilidad obtenida:', data);
+        } catch (error) {
+            console.error('Error al obtener trazabilidad:', error.message || error);
+            notification.error({
+                message: 'Error',
+                description: error.message || 'Hubo un problema al obtener la trazabilidad.',
             });
         }
     };
+    
+    const handleEditBien = (bien) => {
+        // Navegar a la página de edición con el ID del bien
+        navigate(`/bienes/edit/${bien.uuid}`);
+    };
+    
+    const handleDeleteBien = async (bien) => {
+        const confirmDelete = window.confirm('¿Estás seguro de que deseas eliminar este bien?');
+        if (!confirmDelete) return;
+      
+        try {
+          await dispatch(deleteBien(bien.uuid));
+          notification.success({ message: 'Bien eliminado correctamente.' });
+          dispatch(fetchAllBienes()); // Actualizar la lista después de eliminar
+        } catch (error) {
+          notification.error({
+            message: 'Error',
+            description: error.message || 'No se pudo eliminar el bien.',
+          });
+        }
+      };
+      
     
     const handleBienClick = (bien) => {
         setSelectedBien(bien); // Guardar el bien seleccionado en el estado
@@ -95,18 +152,25 @@ const BienList = () => {
     const closeImage = () => {
         setVisibleImage(false);
     };
-
+    
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <div>
+                    <Spin size="large" />
+                    <p className="mt-4 text-xl text-gray-700">Cargando bienes, por favor espera...</p>
+                </div>
+            </div>
+        );
+    }
+    
     if (error) {
         return (
             <div className="text-center mt-10">
                 <h2 className="text-red-500 text-2xl font-bold">Error al cargar los bienes</h2>
                 <p className="text-gray-500">{error}</p>
-                <button
-                    onClick={() => navigate('/home')}
-                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                    >
-                    Ir al inicio
-                </button>
+               
+
             </div>
         );
     }
@@ -160,8 +224,9 @@ const BienList = () => {
         {
             title: 'Cantidad en Stock',
             key: 'stock',
-            render: (_, record) => record.stock ? record.stock.cantidad : 'Sin stock',
-        },
+            render: (_, record) => record.stock && record.stock.cantidad ? String(record.stock.cantidad) : 'Sin stock',
+        }
+        ,
         {
             title: 'Propietario',
             key: 'propietario',
@@ -210,15 +275,41 @@ const BienList = () => {
             title: 'Acción',
             key: 'action',
             render: (_, bien) => (
-                <Button
-                    type="primary"
-                    onClick={() => handleBienClick(bien)}
-                >
-                    Ver Trazabilidad
-                </Button>
+                <div className="flex space-x-2">
+                    <Button
+                        type="primary"
+                        onClick={() => handleBienClick(bien)}
+                        style={{ background: '#1890ff', borderColor: '#1890ff' }}
+                    >
+                        Ver Trazabilidad
+                    </Button>
+                    {isAdmin && (
+                        <>
+                            <Button
+                                type="default"
+                                onClick={() => handleEditBien(bien)}
+                                style={{
+                                    background: '#ffc107', // Color amarillo
+                                    borderColor: '#ffc107',
+                                    color: '#000',
+                                }}
+                            >
+                                Editar
+                            </Button>
+                            <Button
+                                type="primary"
+                                danger
+                                onClick={() => handleDeleteBien(bien)}
+                            >
+                                Eliminar
+                            </Button>
+                        </>
+                    )}
+                </div>
             ),
-        },
-    ];
+        }
+        
+    ]
     
     
 
