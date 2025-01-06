@@ -43,7 +43,7 @@ const Home = () => {
           </div>
           <div className="flex flex-col items-center justify-center md:items-start">
             <h2 className="text-4xl md:text-5xl font-extrabold mb-6 md:!leading-[55px] text-blue-100">
-              Registro de Bienes Muebles Usados
+            Sistema Provincial Preventivo Bienes Muebles Usados
             </h2>
             <p className="text-base text-blue-200 mb-10">
               ¡Bienvenido! Aquí podrá registrar la compra y venta de Bienes Muebles Usados

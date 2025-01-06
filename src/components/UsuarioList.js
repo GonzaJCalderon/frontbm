@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchApprovedUsers, deleteUsuario, denyRegistration, approveUser } from '../redux/actions/usuarios';
+import { fetchApprovedUsers, fetchRejectedUsers, fetchPendingRegistrations, deleteUsuario, denyRegistration, approveUser } from '../redux/actions/usuarios';
+
 import { useNavigate } from 'react-router-dom';
-import { notification, Button, Table, Modal, Input } from 'antd';
+import { notification, Button, Table, Modal, Input, Spin } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
-import FiltroUsuarios from './FiltroUsuarios';
+
 
 const UsuarioList = () => {
   const dispatch = useDispatch();
@@ -22,6 +23,8 @@ const UsuarioList = () => {
   const [selectedUserBienes, setSelectedUserBienes] = useState(null);
   const [currentUsuario, setCurrentUsuario] = useState(null);
   const [filters, setFilters] = useState({});
+  const [isLoadingAction, setIsLoadingAction] = useState(false);
+
 
   const userData = JSON.parse(localStorage.getItem('userData'));
   const isAdmin = userData && userData.rolDefinitivo === 'admin';
@@ -72,7 +75,7 @@ const UsuarioList = () => {
       });
       return;
     }
-
+  
     if (!rejectionReason.trim()) {
       notification.warning({
         message: 'Motivo de rechazo requerido',
@@ -80,30 +83,43 @@ const UsuarioList = () => {
       });
       return;
     }
-
+  
     const fechaRechazo = new Date().toISOString();
-    const rechazadoPor = userData.uuid;
-
+    const rechazadoPor = userData.uuid; // Usuario que está autenticado
+  
+    // Mostrar spinner
+    setIsLoadingAction(true);
+  
     dispatch(
       denyRegistration(currentUserId, { fechaRechazo, rechazadoPor, motivoRechazo: rejectionReason })
     )
-      .then(() => {
+      .then((response) => {
         notification.success({
           message: 'Usuario rechazado',
           description: `El usuario ${currentUserName} ha sido rechazado correctamente.`,
         });
-        setIsModalVisible(false);
+        setIsModalVisible(false); // Cerrar el modal de motivo de rechazo
         setRejectionReason('');
-        dispatch(fetchApprovedUsers());
+  
+        // Actualizar las listas de usuarios aprobados y rechazados
+        return Promise.all([
+          dispatch(fetchApprovedUsers()),
+          dispatch(fetchRejectedUsers()),
+        ]);
+      })
+      .then(() => {
+        setIsLoadingAction(false); // Ocultar spinner
       })
       .catch((error) => {
+        setIsLoadingAction(false); // Ocultar spinner en caso de error
         notification.error({
           message: 'Error al rechazar usuario',
           description: error.message || 'Ocurrió un error inesperado.',
         });
       });
   };
-
+  
+  
   const handleDelete = (usuario) => {
     if (!usuario || !usuario.uuid) {
       notification.error({
@@ -243,6 +259,22 @@ const UsuarioList = () => {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
+      {/* Modal del Spinner */}
+      <Modal
+        visible={isLoadingAction}
+        footer={null}
+        closable={false}
+        centered
+        className="flex justify-center items-center"
+      >
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-yellow-500 mx-auto"></div>
+          <h2 className="text-zinc-900 mt-4">Espere un momento...</h2>
+          <p className="text-zinc-600">Estamos procesando su solicitud.</p>
+        </div>
+      </Modal>
+  
+      {/* Modal de Motivo de Rechazo */}
       <Modal
         title={`Rechazar Usuario: ${currentUserName}`}
         visible={isModalVisible}
@@ -253,80 +285,71 @@ const UsuarioList = () => {
           rows={4}
           placeholder="Motivo del rechazo"
           value={rejectionReason}
-          onChange={(e) => {
-            setRejectionReason(e.target.value);
-          }}
+          onChange={(e) => setRejectionReason(e.target.value)}
         />
       </Modal>
-
-
-      <div className="p-6 bg-gray-100 min-h-screen">
-  <Modal
-    title={`Rechazar Usuario: ${currentUserName}`}
-    visible={isModalVisible}
-    onOk={handleRejectSubmit}
-    onCancel={() => setIsModalVisible(false)}
-  >
-    <Input.TextArea
-      rows={4}
-      placeholder="Motivo del rechazo"
-      value={rejectionReason}
-      onChange={(e) => {
-        setRejectionReason(e.target.value);
-      }}
-    />
-  </Modal>
-
-  <div className="flex justify-between items-center mb-4">
-    <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/dashboard')}>
-      Volver
-    </Button>
-    <Button type="primary" icon={<LogoutOutlined />} onClick={() => navigate('/home')}>
-      Cerrar Sesión
-    </Button>
-  </div>
-
-  <h1 className="text-2xl font-bold mb-4">Lista de Usuarios</h1>
-
-  {/* Campos de Búsqueda */}
-  <div className="grid grid-cols-4 gap-4 mb-4">
-    <Input
-      placeholder="Nombre"
-      onChange={(e) => handleSearch({ nombre: e.target.value })}
-      allowClear
-    />
-    <Input
-      placeholder="Apellido"
-      onChange={(e) => handleSearch({ apellido: e.target.value })}
-      allowClear
-    />
-    <Input
-      placeholder="DNI"
-      onChange={(e) => handleSearch({ dni: e.target.value })}
-      allowClear
-    />
-    <Input
-      placeholder="Correo Electrónico"
-      onChange={(e) => handleSearch({ email: e.target.value })}
-      allowClear
-    />
-  </div>
-
-  {loading ? (
-    <div className="text-center">Cargando...</div>
-  ) : (
-    <Table
-      dataSource={filteredUsuarios}
-      columns={columns}
-      rowKey="uuid"
-      pagination={{ pageSize: 10 }}
-    />
-  )}
-  {error && <div className="text-red-500 mt-4">Error: {error}</div>}
-</div>
-
+  
+      {/* Botones de Navegación */}
+      <div className="flex justify-between items-center mb-4">
+        <Button
+          type="primary"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/admin/dashboard')}
+        >
+          Volver
+        </Button>
+        <Button
+          type="primary"
+          icon={<LogoutOutlined />}
+          onClick={() => navigate('/home')}
+        >
+          Cerrar Sesión
+        </Button>
+      </div>
+  
+      {/* Título */}
+      <h1 className="text-2xl font-bold mb-4">Lista de Usuarios</h1>
+  
+      {/* Campos de Búsqueda */}
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <Input
+          placeholder="Nombre"
+          onChange={(e) => handleSearch({ nombre: e.target.value })}
+          allowClear
+        />
+        <Input
+          placeholder="Apellido"
+          onChange={(e) => handleSearch({ apellido: e.target.value })}
+          allowClear
+        />
+        <Input
+          placeholder="DNI"
+          onChange={(e) => handleSearch({ dni: e.target.value })}
+          allowClear
+        />
+        <Input
+          placeholder="Correo Electrónico"
+          onChange={(e) => handleSearch({ email: e.target.value })}
+          allowClear
+        />
+      </div>
+  
+      {/* Tabla de Usuarios */}
+      {loading ? (
+        <div className="text-center">Cargando...</div>
+      ) : (
+        <Table
+          dataSource={filteredUsuarios}
+          columns={columns}
+          rowKey="uuid"
+          pagination={{ pageSize: 10 }}
+        />
+      )}
+      {error && <div className="text-red-500 mt-4">Error: {error}</div>}
     </div>
   );
+  
+  
 };
 
 export default UsuarioList;

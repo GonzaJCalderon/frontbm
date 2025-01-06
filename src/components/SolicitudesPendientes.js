@@ -96,31 +96,40 @@ const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es m
     // Manejo de rechazo de usuarios
     const handleDeny = async () => {
         if (!selectedUserUuid || !rejectionReason.trim()) {
-            notification.warning({
-                message: 'Motivo requerido',
-                description: 'Por favor, ingresa un motivo para la denegación.',
-            });
-            return;
+          notification.warning({
+            message: 'Motivo requerido',
+            description: 'Por favor, ingresa un motivo para la denegación.',
+          });
+          return;
         }
         try {
-            await dispatch(denyRegistration(selectedUserUuid, rejectionReason, currentUser.id));
-            notification.error({
-                message: 'Registro denegado',
-                description: `El usuario con UUID ${selectedUserUuid} ha sido rechazado. Motivo: ${rejectionReason}`,
-            });
-            setUpdatedRegistrations((prev) =>
-                prev.filter((user) => user.uuid !== selectedUserUuid)
-            );
-            setIsModalVisible(false);
-            setRejectionReason('');
+          const payload = {
+            rechazadoPor: currentUser.uuid, // ID del usuario que rechaza
+            motivoRechazo: rejectionReason, // Motivo del rechazo
+          };
+      
+          console.log('Payload enviado al backend:', payload);
+      
+          await dispatch(denyRegistration(selectedUserUuid, payload));
+      
+          notification.error({
+            message: 'Registro denegado',
+            description: `El usuario con UUID ${selectedUserUuid} ha sido rechazado. Motivo: ${rejectionReason}`,
+          });
+          setUpdatedRegistrations((prev) =>
+            prev.filter((user) => user.uuid !== selectedUserUuid)
+          );
+          setIsModalVisible(false);
+          setRejectionReason('');
         } catch (error) {
-            notification.error({
-                message: 'Error',
-                description: 'No se pudo rechazar al usuario.',
-            });
+          console.error('Error al rechazar usuario:', error);
+          notification.error({
+            message: 'Error',
+            description: 'No se pudo rechazar al usuario.',
+          });
         }
-    };
-
+      };
+      
     // Cerrar modal de rechazo
     const handleCancel = () => {
         setIsModalVisible(false);
@@ -167,61 +176,63 @@ const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es m
             ) : (
                 <div className="overflow-x-auto">
                     <table className="table-auto w-full bg-white rounded shadow-md">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Apellido</th>
-                                <th style={{ minWidth: '200px' }}>Email</th>
-                                <th>DNI</th>
-                                <th>CUIT</th>
-                                <th>Dirección</th>
-                                <th>Rol</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-  {updatedRegistrations.map((user) => (
-    <tr key={user.uuid}>
-      <td>{user.nombre}</td>
-      <td>{user.apellido}</td>
-      <td>{user.email}</td>
-      <td>{user.dni}</td>
-      <td>{user.cuit || 'N/A'}</td>
-      <td>
-        {user.direccion
-          ? `${user.direccion.calle}, ${user.direccion.altura}, ${user.direccion.departamento}`
-          : 'Sin Dirección'}
-      </td>
-      <td>
-        {user.estado === 'pendiente_revision' ? (
-          <span className="text-blue-600">Pendiente de Revisión</span>
-        ) : (
-          <span className="text-yellow-600">Pendiente</span>
-        )}
-      </td>
-      <td>
-        {isModerator ? (
-          <p className="text-gray-500">Acción no permitida para moderadores.</p>
-        ) : (
-          <div>
-            <Button
-              onClick={() => handleApprove(user.uuid)}
-              className="bg-green-600 text-white rounded"
-            >
-              Aprobar
-            </Button>
-            <Button
-              onClick={() => showModal(user.uuid)}
-              className="bg-red-600 text-white rounded"
-            >
-              Denegar
-            </Button>
-          </div>
-        )}
-      </td>
+                    <thead>
+    <tr>
+        <th>Nombre</th>
+        <th>Apellido</th>
+        <th style={{ minWidth: '200px' }}>Email</th>
+        <th>DNI</th>
+        <th>CUIT</th>
+        <th>Dirección</th>
+        <th>Rol</th>
+        {/* Renderiza el encabezado "Acciones" solo si no es moderador */}
+        {!isModerator && <th>Acciones</th>}
     </tr>
-  ))}
+</thead>
+
+                        <tbody>
+    {updatedRegistrations.map((user) => (
+        <tr key={user.uuid}>
+            <td>{user.nombre}</td>
+            <td>{user.apellido}</td>
+            <td>{user.email}</td>
+            <td>{user.dni}</td>
+            <td>{user.cuit || 'N/A'}</td>
+            <td>
+                {user.direccion
+                    ? `${user.direccion.calle}, ${user.direccion.altura}, ${user.direccion.departamento}`
+                    : 'Sin Dirección'}
+            </td>
+            <td>
+                {user.estado === 'pendiente_revision' ? (
+                    <span className="text-blue-600">Pendiente de Revisión</span>
+                ) : (
+                    <span className="text-yellow-600">Pendiente</span>
+                )}
+            </td>
+            {/* Renderiza la columna de acciones solo si no es moderador */}
+            {!isModerator && (
+                <td>
+                    <div>
+                        <Button
+                            onClick={() => handleApprove(user.uuid)}
+                            className="bg-green-600 text-white rounded"
+                        >
+                            Aprobar
+                        </Button>
+                        <Button
+                            onClick={() => showModal(user.uuid)}
+                            className="bg-red-600 text-white rounded"
+                        >
+                            Denegar
+                        </Button>
+                    </div>
+                </td>
+            )}
+        </tr>
+    ))}
 </tbody>
+ 
 
                     </table>
                 </div>

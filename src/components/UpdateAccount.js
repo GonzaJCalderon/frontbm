@@ -48,7 +48,7 @@ const UpdateAccount = () => {
         <div className="text-center mb-10">
           <img src={logo} alt="Logo" className="object-contain w-full h-auto max-h-96 mx-auto" />
           <h2 className="text-4xl font-extrabold text-blue-100 mt-4">
-            ¡Bienvenido/a al Registro de Bienes Muebles Usados!
+            ¡Bienvenido/a al Sistema Provincial Preventivo de Bienes Muebles Usados!
           </h2>
           <p className="text-xl text-blue-200 mt-2">
             Aquí podrá Actualizar su Cuenta

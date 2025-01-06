@@ -67,26 +67,26 @@ const Dashboard = () => {
 
     const openModal = (item) => {
         setSelectedItem(item);
-        if (item.dni || item.cuit) { // Si es un usuario
-            setFormData({
-                nombre: item.nombre || '',
-                apellido: item.apellido || '',
-                email: item.email || '',
-                rol: item.rol || '',
-                direccion: item.direccion || '',
-                dni: item.dni || '',
-                cuit: item.cuit || ''
-            });
-        } else { // Si es un bien
+    
+        if (user.rol === 'moderador' && !item.dni && !item.cuit) {
+            // Si es moderador y está viendo bienes, solo permite ver
             setFormData({
                 tipo: item.tipo || '',
                 marca: item.marca || '',
                 modelo: item.modelo || '',
-                fotos: item.fotos || [] // Añadido para manejar fotos
+                descripcion: item.descripcion || '',
+                fotos: item.fotos || [],
+            });
+        } else {
+            // Si es un administrador o está viendo usuarios, permite editar
+            setFormData({
+                ...item,
             });
         }
         setShowModal(true);
     };
+    
+
 
     const closeModal = () => {
         setShowModal(false);
@@ -251,27 +251,25 @@ const Dashboard = () => {
     <>
         {selectedItem.dni || selectedItem.cuit ? (
             // Detalles del usuario
-            <>
-                <p><strong>Nombre:</strong> {selectedItem.nombre}</p>
-                <p><strong>Apellido:</strong> {selectedItem.apellido}</p>
-                <p><strong>Email:</strong> {selectedItem.email}</p>
-                <p><strong>Rol:</strong> {selectedItem.rolDefinitivo}</p>
-                <p><strong>DNI:</strong> {selectedItem.dni}</p>
-                <p><strong>CUIT:</strong> {selectedItem.cuit}</p>
-                <p><strong>Dirección:</strong> {`${selectedItem.direccion.calle} ${selectedItem.direccion.altura}, ${selectedItem.direccion.barrio}, ${selectedItem.direccion.departamento}`}</p>
-            </>
+            <div>
+                <p><strong>Nombre:</strong> {formData.nombre}</p>
+                <p><strong>Apellido:</strong> {formData.apellido}</p>
+                <p><strong>Email:</strong> {formData.email}</p>
+                <p><strong>Rol:</strong> {formData.rol}</p>
+                <p><strong>DNI:</strong> {formData.dni}</p>
+                <p><strong>CUIT:</strong> {formData.cuit}</p>
+                <p><strong>Dirección:</strong> {formData.direccion}</p>
+            </div>
         ) : (
-            // Detalles del bien
-            <>
-                <p><strong>Tipo:</strong> {selectedItem.tipo}</p>
-                <p><strong>Marca:</strong> {selectedItem.marca}</p>
-                <p><strong>Modelo:</strong> {selectedItem.modelo}</p>
-                <p><strong>Precio:</strong> ${selectedItem.precio}</p>
-                <p><strong>Descripción:</strong> {selectedItem.descripcion}</p>
-                <p><strong>Fotos:</strong></p>
-                {Array.isArray(selectedItem.foto) && selectedItem.foto.length > 0 ? (
+            // Detalles del bien (sin edición)
+            <div>
+                <p><strong>Tipo:</strong> {formData.tipo}</p>
+                <p><strong>Marca:</strong> {formData.marca}</p>
+                <p><strong>Modelo:</strong> {formData.modelo}</p>
+                <p><strong>Descripción:</strong> {formData.descripcion}</p>
+                {Array.isArray(formData.fotos) && formData.fotos.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
-                        {selectedItem.foto.map((foto, index) => (
+                        {formData.fotos.map((foto, index) => (
                             <img
                                 key={index}
                                 src={foto}
@@ -280,10 +278,8 @@ const Dashboard = () => {
                             />
                         ))}
                     </div>
-                ) : (
-                    <p>No hay fotos disponibles.</p>
                 )}
-            </>
+            </div>
         )}
     </>
 )}

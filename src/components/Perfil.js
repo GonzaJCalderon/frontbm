@@ -17,7 +17,7 @@ const departments = [
 const UserProfile = () => {
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
-    id: '', // Para asegurarnos de tener el ID del usuario
+    id: '',
     nombre: '',
     apellido: '',
     dni: '',
@@ -32,19 +32,23 @@ const UserProfile = () => {
   });
 
   const dispatch = useDispatch();
-
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem('userData')) || {};
-    console.log('Usuario almacenado:', storedUser); // Log para verificar
     setFormData({
-      id: storedUser.uuid || '', // Asegúrate de cargar el UUID
+      id: storedUser.uuid || '',
       nombre: storedUser.nombre || '',
       apellido: storedUser.apellido || '',
       dni: storedUser.dni || '',
       email: storedUser.email || '',
-      direccion: storedUser.direccion || { calle: '', altura: '', barrio: '', departamento: '' },
+      direccion: {
+        calle: storedUser.direccion?.calle || '',
+        altura: storedUser.direccion?.altura || '',
+        barrio: storedUser.direccion?.barrio || '',
+        departamento: storedUser.direccion?.departamento || '',
+      },
     });
   }, []);
+  
   
 
   const handleEdit = () => {
@@ -67,7 +71,7 @@ const UserProfile = () => {
   };
 
   const handleSave = () => {
-    const { id: uuid, ...userData } = formData; // Extraer el UUID (id)
+    const { id: uuid, ...userData } = formData;
 
     if (!uuid) {
       notification.error({
@@ -77,16 +81,21 @@ const UserProfile = () => {
       return;
     }
 
-    console.log('UUID que se envía:', uuid); // Log para depurar que el UUID está correcto
+    // Enviar solo los campos modificados
+    const updatedData = {
+      email: formData.email,
+      contraseña: formData.contraseña,
+      direccion: formData.direccion,
+    };
 
-    dispatch(updateUser(uuid, userData)) // Asegúrate de enviar el UUID
+    dispatch(updateUser(uuid, updatedData))
       .then(() => {
         setEditing(false);
         notification.success({
           message: 'Éxito',
           description: 'Datos actualizados correctamente!',
         });
-        localStorage.setItem('userData', JSON.stringify(formData)); // Actualiza localStorage
+        localStorage.setItem('userData', JSON.stringify(formData));
       })
       .catch((error) => {
         console.error('Error en la actualización:', error);
@@ -95,19 +104,19 @@ const UserProfile = () => {
           description: 'Hubo un problema al actualizar los datos.',
         });
       });
-};
-
-  
-  
+  };
 
   const handleLogout = () => {
     dispatch(logout());
-    localStorage.clear(); // Limpia todos los datos de localStorage al cerrar sesión
-    window.location.href = '/'; // Redirige a la página inicial
+    localStorage.clear();
+    window.location.href = '/';
   };
 
   return (
-    <div className="user-profile" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div
+      className="user-profile"
+      style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+    >
       <Card
         style={{ width: '100%', maxWidth: '600px', textAlign: 'center' }}
         actions={[
@@ -123,13 +132,13 @@ const UserProfile = () => {
         <Title level={2}>Perfil</Title>
         <Form layout="vertical" style={{ maxWidth: '100%' }}>
           <Form.Item label="Nombre">
-            <Input name="nombre" value={formData.nombre} onChange={handleChange} disabled={!editing} />
+            <Input name="nombre" value={formData.nombre} disabled />
           </Form.Item>
           <Form.Item label="Apellido">
-            <Input name="apellido" value={formData.apellido} onChange={handleChange} disabled={!editing} />
+            <Input name="apellido" value={formData.apellido} disabled />
           </Form.Item>
           <Form.Item label="DNI">
-            <Input name="dni" value={formData.dni} onChange={handleChange} disabled={!editing} />
+            <Input name="dni" value={formData.dni} disabled />
           </Form.Item>
           <Form.Item label="Email">
             <Input name="email" value={formData.email} onChange={handleChange} disabled={!editing} />

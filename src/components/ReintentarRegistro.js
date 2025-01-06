@@ -121,7 +121,7 @@ const ReintentarRegistro = () => {
         <div className="text-center md:text-left md:order-last">
   <img src={logo} alt="Registro de Bienes" className="object-contain w-full h-auto max-h-96" />
   <h1 className="text-4xl font-bold text-blue-100 mt-4 inline-block">
-    Registro de Bienes Muebles Usados
+  Sistema Provincial Preventivo de Bienes Muebles Usados
   </h1>
 </div>
 

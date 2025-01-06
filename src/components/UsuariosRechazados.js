@@ -17,10 +17,6 @@ const UsuariosRechazados = () => {
     dispatch(fetchRejectedUsers());
   }, [dispatch]);
 
-  useEffect(() => {
-    console.log('Rejected Users:', rejectedUsers); // Verifica la respuesta
-  }, [rejectedUsers]);
-
   const handleApprove = (userUuid) => {
     if (!userUuid) {
       notification.error({
@@ -29,18 +25,21 @@ const UsuariosRechazados = () => {
       });
       return;
     }
-
+  
     if (isAdmin) {
       const fechaAprobacion = new Date().toISOString();
       const aprobadoPor = userData.uuid;
+      const aprobadoPorNombre = `${userData.nombre} ${userData.apellido}`;
       const estado = 'aprobado';
-
-      dispatch(approveUser(userUuid, { estado, fechaAprobacion, aprobadoPor }))
+  
+      dispatch(approveUser(userUuid, { estado, fechaAprobacion, aprobadoPor, aprobadoPorNombre }))
         .then(() => {
           notification.success({
             message: 'Usuario aprobado',
-            description: `El usuario con UUID ${userUuid} ha sido aprobado.`,
+            description: `El usuario con UUID ${userUuid} ha sido aprobado correctamente.`,
           });
+  
+          // Refrescar la lista de rechazados
           dispatch(fetchRejectedUsers());
         })
         .catch((error) => {
@@ -49,14 +48,9 @@ const UsuariosRechazados = () => {
             description: error.message || 'Ocurrió un error inesperado.',
           });
         });
-    } else {
-      notification.warning({
-        message: 'Acción no permitida',
-        description: 'Solo los administradores pueden aprobar usuarios.',
-      });
     }
   };
-
+  
   const handleLogout = () => {
     localStorage.removeItem('userData');
     notification.success({
@@ -125,19 +119,21 @@ const UsuariosRechazados = () => {
       key: 'fechaRechazo',
       render: (fechaRechazo) => (fechaRechazo ? new Date(fechaRechazo).toLocaleString() : 'No disponible'),
     },
-    {
+  ];
+  
+  // Si el usuario es administrador, agregar columna de acciones.
+  if (isAdmin) {
+    columns.push({
       title: 'Acciones',
       key: 'acciones',
-      render: (text, user) =>
-        isAdmin ? (
-          <Button onClick={() => handleApprove(user.uuid)} className="bg-green-600 text-white rounded">
-            Aprobar
-          </Button>
-        ) : (
-          <p className="text-gray-500">Acción no permitida para moderadores.</p>
-        ),
-    },
-  ];
+      render: (text, user) => (
+        <Button onClick={() => handleApprove(user.uuid)} className="bg-green-600 text-white rounded">
+          Aprobar
+        </Button>
+      ),
+    });
+  }
+  
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">

@@ -527,31 +527,32 @@ export const fetchApprovedUsers = () => async (dispatch) => {
 };
 
 
-
-export const denyRegistration = (userUuid, data) => async (dispatch) => {
-  dispatch({ type: 'DENY_REGISTRATION_REQUEST' });
-
+export const denyRegistration = (uuid, payload) => async (dispatch) => {
   try {
-      const response = await api.put(`/usuarios/${userUuid}/rechazar`, data);
-      dispatch({ type: 'DENY_REGISTRATION_SUCCESS', payload: response.data });
+    const response = await axios.put(`/usuarios/${uuid}/rechazar`, payload, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+      },
+    });
+
+    dispatch({ type: 'DENY_REGISTRATION_SUCCESS', payload: response.data });
+    return response.data; // Retorna la respuesta del backend
   } catch (error) {
-      dispatch({ type: 'DENY_REGISTRATION_FAILURE', payload: error.message });
-      throw error;
+    console.error('Error al rechazar usuario:', error.response?.data || error.message);
+    dispatch({ type: 'DENY_REGISTRATION_FAILURE', payload: error.message });
+    throw error;
   }
 };
 
-  
-
-  export const fetchRejectedUsers = () => async (dispatch) => {
-    try {
-        const response = await api.get('/usuarios/usuarios/rechazados');
-        console.log('Usuarios rechazados obtenidos:', response.data); // Log para confirmar
-        dispatch({ type: FETCH_REJECTED_USERS_SUCCESS, payload: response.data });
-    } catch (error) {
-        console.error('Error al obtener usuarios rechazados:', error.message);
-        dispatch({ type: FETCH_REJECTED_USERS_ERROR, payload: error.message });
-    }
+export const fetchRejectedUsers = () => async (dispatch) => {
+  try {
+    const response = await api.get('/usuarios/usuarios/rechazados');
+    dispatch({ type: 'FETCH_REJECTED_USERS_SUCCESS', payload: response.data });
+  } catch (error) {
+    dispatch({ type: 'FETCH_REJECTED_USERS_FAILURE', payload: error.message });
+  }
 };
+
 
 
 

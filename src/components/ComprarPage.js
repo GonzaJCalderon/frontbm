@@ -21,7 +21,7 @@ const departments = [
 ];
 
 const tiposDeBienesIniciales = [
-  'bicicleta', 'TV', 'equipo de audio', 'cámara fotográfica', 'laptop', 'tablet', 'teléfono movil'
+  'bicicleta', 'TV', 'equipo de audio', 'cámara fotográfica', 'notebook', 'tablet', 'teléfono movil'
 ];
 
 const ComprarPage = () => {
@@ -321,7 +321,7 @@ const handleFinishStep2 = async (values) => {
         >
           <Form.Item label="Tipo de Sujeto" name="tipo" rules={[{ required: true, message: 'Por favor, selecciona un tipo de sujeto.' }]}>
             <Select>
-              <Option value="persona">Persona</Option>
+              <Option value="persona">Persona Humana</Option>
               <Option value="juridica">Persona Jurídica</Option>
             </Select>
           </Form.Item>

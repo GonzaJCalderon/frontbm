@@ -105,8 +105,11 @@ export const addBien = (formData) => async (dispatch) => {
   dispatch({ type: ADD_BIEN_REQUEST });
 
   try {
+    const token = localStorage.getItem('token');
     const response = await axios.post('/bienes/add', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${token}`,
+      },
     });
     dispatch({ type: ADD_BIEN_SUCCESS, payload: response.data });
     return response.data;

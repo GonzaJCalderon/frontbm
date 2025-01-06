@@ -41,22 +41,28 @@ const Register = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [notification, setNotification] = useState(null);
+  
 
   const validateField = (name, value) => {
-    let error = '';
+    let error = ''; // Declarar error como una variable local
     if (name === 'email') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(value)) error = 'Por favor, ingresa un correo electrónico válido.';
-      else if (value.toLowerCase().includes('mail.com')) error = 'Por favor, ingresa un correo electrónico real.';
+      const disposableDomains = ['tempmail.com', 'mailinator.com', 'yopmail.com']; // Dominios desechables
+      if (!emailRegex.test(value)) {
+        error = 'Por favor, ingresa un correo electrónico válido.';
+      } else if (disposableDomains.some((domain) => value.toLowerCase().endsWith(`@${domain}`))) {
+        error = 'Por favor, utiliza un correo electrónico legítimo.';
+      }
     }
-
+  
     if (name === 'password') {
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
       if (!passwordRegex.test(value)) {
-        error = 'La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y caracteres especiales.';
+        error =
+          'La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y caracteres especiales.';
       }
     }
-
+  
     if (name === 'calle' && value.trim() === '') error = 'La calle es obligatoria.';
     if (name === 'altura' && !/^\d+$/.test(value)) error = 'La altura debe ser un número.';
     if (name === 'cuit') {
@@ -67,9 +73,10 @@ const Register = () => {
       const dniRegex = /^\d{7,8}$/;
       if (!dniRegex.test(value)) error = 'El DNI debe ser un número de 7 u 8 dígitos.';
     }
-
-    setErrors((prev) => ({ ...prev, [name]: error }));
+  
+    setErrors((prev) => ({ ...prev, [name]: error })); // Actualizar errores en el estado
   };
+  
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -86,40 +93,35 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const hasErrors = Object.values(errors).some((err) => err !== '');
-    if (hasErrors) {
+  
+    // Validar campos obligatorios en dirección
+    const { calle, altura, departamento } = formData.direccion;
+    if (!calle || !altura || !departamento) {
       setNotification({
-        message: 'Por favor, corrige los errores antes de enviar.',
+        message: 'Por favor, completa todos los campos obligatorios en la dirección (calle, altura y departamento).',
         type: 'error',
       });
       return;
     }
-
-    if (!formData.direccion.calle || !formData.direccion.altura) {
-      setNotification({
-        message: 'Por favor, ingresa la calle y altura. El barrio es opcional solo si ambos campos están llenos.',
-        type: 'error',
-      });
-      return;
-    }
+  
     const userData = {
       ...formData,
       direccion: {
-          calle: formData.direccion.calle,
-          altura: formData.direccion.altura, // Usa el mismo nombre que en el backend
-          ...(formData.direccion.barrio && { barrio: formData.direccion.barrio }),
-          ...(formData.direccion.departamento && { departamento: formData.direccion.departamento }),
+        calle: formData.direccion.calle,
+        altura: formData.direccion.altura,
+        barrio: formData.direccion.barrio || null,
+        departamento: formData.direccion.departamento,
       },
       rolDefinitivo: 'usuario',
-  };
+    };
   
-
+    console.log('Datos enviados al backend:', userData);
+  
     try {
       const resultAction = await dispatch(register(userData));
       if (register.fulfilled.match(resultAction)) {
         setNotification({ message: 'Registro exitoso. Redirigiendo al login...', type: 'success' });
-        setTimeout(() => window.location.href = '/', 3000);
+        setTimeout(() => (window.location.href = '/'), 3000);
       } else {
         setNotification({ message: resultAction.payload || 'Error durante el registro.', type: 'error' });
       }
@@ -127,6 +129,7 @@ const Register = () => {
       setNotification({ message: 'Ocurrió un error inesperado.', type: 'error' });
     }
   };
+  
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
   const handleCloseNotification = () => setNotification(null);
@@ -152,7 +155,7 @@ const Register = () => {
                     onChange={handleChange}
                     className="mr-2"
                   />
-                  Persona Física
+                  Persona Humana
                 </label>
                 <label>
                   <input
@@ -262,7 +265,7 @@ const Register = () => {
             </div>
 
             <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">Altura</label>
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">Numeración</label>
               <input
                 id="altura"
                 type="text"
@@ -270,7 +273,7 @@ const Register = () => {
                 value={formData.direccion.altura}
                 onChange={handleChange}
                 className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                placeholder="Ingresa la altura"
+                placeholder="Ingresa la numeración"
               />
               {errors.altura && <p className="text-red-500 text-xs mt-2">{errors.altura}</p>}
             </div>

@@ -16,8 +16,9 @@ const departments = [
 ];
 
 const tiposDeBienes = [
-  'TV', 'Bicicleta', 'Tablet', 'Teléfono Móvil', 'Cámara Fotográfica', 'Equipo de Audio', 'Laptop',
+  'TV', 'Bicicleta', 'Tablet', 'Teléfono Móvil', 'Cámara Fotográfica', 'Equipo de Audio', 'Notebook'
 ];
+
 
 const VenderPage = () => {
   const [formStep1] = Form.useForm();
@@ -215,7 +216,7 @@ const VenderPage = () => {
         placeholder="Selecciona el tipo de persona"
         onChange={(tipo) => formStep1.setFieldsValue({ tipo })}
       >
-        <Option value="persona">Persona Física</Option>
+        <Option value="persona">Persona Humana</Option>
         <Option value="juridica">Persona Jurídica</Option>
       </Select>
     </Form.Item>
