@@ -11,20 +11,19 @@ const { Title } = Typography;
 
 const RegistrarBienPage = () => {
   const [form] = Form.useForm();
-  const [fileList, setFileList] = useState([]); // Fotos seleccionadas
+  const [fileList, setFileList] = useState([]);
   const [selectedTipo, setSelectedTipo] = useState('');
   const [selectedMarca, setSelectedMarca] = useState('');
   const [selectedModelo, setSelectedModelo] = useState('');
   const [precio, setPrecio] = useState(null);
   const [descripcion, setDescripcion] = useState('');
   const [stock, setStock] = useState(null);
-  const [imei, setImei] = useState('');
+  const [imeis, setImeis] = useState([]); // Estado para almacenar los IMEIs dinámicos
   const navigate = useNavigate();
-  const dispatch = useDispatch(); 
+  const dispatch = useDispatch();
 
   const token = localStorage.getItem('token');
   const userUuid = localStorage.getItem('userUuid');
-  const baseURL = process.env.REACT_APP_API_URL_LOCAL || process.env.REACT_APP_API_URL_REMOTE;
 
   useEffect(() => {
     if (!token || !userUuid) {
@@ -33,8 +32,42 @@ const RegistrarBienPage = () => {
     }
   }, [token, userUuid, navigate]);
 
+  // Actualizar los IMEIs dinámicamente cuando cambia el stock
+  useEffect(() => {
+    if (stock > 0) {
+      if (selectedTipo.toLowerCase() === 'teléfono movil') {
+        const newImeis = Array(stock).fill(''); // Campos vacíos para que el usuario los llene
+        setImeis(newImeis);
+      } else {
+        // Generar identificadores únicos automáticamente para bienes no telefónicos
+        const newIdentificadores = Array(stock)
+          .fill('')
+          .map(() => `ID-${Math.random().toString(36).substr(2, 9)}`); // Generar IDs únicos
+        setImeis(newIdentificadores);
+      }
+    } else {
+      setImeis([]); // Limpiar identificadores si el stock es cero
+    }
+  }, [selectedTipo, stock]);
+  
+  const handleImeiChange = (value, index) => {
+    const updatedImeis = [...imeis];
+    updatedImeis[index] = value;
+    setImeis(updatedImeis);
+  };
 
   const handleFinish = async () => {
+    // Validación para IMEIs si el tipo es "teléfono móvil"
+    if (selectedTipo.toLowerCase() === 'teléfono movil' && imeis.length !== stock) {
+      message.error('Debe ingresar un IMEI para cada unidad de stock.');
+      return;
+    }
+  
+    if (selectedTipo.toLowerCase() === 'teléfono movil' && imeis.some((imei) => !imei.trim())) {
+      message.error('Todos los campos de IMEI deben estar completos.');
+      return;
+    }
+  
     const formData = new FormData();
     formData.append('tipo', selectedTipo);
     formData.append('marca', selectedMarca);
@@ -42,10 +75,8 @@ const RegistrarBienPage = () => {
     formData.append('precio', precio);
     formData.append('descripcion', descripcion);
     formData.append('propietario_uuid', userUuid);
-  
-    // Si el `stock` tiene identificadores únicos
-    const stockData = { cantidad: stock, id: 'unique-id-123' }; // Ejemplo
-    formData.append('stock', JSON.stringify(stockData));
+    formData.append('stock', JSON.stringify({ cantidad: stock }));
+    formData.append('imei', JSON.stringify(imeis)); // Enviar identificadores únicos o IMEIs
   
     fileList.forEach((file) => {
       formData.append('fotos', file.originFileObj || file);
@@ -65,6 +96,7 @@ const RegistrarBienPage = () => {
   };
   
   
+
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
@@ -102,26 +134,31 @@ const RegistrarBienPage = () => {
         </Form.Item>
 
         <Form.Item name="bienStock" label="Stock" rules={[{ required: true, message: 'Ingrese el stock' }]}>
-          <InputNumber min={0} value={stock} onChange={setStock} style={{ width: '100%' }} />
+          <InputNumber min={1} value={stock} onChange={setStock} style={{ width: '100%' }} />
         </Form.Item>
 
-        {selectedTipo === 'teléfono movil' && (
-          <Form.Item name="imei" label="IMEI" rules={[{ required: true, message: 'Ingrese el IMEI' }]}>
-            <Input value={imei} onChange={(e) => setImei(e.target.value)} />
-          </Form.Item>
-        )}
+        {selectedTipo.toLowerCase() === 'teléfono movil' &&
+          imeis.map((imei, index) => (
+            <Form.Item
+              key={index}
+              name={`imei_${index}`}
+              label={`IMEI #${index + 1}`}
+              rules={[{ required: true, message: `Ingrese el IMEI #${index + 1}` }]}
+            >
+              <Input value={imei} onChange={(e) => handleImeiChange(e.target.value, index)} />
+            </Form.Item>
+          ))}
 
-      <Form.Item label="Fotos del Bien">
-      <Upload
-  listType="picture"
-  fileList={fileList}
-  onChange={({ fileList: newFileList }) => setFileList(newFileList)}
-  beforeUpload={() => false} // Evita que las fotos se suban automáticamente
->
-  <Button>Subir Fotos</Button>
-</Upload>
-
-          </Form.Item>
+        <Form.Item label="Fotos del Bien">
+          <Upload
+            listType="picture"
+            fileList={fileList}
+            onChange={({ fileList: newFileList }) => setFileList(newFileList)}
+            beforeUpload={() => false}
+          >
+            <Button>Subir Fotos</Button>
+          </Upload>
+        </Form.Item>
 
         <Form.Item>
           <Button type="primary" htmlType="submit" style={{ width: '100%' }}>

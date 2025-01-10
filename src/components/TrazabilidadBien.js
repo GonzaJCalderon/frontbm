@@ -80,7 +80,16 @@ const TrazabilidadBien = () => {
       key: 'bien',
       render: (bien) => `${bien.descripcion} - ${bien.marca} ${bien.modelo}`,
     },
+    {
+      title: 'Identificadores',
+      dataIndex: 'imeis',
+      key: 'imeis',
+      render: (imeis) => (
+        imeis && imeis.length > 0 ? imeis.join(', ') : 'N/A'
+      ),
+    },
   ];
+  
 
   if (loading) {
     return <Spin tip="Cargando..." />;

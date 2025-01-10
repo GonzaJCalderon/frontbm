@@ -159,14 +159,26 @@ const UsuarioList = () => {
 
   const handleViewBienes = (usuario) => {
     if (!usuario || !usuario.uuid) {
-      notification.error({
-        message: 'Error',
-        description: 'El usuario seleccionado no tiene un identificador válido.',
-      });
-      return;
+        notification.error({
+            message: 'Error',
+            description: 'El usuario seleccionado no tiene un identificador válido.',
+        });
+        return;
     }
-    navigate(`/bienes-usuario/${usuario.uuid}`); // Redirige a la ruta de bienes por usuario
-  };
+
+    // Verifica si el usuario tiene bienes
+    if (!usuario.bienes || usuario.bienes.length === 0) {
+        notification.info({
+            message: 'Sin bienes',
+            description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes.`,
+        });
+        return;
+    }
+
+    // Si tiene bienes, redirige
+    navigate(`/bienes-usuario/${usuario.uuid}`);
+};
+
   
 
   const handleViewDetails = (id) => {

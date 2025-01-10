@@ -17,6 +17,8 @@ const BienesPorUsuario = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentFotos, setCurrentFotos] = useState([]);
+  const [currentIdentifiers, setCurrentIdentifiers] = useState([]);
+  const [currentItem, setCurrentItem] = useState(null);
   const [userName, setUserName] = useState('');
 
   const { items = [], loading, error } = useSelector((state) => state.bienes || {});
@@ -53,23 +55,43 @@ const BienesPorUsuario = () => {
     if (!value.trim()) {
       setFilteredItems(items);
     } else {
-      const filtered = items.filter((item) =>
-        (item.tipo || '').toLowerCase().includes(value.toLowerCase()) ||
-        (item.marca || '').toLowerCase().includes(value.toLowerCase()) ||
-        (item.modelo || '').toLowerCase().includes(value.toLowerCase()) ||
-        (item.descripcion || '').toLowerCase().includes(value.toLowerCase())
-      );
+      const filtered = items.filter((item) => {
+        const matchGeneral =
+          (item.tipo || '').toLowerCase().includes(value.toLowerCase()) ||
+          (item.marca || '').toLowerCase().includes(value.toLowerCase()) ||
+          (item.modelo || '').toLowerCase().includes(value.toLowerCase()) ||
+          (item.descripcion || '').toLowerCase().includes(value.toLowerCase());
+
+        const matchIdentificadores = (item.identificadores || []).some((imei) =>
+          imei.estado.toLowerCase().includes(value.toLowerCase())
+        );
+
+        return matchGeneral || matchIdentificadores;
+      });
       setFilteredItems(filtered);
     }
   };
 
-  // Mostrar imágenes en un modal
-  const handleOpenModal = (fotos) => {
-    setCurrentFotos(fotos.filter((url) => url)); // Asegurar que las fotos no sean nulas o indefinidas
+  // Modal para mostrar detalles de IMEIs
+  const handleOpenIdentifiersModal = (identificadores, item) => {
+    setCurrentIdentifiers(identificadores);
+    setCurrentItem(item);
     setIsModalVisible(true);
   };
 
   const handleCloseModal = () => {
+    setCurrentIdentifiers([]);
+    setCurrentItem(null);
+    setIsModalVisible(false);
+  };
+
+  // Mostrar imágenes en un modal
+  const handleOpenFotosModal = (fotos) => {
+    setCurrentFotos(fotos.filter((url) => url)); // Asegurar que las fotos no sean nulas o indefinidas
+    setIsModalVisible(true);
+  };
+
+  const handleCloseFotosModal = () => {
     setCurrentFotos([]);
     setIsModalVisible(false);
   };
@@ -116,7 +138,30 @@ const BienesPorUsuario = () => {
       title: 'Stock',
       dataIndex: 'stock',
       key: 'stock',
-      render: (stock) => <span>{stock || 'No disponible'}</span>,
+      render: (stock) => <span>{stock || 0}</span>,
+    },
+    {
+      title: 'IMEIs y Estado',
+      dataIndex: 'identificadores',
+      key: 'identificadores',
+      render: (identificadores, record) => {
+        if (!identificadores || identificadores.length === 0) {
+          return <span style={{ color: 'gray' }}>Sin identificadores disponibles</span>;
+        }
+
+        return (
+          <>
+            <span>{`${identificadores.length} identificadores`}</span>
+            <Button
+              type="link"
+              onClick={() => handleOpenIdentifiersModal(identificadores, record)}
+              style={{ marginLeft: 8 }}
+            >
+              Ver detalles
+            </Button>
+          </>
+        );
+      },
     },
     {
       title: 'Fecha de Creación',
@@ -135,7 +180,7 @@ const BienesPorUsuario = () => {
             src={validFotos[0]} // Mostrar la primera imagen
             alt="Foto"
             style={{ width: '80px', height: 'auto', cursor: 'pointer', borderRadius: '8px' }}
-            onClick={() => handleOpenModal(validFotos)} // Abre el modal al hacer clic
+            onClick={() => handleOpenFotosModal(validFotos)} // Abre el modal al hacer clic
           />
         ) : (
           <span style={{ color: 'gray' }}>Sin imagen</span>
@@ -194,23 +239,24 @@ const BienesPorUsuario = () => {
       )}
 
       <Modal
-        open={isModalVisible}
+        title={`IMEIs y Estado - ${currentItem?.tipo || ''}`}
+        visible={isModalVisible}
         footer={null}
         onCancel={handleCloseModal}
-        centered
-        width={600}
+        width={800}
       >
-        <Carousel autoplay>
-          {currentFotos.map((url, index) => (
-            <div key={index}>
-              <img
-                src={url}
-                alt={`Foto ${index + 1}`}
-                style={{ width: '100%', height: 'auto', borderRadius: '8px' }}
-              />
-            </div>
-          ))}
-        </Carousel>
+        <Table
+          dataSource={currentIdentifiers.map((detalle, index) => ({
+            key: index,
+            identificador: detalle.identificador_unico,
+            estado: detalle.estado || 'Disponible',
+          }))}
+          columns={[
+            { title: 'Identificador Único', dataIndex: 'identificador', key: 'identificador' },
+            { title: 'Estado', dataIndex: 'estado', key: 'estado' },
+          ]}
+          pagination={{ pageSize: 10 }}
+        />
       </Modal>
     </div>
   );

@@ -7,8 +7,12 @@ import logo from '../assets/logo-png-sin-fondo.png';
 const UpdateAccount = () => {
   const { token } = useParams(); // Extrae el token desde la URL
   const navigate = useNavigate(); // Usamos useNavigate para redirigir
+  
+console.log('Token recibido:', token);
 
   const [loading, setLoading] = useState(false);
+
+
 
   const onFinish = async (values) => {
     try {

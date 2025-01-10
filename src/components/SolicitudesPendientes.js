@@ -50,11 +50,10 @@ const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es m
             return;
         }
     
-        // Obtener datos del usuario actual desde localStorage
         const storedData = localStorage.getItem('userData');
         const currentUser = storedData ? JSON.parse(storedData) : null;
     
-        if (!currentUser || !currentUser.uuid) {
+        if (!currentUser || !currentUser.uuid || !currentUser.nombre) {
             notification.error({
                 message: 'Error',
                 description: 'No se pudo obtener el usuario actual para aprobar.',
@@ -64,11 +63,20 @@ const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es m
     
         try {
             const fechaAprobacion = new Date().toISOString();
-            const aprobadoPor = currentUser.uuid; // Usar el UUID del usuario autenticado
+            const aprobadoPor = currentUser.uuid;
+            const aprobadoPorNombre = `${currentUser.nombre} ${currentUser.apellido}`; // Nombre completo
+            const estado = 'aprobado';
     
-            console.log('Payload enviado al Redux action:', { uuid, fechaAprobacion, aprobadoPor });
+            const payload = {
+                fechaAprobacion,
+                aprobadoPor,
+                aprobadoPorNombre,
+                estado, // Cambia el estado del usuario
+            };
     
-            await dispatch(approveUser(uuid, { fechaAprobacion, aprobadoPor }));
+            console.log('Payload enviado al Redux action:', payload);
+    
+            await dispatch(approveUser(uuid, payload));
     
             notification.success({
                 message: 'Registro aprobado',
@@ -83,7 +91,6 @@ const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es m
             });
         }
     };
-    
     
 
     // Mostrar modal de rechazo

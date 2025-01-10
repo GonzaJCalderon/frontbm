@@ -14,6 +14,10 @@ import {
     UPLOAD_STOCK_FAILURE, 
     STOCK_IMAGES_UPLOAD_SUCCESS,
     STOCK_IMAGES_UPLOAD_FAIL,
+    FINALIZAR_CREACION_REQUEST,
+    FINALIZAR_CREACION_SUCCESS,
+    FINALIZAR_CREACION_FAILURE ,
+    
 } from './actionTypes';
 
 export const registrarVenta = (ventaData) => async (dispatch) => {
@@ -68,45 +72,56 @@ export const registrarCompra = (compraData) => async (dispatch, getState) => {
 };
 
 export const finalizarCreacionBienes = (bienes) => async (dispatch) => {
+    dispatch({ type: FINALIZAR_CREACION_REQUEST });
+  
     try {
-        const response = await api.post('/excel/finalizar-creacion', { bienes });
-        return response.data;
+      const response = await api.post('/excel/finalizar-creacion', { bienes });
+  
+      console.log('Bienes creados exitosamente:', response.data);
+  
+      dispatch({ type: FINALIZAR_CREACION_SUCCESS, payload: response.data });
+      return Promise.resolve(response.data);
     } catch (error) {
-        throw error;
+      console.error('Error al finalizar creación de bienes:', error);
+      dispatch({
+        type: FINALIZAR_CREACION_FAILURE,
+        payload: error.response?.data?.message || 'Error al crear los bienes.',
+      });
+      return Promise.reject(error);
     }
-};
+  };
+  
 
 export const uploadStockExcel = (file, propietario_uuid) => async (dispatch) => {
     dispatch({ type: UPLOAD_STOCK_REQUEST });
-
+  
     const formData = new FormData();
     formData.append('archivoExcel', file);
-
+  
     try {
-        console.log('Iniciando subida de archivo Excel:', file); // Log para verificar el archivo enviado
-        console.log('Propietario UUID:', propietario_uuid);
-
-        const response = await api.post('/excel/upload-stock', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                'X-Propietario-UUID': propietario_uuid,
-            },
-        });
-
-        console.log('Respuesta del servidor al subir la planilla:', response.data); // Log para verificar respuesta
-
-        dispatch({ type: UPLOAD_STOCK_SUCCESS, payload: response.data });
-        return Promise.resolve(response.data);
+      console.log('Iniciando subida de archivo Excel:', file);
+  
+      const response = await api.post('/excel/upload-stock', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'X-Propietario-UUID': propietario_uuid,
+        },
+      });
+  
+      console.log('Respuesta del servidor al subir la planilla:', response.data);
+  
+      dispatch({ type: UPLOAD_STOCK_SUCCESS, payload: response.data });
+      return Promise.resolve(response.data);
     } catch (error) {
-        console.error('Error al subir el archivo Excel:', error);
-        dispatch({
-            type: UPLOAD_STOCK_FAILURE,
-            payload: error.response?.data?.message || 'Error al subir el archivo.',
-        });
-        return Promise.reject(error);
+      console.error('Error al subir el archivo Excel:', error);
+      dispatch({
+        type: UPLOAD_STOCK_FAILURE,
+        payload: error.response?.data?.message || 'Error al subir el archivo.',
+      });
+      return Promise.reject(error);
     }
-};
-
+  };
+  
 
 export const uploadStockImages = (mapaFotos) => async (dispatch) => {
     try {

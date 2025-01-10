@@ -353,7 +353,7 @@ const handleFinishStep2 = async (values) => {
           <Form.Item label="Calle" name={['direccion', 'calle']} rules={[{ required: true, message: 'Por favor, ingresa la calle.' }]}>
             <Input />
           </Form.Item>
-          <Form.Item label="Altura" name={['direccion', 'altura']} rules={[{ required: true, message: 'Por favor, ingresa la altura.' }]}>
+          <Form.Item label="Numeración" name={['direccion', 'altura']} rules={[{ required: true, message: 'Por favor, ingresa la numeración.' }]}>
             <Input />
           </Form.Item>
           <Form.Item label="Barrio" name={['direccion', 'barrio']}>

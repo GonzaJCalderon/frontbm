@@ -35,6 +35,9 @@ import {
     GET_BIENES_USUARIO_REQUEST,
     GET_BIENES_USUARIO_SUCCESS,
     GET_BIENES_USUARIO_FAILURE,
+    VERIFY_IMEI_REQUEST,
+    VERIFY_IMEI_SUCCESS,
+    VERIFY_IMEI_FAILURE,
 } from './actionTypes';
 
 
@@ -71,19 +74,28 @@ export const fetchAllBienes = () => async (dispatch) => {
 
 
 // Acción para obtener los bienes del usuario 
+// Acción para obtener los bienes del usuario
 export const fetchBienes = (uuid) => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_REQUEST });
 
   try {
+    // Solicita los datos de los bienes desde el backend
     const response = await axios.get(`/bienes/usuario/${uuid}`);
     console.log('Datos recibidos:', response.data);
 
+    // Mapea los datos para incluir el campo IMEI (o manejar relaciones anidadas)
+    const mappedData = response.data.map((bien) => ({
+      ...bien,
+      imei: bien.detalles_bien?.identificador_unico || null, // Incluye IMEI si está disponible
+    }));
+
+    // Envía los datos mapeados al reducer
     dispatch({
       type: FETCH_BIENES_SUCCESS,
-      payload: response.data,
+      payload: mappedData,
     });
 
-    return { success: true, data: response.data };
+    return { success: true, data: mappedData };
   } catch (error) {
     console.error('Error en fetchBienes:', error);
 
@@ -95,8 +107,6 @@ export const fetchBienes = (uuid) => async (dispatch) => {
     return { success: false, error: error.response?.data || error.message };
   }
 };
-
-
 
 
 
@@ -139,35 +149,27 @@ export const fetchBienDetails = (uuid) => async (dispatch) => {
 
 
 // Acción para actualizar un bien existente
-export const updateBien = (uuid, bienData) => async dispatch => {
-    try {
-        const token = getToken();
-        // Limpiar datos antes de enviarlos
-        const cleanData = (data) => {
-            const result = {};
-            Object.keys(data).forEach(key => {
-                if (data[key] !== undefined && data[key] !== null) {
-                    result[key] = data[key];
-                }
-            });
-            return result;
-        };
+export const updateBien = (uuid, formData) => async dispatch => {
+  try {
+      const token = getToken();
 
-        const bienDataCleaned = cleanData(bienData);
+      // Realizar la solicitud con FormData
+      const res = await axios.put(`/bienes/${uuid}`, formData, {
+          headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data', // Necesario para manejar archivos
+          },
+      });
 
-        // Realizar la solicitud
-        const res = await axios.put(`/bienes/${uuid}`, bienDataCleaned, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        });
-
-        // Despachar la acción al reducer
-        dispatch({ type: UPDATE_BIEN, payload: res.data });
-    } catch (error) {
-        console.error('Error updating bien:', error);
-    }
+      // Despachar la acción al reducer
+      dispatch({ type: UPDATE_BIEN, payload: res.data });
+      return res.data;
+  } catch (error) {
+      console.error('Error updating bien:', error);
+      throw error;
+  }
 };
+
 
 
 // Acción para registrar una venta
@@ -177,6 +179,7 @@ export const registrarVenta = (ventaData) => async (dispatch) => {
     const response = await api.post('/transacciones/vender', ventaData, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
       },
     });
 
@@ -343,24 +346,27 @@ export const actualizarStock = (params) => async (dispatch) => {
     throw error;
   }
 };
-
 export const deleteBien = (uuid) => async (dispatch) => {
   try {
-    const token = localStorage.getItem('token');
-    await axios.delete(`/bienes/${uuid}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      const token = localStorage.getItem('token'); // O ajusta según cómo almacenes el token
+      await axios.delete(`/bienes/${uuid}`, {
+          headers: {
+              Authorization: `Bearer ${token}`,
+          },
+      });
 
-    // Opcional: despachar acción para actualizar lista
-    dispatch(fetchAllBienes());
-    notification.success({ message: 'Bien eliminado correctamente.' });
+      // Opcional: Actualizar el estado global recargando la lista
+      dispatch(fetchAllBienes());
+
+      // Notificación de éxito
+      notification.success({ message: 'Bien eliminado correctamente.' });
   } catch (error) {
-    const errorMessage = error.response?.data?.message || 'Error al eliminar el bien.';
-    console.error('Error al eliminar bien:', errorMessage);
-    notification.error({ message: 'Error', description: errorMessage });
-    throw new Error(errorMessage);
+      const errorMessage = error.response?.data?.message || 'Error al eliminar el bien.';
+      console.error('Error al eliminar bien:', errorMessage);
+
+      // Notificación de error
+      notification.error({ message: 'Error', description: errorMessage });
+      throw new Error(errorMessage);
   }
 };
 
@@ -388,5 +394,30 @@ export const editBien = (uuid, updatedData) => async (dispatch) => {
   } catch (error) {
     const errorMessage = handleRequestError(error);
     message.error(errorMessage);
+  }
+};
+
+export const verificarIMEI = (imei) => async (dispatch) => {
+  dispatch({ type: VERIFY_IMEI_REQUEST }); // Indica el inicio de la solicitud
+
+  try {
+      const response = await api.get(`/bienes/imei-exists/${imei}`);
+      const exists = response.data.exists;
+
+      dispatch({
+          type: VERIFY_IMEI_SUCCESS,
+          payload: exists, // true si el IMEI existe, false de lo contrario
+      });
+
+      return exists;
+  } catch (error) {
+      console.error('Error al verificar IMEI:', error);
+
+      dispatch({
+          type: VERIFY_IMEI_FAILURE,
+          payload: error.message || 'Error al verificar el IMEI.',
+      });
+
+      throw error;
   }
 };

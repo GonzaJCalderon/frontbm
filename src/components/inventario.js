@@ -89,7 +89,29 @@ useEffect(() => {
       dataIndex: 'stock',
       render: (stock) => stock || 0,
     },
-
+    {
+      title: 'IMEI',
+      dataIndex: 'identificadores',
+      render: (identificadores, record) =>
+        record.tipo && record.tipo.toLowerCase() === 'teléfono movil' ? (
+          identificadores && identificadores.length > 0 ? (
+            <ul>
+              {identificadores.map((detalle) => (
+                <li key={detalle.identificador_unico}>
+                  {detalle.identificador_unico} -{' '}
+                  <span style={{ color: detalle.estado === 'vendido' ? 'red' : 'green' }}>
+                    {detalle.estado}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span style={{ color: 'gray' }}>Sin identificadores</span>
+          )
+        ) : (
+          'N/A' // Mostrar "N/A" para bienes que no sean teléfonos móviles
+        ),
+    },
     {
       title: 'Fotos',
       dataIndex: 'fotos',
