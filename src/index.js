@@ -9,6 +9,15 @@ import App from './App';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css'; // Importar los estilos de react-toastify
 
+// Solución para el problema del ResizeObserver
+window.addEventListener('error', (event) => {
+  if (event.message?.includes('ResizeObserver loop completed')) {
+    console.warn('ResizeObserver loop error detectado y prevenido.');
+    event.preventDefault();
+  }
+});
+
+
 ReactDOM.render(
   <Provider store={store}>
     <Router>

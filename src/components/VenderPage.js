@@ -40,6 +40,7 @@ const { Title } = Typography;
 const { Option } = Select;
 const { Search } = Input;
 
+
 // Listas de ejemplo
 const departments = [
   'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén',
@@ -55,16 +56,17 @@ const tiposDeBienesIniciales = [
 ];
 
 
+
 const VenderPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-
+  
   // ----- Paso 1: Form para registrar comprador
   const [formPaso1] = Form.useForm();
-
+  
   // ----- Paso 2B: Form para crear bien nuevo
   const [formPaso2B] = Form.useForm();
-
+  
   // ----- Paso 3: Form para confirmar venta (cantidad, pago, IMEIs)
   const [formPaso3] = Form.useForm();
 
@@ -79,25 +81,60 @@ const VenderPage = () => {
   // 'existente' => vender un bien ya existente
   // 'nuevo' => crear un bien nuevo
   const [subStep2, setSubStep2] = useState(null);
-
+  
   // Loading general
   const [loading, setLoading] = useState(false);
-
+  
   // Para mostrar spinner especial en la pantalla (por ejemplo al crear comprador)
   const [isRegisteringComprador, setIsRegisteringComprador] = useState(false);
 
   // Datos del comprador
   const [compradorId, setCompradorId] = useState(null);
-
+  
   // Usuario vendedor
   const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
   const vendedorId = usuario?.uuid;
-
+  
   // Lista de bienes del vendedor (para Paso 2A)
   const [bienes, setBienes] = useState([]);
   const [bienesFiltrados, setBienesFiltrados] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [imeisSeleccionados, setImeisSeleccionados] = useState([]);
+  
+  const validateDNIWithRenaper = async (dni) => {
+    try {
+      if (!dni) {
+        message.error("El DNI es obligatorio.");
+        return;
+      }
+  
+      const { data } = await api.get(`/renaper/${dni}`);
+      if (data.success) {
+        const persona = data.data.persona;
+  
+        formPaso1.setFieldsValue({
+          nombre: persona.nombres || "",
+          apellido: persona.apellidos || "",
+          email: persona.email || "", // Agregar email si está disponible
+          cuit: persona.nroCuil || "",
+          direccion: {
+            calle: persona.domicilio?.calle || "",
+            altura: persona.domicilio?.nroCalle || "",
+            barrio: persona.domicilio?.barrio || "",
+            departamento: persona.domicilio?.localidad || "",
+          },
+        });
+  
+        message.success("Datos cargados correctamente desde RENAPER.");
+      } else {
+        message.error(data.message || "Persona no encontrada en RENAPER.");
+      }
+    } catch (error) {
+      console.error("Error al validar el DNI con RENAPER:", error);
+      message.error("Error al validar el DNI.");
+    }
+  };
+  
 
   const handleImeisChange = (selectedImeis) => {
     setImeisSeleccionados(selectedImeis);
@@ -193,62 +230,50 @@ const VenderPage = () => {
 
   // ------------------- PASO 1: Registrar/identificar comprador -------------------
   const handleFinishPaso1 = async (values) => {
+    console.log("Valores enviados desde el formulario:", values); // Verificar los valores
+  
+    const { nombre, apellido, dni, email, tipo, cuit, direccion } = values;
+  
     try {
       setLoading(true);
-      setIsRegisteringComprador(true); // Muestra overlay de carga
-
-      const { nombre, apellido, email, dni, cuit, tipo, razonSocial, direccion } = values;
-
-      // 1. Verificar si existe
-      const existingUserResponse = await dispatch(
-        checkExistingUser({ dni, email })
-      );
-      if (existingUserResponse?.existe) {
-        const existingUser = existingUserResponse.usuario;
-        // Ajustar rol si no es "comprador"
-        if (existingUser.rolDefinitivo !== 'comprador') {
-          await dispatch(
-            registerUsuarioPorTercero({
-              uuid: existingUser.uuid,
-              rolTemporal: 'comprador',
-              ...values,
-            })
-          );
-        }
-        setCompradorId(existingUser.uuid);
-        message.success('Comprador identificado correctamente.');
+      const existingUserResponse = await dispatch(checkExistingUser({ dni, nombre, apellido }));
+      console.log("Respuesta al verificar usuario existente:", existingUserResponse);
+  
+      if (existingUserResponse.existe) {
+        setCompradorId(existingUserResponse.usuario.uuid);
+        message.success("Comprador identificado correctamente.");
       } else {
-        // 2. Registrar nuevo
         const newUserResponse = await dispatch(
           registerUsuarioPorTercero({
+            dni,
+            email,
             nombre,
             apellido,
-            email,
-            dni,
-            cuit,
             tipo,
-            razonSocial: tipo === 'juridica' ? razonSocial : null,
+            cuit,
             direccion,
-            rolTemporal: 'comprador',
           })
         );
-        if (newUserResponse?.uuid) {
+  
+        console.log("Respuesta al registrar nuevo usuario:", newUserResponse);
+  
+        if (newUserResponse.uuid) {
           setCompradorId(newUserResponse.uuid);
-          message.success('Comprador registrado con éxito.');
+          message.success("Comprador registrado con éxito.");
         } else {
-          throw new Error('No se pudo registrar al comprador.');
+          throw new Error("No se pudo registrar el comprador.");
         }
       }
-
+  
       setStep(2);
     } catch (error) {
-      console.error('Error en Paso 1:', error);
-      message.error(error.response?.data?.mensaje || error.message || 'No se pudo procesar el comprador.');
+      console.error("Error al verificar/registrar comprador:", error.message);
+      message.error(error.message || "Error al procesar el comprador.");
     } finally {
       setLoading(false);
-      setIsRegisteringComprador(false);
     }
   };
+  
 
   // ------------------- PASO 2: Elegir bien existente o nuevo -------------------
   const handleSelectVentaTipo = (value) => {
@@ -295,38 +320,39 @@ const VenderPage = () => {
   };
 
   // 2B: Crear un bien nuevo
-  const handleFinishPaso2B = (values) => {
-    const { imeis } = values;
-
-    // Validar IMEIs si es teléfono móvil
-    if (values.tipo.toLowerCase() === 'teléfono movil') {
-      if (!imeis || imeis.length === 0) {
+  const handleFinishPaso2B = async (values) => {
+    console.log('Datos enviados para registrar bien nuevo:', values);
+  
+    const { tipo, marca, modelo, bienDescripcion, bienPrecio, imeis } = values;
+  
+    try {
+      // Validar IMEIs si es un teléfono móvil
+      if (tipo.toLowerCase() === 'teléfono movil' && (!imeis || imeis.length === 0)) {
         message.error('Debe ingresar al menos un IMEI.');
         return;
       }
-
-      const imeisLimpios = imeis.map((imei) => imei.trim());
-      if (imeisLimpios.some((imei) => imei === '')) {
-        message.error('Todos los campos de IMEI deben estar completos.');
-        return;
-      }
+  
+      const bienNuevo = {
+        uuid: null,
+        tipo,
+        marca,
+        modelo,
+        descripcion: bienDescripcion,
+        precio: bienPrecio,
+        fileList, // Asumimos que `fileList` contiene las fotos
+        imeis: tipo.toLowerCase() === 'teléfono movil' ? imeis : [],
+      };
+  
+      console.log('Bien nuevo listo para registro:', bienNuevo);
+      setBienSeleccionado(bienNuevo);
+      message.success('Bien nuevo registrado temporalmente. Continúa al paso 3.');
+      setStep(3);
+    } catch (error) {
+      console.error('Error en Paso 2B - Registrar Bien Nuevo:', error.response?.data || error.message);
+      message.error('No se pudo registrar el bien nuevo.');
     }
-
-    const nuevoBien = {
-      uuid: null,
-      tipo: values.tipo,
-      marca: values.marca,
-      modelo: values.modelo,
-      descripcion: values.bienDescripcion,
-      precio: values.bienPrecio,
-      fileList,
-      imeis: values.tipo.toLowerCase() === 'teléfono movil' ? values.imeis : [],
-    };
-
-    setBienSeleccionado(nuevoBien);
-    message.info('Bien nuevo listo. Ahora define cantidad, método de pago, etc.');
-    setStep(3);
   };
+  
 
   // Manejo de Tipo/Marca/Modelo en Paso 2B
   const handleTipoChange = async (tipo) => {
@@ -404,24 +430,26 @@ const VenderPage = () => {
   // ------------------- PASO 3: Confirmar venta -------------------
   // Si el bien es nuevo (bienSeleccionado.uuid === null), lo creamos primero en /bienes/add
   const handleFinishPaso3 = async (values) => {
+    const { cantidad, metodoPago } = values;
+    console.log('Datos enviados para confirmar venta:', values);
+  
+    const ventaData = {
+      compradorId,
+      vendedorUuid: vendedorId,
+      bienUuid: bienSeleccionado.uuid, // UUID del bien seleccionado o `null` si es nuevo
+      cantidad,
+      metodoPago,
+      precio: bienSeleccionado.precio,
+      imeis: bienSeleccionado.tipo.toLowerCase() === 'teléfono movil' ? imeisSeleccionados : [],
+    };
+  
+    console.log('Datos de venta preparados para envío:', ventaData);
+  
     try {
       setLoading(true);
-  
-      // Obtener el precio del bien seleccionado
-      const precio = bienSeleccionado.precio;
-  
-      const ventaData = {
-        compradorId,
-        vendedorUuid: vendedorId,
-        bienUuid: bienSeleccionado.uuid,
-        cantidad: values.cantidad,
-        metodoPago: values.metodoPago,
-        precio, // Asegúrate de incluir el precio
-        imeis: bienSeleccionado.tipo.toLowerCase() === 'teléfono movil' ? imeisSeleccionados : [],
-      };
-  
-      console.log('Datos que se enviarán al backend:', ventaData); // Confirmar datos enviados
       const response = await dispatch(registrarVenta(ventaData));
+      console.log('Respuesta al registrar venta:', response);
+  
       if (response?.message === 'Venta registrada con éxito.') {
         message.success('Venta registrada con éxito.');
         navigate('/user/dashboard');
@@ -429,12 +457,13 @@ const VenderPage = () => {
         throw new Error(response?.message || 'Error al registrar la venta.');
       }
     } catch (error) {
-      console.error('Error en Paso 3:', error);
-      message.error(error.message || 'Ocurrió un error al registrar la venta.');
+      console.error('Error en Paso 3 - Confirmar Venta:', error.response?.data || error.message);
+      message.error(error.response?.data?.mensaje || 'Error al procesar la venta.');
     } finally {
       setLoading(false);
     }
   };
+  
   
   
 
@@ -468,10 +497,13 @@ const VenderPage = () => {
     );
   };
   
-  
-
   return (
     <div style={{ padding: 20, maxWidth: 800, margin: '0 auto', position: 'relative' }}>
+      {/* Título principal */}
+      <Title level={2} style={{ textAlign: 'center', marginBottom: 20 }}>
+        Formulario para Vender un Bien Mueble
+      </Title>
+  
       {/* Barra Superior */}
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between' }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
@@ -487,13 +519,30 @@ const VenderPage = () => {
           Cerrar Sesión
         </Button>
       </div>
-
+  
       {/* Títulos de los pasos */}
-      {step === 1 && <Title level={3}>Paso 1: Datos del Comprador</Title>}
-      {step === 2 && <Title level={3}>Paso 2: Seleccionar/Crear Bien</Title>}
-      {step === 3 && <Title level={3}>Paso 3: Confirmar Venta</Title>}
-
-      {/* ================== PASO 1 ================== */}
+      {step === 1 && (
+        <>
+          <Title level={3} style={{ marginBottom: 10 }}>
+            Paso 1
+          </Title>
+  
+          {/* Resaltado con estilo */}
+          <div
+            style={{
+              backgroundColor: '#fff4c2', // Color amarillo suave
+              borderRadius: '8px',
+              padding: '10px 15px',
+              marginBottom: 20,
+              boxShadow: '0px 1px 5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            Complete los datos del comprador. Ingrese el DNI y espere unos segundos mientras el RENAPER (Registro Nacional de las Personas) verifica la información ingresada.
+          </div>
+        </>
+      )}
+  
+      {/* Formulario Paso 1 */}
       {step === 1 && (
         <Form layout="vertical" form={formPaso1} onFinish={handleFinishPaso1}>
           <Form.Item
@@ -506,66 +555,73 @@ const VenderPage = () => {
               <Option value="juridica">Persona Jurídica</Option>
             </Select>
           </Form.Item>
+  
+          <Form.Item
+  label="DNI"
+  name="dni"
+  rules={[
+    { required: true, message: "Ingresa el DNI." },
+    { pattern: /^\d{7,8}$/, message: "El DNI debe tener 7 u 8 dígitos." },
+  ]}
+>
+  <Input
+    placeholder="Ingresa el DNI"
+    onBlur={(e) => {
+      const dni = e.target.value;
+      if (dni) validateDNIWithRenaper(dni);
+    }}
+  />
+</Form.Item>
 
-          {formPaso1.getFieldValue('tipo') === 'juridica' && (
-            <>
-              <Form.Item
-                label="Razón Social"
-                name="razonSocial"
-                rules={[{ required: true, message: 'Ingresa la razón social.' }]}
-              >
-                <Input />
-              </Form.Item>
-              <Form.Item
-                label="CUIT"
-                name="cuit"
-                rules={[{ required: true, message: 'Ingresa el CUIT.' }]}
-              >
-                <Input />
-              </Form.Item>
-            </>
-          )}
-
+  
+          {/* Campos adicionales */}
           <Form.Item
             label="Nombre"
             name="nombre"
             rules={[{ required: true, message: 'Ingresa el nombre.' }]}
           >
-            <Input />
+            <Input placeholder="Nombre completo" />
           </Form.Item>
           <Form.Item
             label="Apellido"
             name="apellido"
             rules={[{ required: true, message: 'Ingresa el apellido.' }]}
           >
-            <Input />
+            <Input placeholder="Apellido completo" />
           </Form.Item>
           <Form.Item
             label="Correo Electrónico"
             name="email"
             rules={[
               { required: true, message: 'Ingresa un correo electrónico.' },
-              { type: 'email', message: 'Correo inválido.' }
+              { type: 'email', message: 'Correo inválido.' },
             ]}
           >
-            <Input />
+            <Input placeholder="Correo Electrónico" />
+          </Form.Item>
+          <Form.Item
+            label="CUIT"
+            name="cuit"
+            rules={[{ required: true, message: 'Ingresa el CUIT.' }]}
+          >
+            <Input placeholder="CUIT" />
           </Form.Item>
           <Form.Item
             label="Calle"
             name={['direccion', 'calle']}
             rules={[{ required: true, message: 'Ingresa la calle.' }]}
           >
-            <Input />
+            <Input placeholder="Calle" />
           </Form.Item>
           <Form.Item
-            label="Altura"
+            label="Numeración"
             name={['direccion', 'altura']}
-            rules={[{ required: true, message: 'Ingresa la altura.' }]}
+            rules={[{ required: true, message: 'Ingresa la numeración.' }]}
           >
-            <Input />
+            <Input placeholder="Numeración" />
           </Form.Item>
           <Form.Item label="Barrio (Opcional)" name={['direccion', 'barrio']}>
-            <Input />
+            <Input placeholder="Barrio" />
           </Form.Item>
           <Form.Item
             label="Departamento"
@@ -580,19 +636,14 @@ const VenderPage = () => {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item
-            label="DNI"
-            name="dni"
-            rules={[{ required: true, message: 'Ingresa el DNI.' }]}
-          >
-            <Input />
-          </Form.Item>
-
+  
           <Button type="primary" htmlType="submit" block loading={loading}>
             Siguiente
           </Button>
         </Form>
       )}
+
+ 
 
       {/* ================== PASO 2 ================== */}
       {step === 2 && (

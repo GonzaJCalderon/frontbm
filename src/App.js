@@ -54,7 +54,7 @@ const App = () => {
         <Route path="/operaciones" element={<Operaciones />} />
         <Route path="/login" element={<Home />} />
         <Route path="/upload-stock" element={<ExcelUploadPage />} />
-        <Route path="/reintentar-registro/:uuid" element={<ReintentarRegistro />} />
+        <Route path="/usuarios/:uuid/reintentar" element={<ReintentarRegistro />} />
         <Route path="/usuarios/update-account/:token" element={<UpdateAccount />} />
       </Routes>
     </div>

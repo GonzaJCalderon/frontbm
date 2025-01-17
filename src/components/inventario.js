@@ -4,7 +4,7 @@ import { Table, Typography, Spin, Alert, Button, Space, Input, Modal, Carousel }
 import { LeftOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { fetchBienes } from '../redux/actions/bienes';
-import moment from 'moment';
+
 
 const { Title } = Typography;
 const { Search } = Input;

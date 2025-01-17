@@ -273,18 +273,19 @@ const UsuarioList = () => {
     <div className="p-6 bg-gray-100 min-h-screen">
       {/* Modal del Spinner */}
       <Modal
-        visible={isLoadingAction}
-        footer={null}
-        closable={false}
-        centered
-        className="flex justify-center items-center"
-      >
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-yellow-500 mx-auto"></div>
-          <h2 className="text-zinc-900 mt-4">Espere un momento...</h2>
-          <p className="text-zinc-600">Estamos procesando su solicitud.</p>
-        </div>
-      </Modal>
+  visible={isLoadingAction}
+  footer={null}
+  closable={false}
+  centered
+  className="flex justify-center items-center"
+>
+  <div className="text-center">
+    <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-yellow-500 mx-auto"></div>
+    <h2 className="text-zinc-900 mt-4">Espere un momento...</h2>
+    <p className="text-zinc-600">Estamos procesando su solicitud.</p>
+  </div>
+</Modal>
+
   
       {/* Modal de Motivo de Rechazo */}
       <Modal

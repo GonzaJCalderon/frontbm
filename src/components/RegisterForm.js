@@ -1,23 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { register } from '../redux/actions/auth';
 import Notification from './Notification';
 import registerImage from '../assets/registerimg.png';
+import api from '../redux/axiosConfig'; // Axios configuration for API calls
 
 const departments = [
   'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén', 'Rivadavia',
   'San Martín', 'La Paz', 'Santa Rosa', 'General Alvear', 'Malargüe', 'San Carlos',
-  'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo'
+  'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo',
 ];
 
 const Register = () => {
   const dispatch = useDispatch();
-  const auth = useSelector(state => state.auth || {});
   const [formData, setFormData] = useState({
+    tipo: 'fisica',
     nombre: '',
     apellido: '',
     email: '',
     password: '',
+    dni: '',
+    razonSocial: '',
+    direccionEmpresa: {
+      calle: '',
+      altura: '',
+    },
     direccion: {
       calle: '',
       altura: '',
@@ -25,85 +32,104 @@ const Register = () => {
       departamento: '',
     },
     cuit: '',
-    dni: '',
-    tipo: 'fisica',
-    razonSocial: '',
   });
 
-  const [errors, setErrors] = useState({
-    email: '',
-    password: '',
-    calle: '',
-    altura: '',
-    cuit: '',
-    dni: '',
-  });
-
-  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState(null);
-  
+  const [renaperError, setRenaperError] = useState('');
+  const [renaperData, setRenaperData] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const validateDNIWithRenaper = async (dni) => {
+    try {
+      if (!dni) {
+        setRenaperError('El DNI es obligatorio.');
+        return;
+      }
+
+      const { data } = await api.get(`/renaper/${dni}`);
+      if (data.success) {
+        const persona = data.data.persona;
+        setFormData((prev) => ({
+          ...prev,
+          nombre: persona.nombres,
+          apellido: persona.apellidos,
+          direccion: {
+            calle: persona.domicilio.calle || '',
+            altura: persona.domicilio.nroCalle || '',
+            barrio: persona.domicilio.barrio || '',
+            departamento: persona.domicilio.localidad || '',
+          },
+          cuit: persona.nroCuil,
+        }));
+        setRenaperData(persona);
+        setRenaperError('');
+      } else {
+        setRenaperError(data.message || 'Persona no encontrada en Renaper.');
+        setRenaperData(null);
+      }
+    } catch (error) {
+      console.error('Error al validar el DNI con Renaper:', error);
+      setRenaperError('Error al validar el DNI.');
+    }
+  };
 
   const validateField = (name, value) => {
-    let error = ''; // Declarar error como una variable local
+    let error = '';
     if (name === 'email') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const disposableDomains = ['tempmail.com', 'mailinator.com', 'yopmail.com']; // Dominios desechables
-      if (!emailRegex.test(value)) {
-        error = 'Por favor, ingresa un correo electrónico válido.';
-      } else if (disposableDomains.some((domain) => value.toLowerCase().endsWith(`@${domain}`))) {
-        error = 'Por favor, utiliza un correo electrónico legítimo.';
-      }
+      if (!emailRegex.test(value)) error = 'Por favor, ingresa un correo electrónico válido.';
     }
-  
+
     if (name === 'password') {
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
       if (!passwordRegex.test(value)) {
-        error =
-          'La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y caracteres especiales.';
+        error = 'La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y caracteres especiales.';
       }
     }
-  
-    if (name === 'calle' && value.trim() === '') error = 'La calle es obligatoria.';
-    if (name === 'altura' && !/^\d+$/.test(value)) error = 'La altura debe ser un número.';
-    if (name === 'cuit') {
-      const cuitRegex = /^\d{11}$/;
-      if (value && !cuitRegex.test(value)) error = 'El CUIT debe ser un número de 11 dígitos.';
+
+    if (name === 'cuit' && value && !/^\d{11}$/.test(value)) {
+      error = 'El CUIT debe ser un número de 11 dígitos.';
     }
-    if (name === 'dni') {
-      const dniRegex = /^\d{7,8}$/;
-      if (!dniRegex.test(value)) error = 'El DNI debe ser un número de 7 u 8 dígitos.';
+
+    if (name === 'dni' && value && !/^\d{7,8}$/.test(value)) {
+      error = 'El DNI debe ser un número de 7 u 8 dígitos.';
     }
-  
-    setErrors((prev) => ({ ...prev, [name]: error })); // Actualizar errores en el estado
+
+    setErrors((prev) => ({ ...prev, [name]: error }));
   };
-  
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     if (['calle', 'altura', 'barrio', 'departamento'].includes(name)) {
-      setFormData({
-        ...formData,
-        direccion: { ...formData.direccion, [name]: value },
-      });
+      setFormData((prev) => ({
+        ...prev,
+        direccion: { ...prev.direccion, [name]: value },
+      }));
+    } else if (['calleEmpresa', 'alturaEmpresa'].includes(name)) {
+      setFormData((prev) => ({
+        ...prev,
+        direccionEmpresa: { ...prev.direccionEmpresa, [name.replace('Empresa', '')]: value },
+      }));
     } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
+
     validateField(name, value);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
-    // Validar campos obligatorios en dirección
-    const { calle, altura, departamento } = formData.direccion;
-    if (!calle || !altura || !departamento) {
+
+    if (renaperError || (formData.tipo === 'fisica' && !renaperData)) {
       setNotification({
-        message: 'Por favor, completa todos los campos obligatorios en la dirección (calle, altura y departamento).',
+        message: 'No se puede registrar: Persona no encontrada en Renaper.',
         type: 'error',
       });
       return;
     }
-  
+
     const userData = {
       ...formData,
       direccion: {
@@ -114,9 +140,7 @@ const Register = () => {
       },
       rolDefinitivo: 'usuario',
     };
-  
-    console.log('Datos enviados al backend:', userData);
-  
+
     try {
       const resultAction = await dispatch(register(userData));
       if (register.fulfilled.match(resultAction)) {
@@ -129,10 +153,18 @@ const Register = () => {
       setNotification({ message: 'Ocurrió un error inesperado.', type: 'error' });
     }
   };
-  
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
-  const handleCloseNotification = () => setNotification(null);
+
+  useEffect(() => {
+    if (renaperData) {
+      setFormData((prev) => ({
+        ...prev,
+        nombre: renaperData.nombres,
+        apellido: renaperData.apellidos,
+      }));
+    }
+  }, [renaperData]);
 
   return (
     <div className="font-sans bg-white min-h-screen md:flex md:items-center md:justify-center">
@@ -172,17 +204,62 @@ const Register = () => {
             </div>
 
             {formData.tipo === 'juridica' && (
+              <>
+                <div className="mb-6">
+                  <label className="text-gray-800 text-xs block mb-2" htmlFor="razonSocial">Razón Social</label>
+                  <input
+                    id="razonSocial"
+                    type="text"
+                    name="razonSocial"
+                    value={formData.razonSocial}
+                    onChange={handleChange}
+                    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                    placeholder="Ingresa la razón social"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-gray-800 text-xs block mb-2" htmlFor="calleEmpresa">Calle Empresa</label>
+                    <input
+                      id="calleEmpresa"
+                      type="text"
+                      name="calleEmpresa"
+                      value={formData.direccionEmpresa.calle}
+                      onChange={handleChange}
+                      className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                      placeholder="Ingresa la calle"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-800 text-xs block mb-2" htmlFor="alturaEmpresa">Altura Empresa</label>
+                    <input
+                      id="alturaEmpresa"
+                      type="text"
+                      name="alturaEmpresa"
+                      value={formData.direccionEmpresa.altura}
+                      onChange={handleChange}
+                      className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                      placeholder="Ingresa la altura"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {formData.tipo === 'fisica' && (
               <div className="mb-6">
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="razonSocial">Razón Social</label>
+                <label className="text-gray-800 text-xs block mb-2" htmlFor="dni">DNI</label>
                 <input
-                  id="razonSocial"
+                  id="dni"
                   type="text"
-                  name="razonSocial"
-                  value={formData.razonSocial}
+                  name="dni"
+                  value={formData.dni}
                   onChange={handleChange}
+                  onBlur={() => validateDNIWithRenaper(formData.dni)}
                   className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                  placeholder="Ingresa la razón social"
+                  placeholder="Ingresa tu DNI"
                 />
+                {renaperError && <p className="text-red-500 text-xs mt-2">{renaperError}</p>}
               </div>
             )}
 
@@ -224,30 +301,26 @@ const Register = () => {
                 className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                 placeholder="Ingresa tu correo electrónico"
               />
-              {errors.email && <p className="text-red-500 text-xs mt-2">{errors.email}</p>}
             </div>
 
             <div className="mb-6">
               <label className="text-gray-800 text-xs block mb-2" htmlFor="password">Contraseña</label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                  placeholder="Ingresa tu contraseña"
-                />
-                <button
-                  type="button"
-                  onClick={togglePasswordVisibility}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showPassword ? 'Ocultar' : 'Mostrar'}
-                </button>
-              </div>
-              {errors.password && <p className="text-red-500 text-xs mt-2">{errors.password}</p>}
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                placeholder="Ingresa tu contraseña"
+              />
+              <button
+                type="button"
+                onClick={togglePasswordVisibility}
+                className="absolute right-4 inset-y-0 text-blue-500"
+              >
+                {showPassword ? 'Ocultar' : 'Mostrar'}
+              </button>
             </div>
 
             <div className="mb-6">
@@ -261,11 +334,10 @@ const Register = () => {
                 className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                 placeholder="Ingresa la calle"
               />
-              {errors.calle && <p className="text-red-500 text-xs mt-2">{errors.calle}</p>}
             </div>
 
             <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">Numeración</label>
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">Altura</label>
               <input
                 id="altura"
                 type="text"
@@ -273,21 +345,7 @@ const Register = () => {
                 value={formData.direccion.altura}
                 onChange={handleChange}
                 className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                placeholder="Ingresa la numeración"
-              />
-              {errors.altura && <p className="text-red-500 text-xs mt-2">{errors.altura}</p>}
-            </div>
-
-            <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="barrio">Barrio</label>
-              <input
-                id="barrio"
-                type="text"
-                name="barrio"
-                value={formData.direccion.barrio}
-                onChange={handleChange}
-                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                placeholder="Ingresa el barrio"
+                placeholder="Ingresa la altura"
               />
             </div>
 
@@ -307,35 +365,6 @@ const Register = () => {
               </select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="cuit">CUIT</label>
-                <input
-                  id="cuit"
-                  type="text"
-                  name="cuit"
-                  value={formData.cuit}
-                  onChange={handleChange}
-                  className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                  placeholder="Ingresa tu CUIT"
-                />
-                {errors.cuit && <p className="text-red-500 text-xs mt-2">{errors.cuit}</p>}
-              </div>
-              <div>
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="dni">DNI</label>
-                <input
-                  id="dni"
-                  type="text"
-                  name="dni"
-                  value={formData.dni}
-                  onChange={handleChange}
-                  className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                  placeholder="Ingresa tu DNI"
-                />
-                {errors.dni && <p className="text-red-500 text-xs mt-2">{errors.dni}</p>}
-              </div>
-            </div>
-
             <button
               type="submit"
               className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
@@ -348,7 +377,7 @@ const Register = () => {
             <Notification
               message={notification.message}
               type={notification.type}
-              onClose={handleCloseNotification}
+              onClose={() => setNotification(null)}
             />
           )}
         </div>

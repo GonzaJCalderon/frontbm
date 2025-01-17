@@ -6,6 +6,7 @@ import authReducer from './auth';
 import searchReducer from './search';
 import salesReducer from './salesReducer';
 import stockReducers from './stockReducers';
+import renaperReducer from './renaperReducer';
 
 const rootReducer = combineReducers({
     bienes: bienesReducer,
@@ -13,7 +14,8 @@ const rootReducer = combineReducers({
     auth: authReducer,
     search: searchReducer,
     sales: salesReducer,
-    stock: stockReducers
+    stock: stockReducers,
+    renaperReducer: renaperReducer,
 });
 
 export default rootReducer;

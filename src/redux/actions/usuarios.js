@@ -73,6 +73,12 @@ import {
      REGISTER_USER_THIRD_PARTY_REQUEST,
   REGISTER_USER_THIRD_PARTY_SUCCESS,
   REGISTER_USER_THIRD_PARTY_ERROR,
+  REENVIAR_REGISTRO_REQUEST, 
+  REENVIAR_REGISTRO_SUCCESS,
+   REENVIAR_REGISTRO_ERROR,
+   REINTENTAR_REGISTRO_REQUEST, 
+   REINTENTAR_REGISTRO_SUCCESS, 
+   REINTENTAR_REGISTRO_ERROR
   
     
 } from './actionTypes';
@@ -457,26 +463,27 @@ export const buscarVendedor = (dni) => async dispatch => {
 };
 
 
-
 export const fetchPendingRegistrations = () => async (dispatch) => {
-    dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
+  dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
 
-    try {
-        const response = await api.get('/usuarios/usuarios/pendientes'); // Ajusta la ruta si es necesario
-        console.log("Usuarios pendientes obtenidos:", response.data);
+  try {
+      const response = await api.get('/usuarios/usuarios/pendientes'); // Ajusta la ruta si es necesario
+      console.log("Usuarios pendientes obtenidos:", response.data);
 
-        dispatch({
-            type: FETCH_PENDING_REGISTRATIONS_SUCCESS,
-            payload: response.data,
-        });
-    } catch (error) {
-        console.error('Error al obtener usuarios pendientes:', error);
-        dispatch({
-            type: FETCH_PENDING_REGISTRATIONS_ERROR,
-            error: error.message,
-        });
-    }
+      dispatch({
+          type: FETCH_PENDING_REGISTRATIONS_SUCCESS,
+          payload: response.data,
+      });
+  } catch (error) {
+      console.error('Error al obtener usuarios pendientes:', error);
+      dispatch({
+          type: FETCH_PENDING_REGISTRATIONS_ERROR,
+          error: error.message,
+      });
+  }
 };
+
+
 
 
 
@@ -504,6 +511,29 @@ export const approveUser = (userUuid, data) => async (dispatch) => {
 };
 
 
+export const denyRegistration = (userUuid, data) => async (dispatch) => {
+  dispatch({ type: 'DENY_REGISTRATION_REQUEST' });
+
+  try {
+    const token = localStorage.getItem('token');
+
+    console.log('Payload enviado al backend:', data);
+
+    const response = await api.put(`/usuarios/${userUuid}/rechazar`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    dispatch({ type: 'DENY_REGISTRATION_SUCCESS', payload: response.data });
+    return response.data;
+  } catch (error) {
+    console.error('Error al rechazar usuario:', error.response?.data || error.message);
+    dispatch({ type: 'DENY_REGISTRATION_ERROR', payload: error.response?.data || error.message });
+    throw error;
+  }
+};
+
 
 
 export const fetchApprovedUsers = () => async (dispatch) => {
@@ -527,22 +557,6 @@ export const fetchApprovedUsers = () => async (dispatch) => {
 };
 
 
-export const denyRegistration = (uuid, payload) => async (dispatch) => {
-  try {
-    const response = await axios.put(`/usuarios/${uuid}/rechazar`, payload, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-      },
-    });
-
-    dispatch({ type: 'DENY_REGISTRATION_SUCCESS', payload: response.data });
-    return response.data; // Retorna la respuesta del backend
-  } catch (error) {
-    console.error('Error al rechazar usuario:', error.response?.data || error.message);
-    dispatch({ type: 'DENY_REGISTRATION_FAILURE', payload: error.message });
-    throw error;
-  }
-};
 
 export const fetchRejectedUsers = () => async (dispatch) => {
   try {
@@ -559,21 +573,21 @@ export const fetchRejectedUsers = () => async (dispatch) => {
 
 // Acción para verificar si el usuario existe
 export const checkExistingUser = (params) => async (dispatch) => {
-    try {
-        const { dni, email } = params;
+  try {
+    console.log("Datos enviados a checkExistingUser:", params); // Log para verificar
+    const { dni, nombre, apellido } = params;
 
-        if (!dni || !email) {
-            throw new Error('El DNI y el email son requeridos.');
-        }
-
-        const response = await api.post('/usuarios/check', { dni, email });
-        return response.data;
-    } catch (error) {
-        console.error('Error en checkExistingUser:', error);
-        throw error;
+    if (!dni || !nombre || !apellido) {
+      throw new Error("DNI, nombre y apellido son requeridos.");
     }
-};
 
+    const response = await api.post("/usuarios/check", { dni, nombre, apellido });
+    return response.data;
+  } catch (error) {
+    console.error("Error en checkExistingUser:", error.message);
+    throw error;
+  }
+};
 
 // Acción para enviar el enlace de actualización de cuenta
 export const sendUpdateAccountLink = (userId) => async () => {
@@ -592,8 +606,21 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
   dispatch({ type: REGISTER_USER_THIRD_PARTY_REQUEST });
 
   try {
-      const response = await api.post('/usuarios/register-usuario-por-tercero', usuarioData);
-      
+      const token = localStorage.getItem('token');
+      if (!token) {
+          throw new Error('Token no disponible.');
+      }
+
+      const response = await api.post(
+          '/usuarios/register-usuario-por-tercero',
+          usuarioData,
+          {
+              headers: {
+                  Authorization: `Bearer ${token}`,
+              },
+          }
+      );
+
       if (response.data?.usuario) {
           dispatch({
               type: REGISTER_USER_THIRD_PARTY_SUCCESS,
@@ -626,15 +653,103 @@ export const fetchHistorialCambios = async (uuid) => {
   }
 };
   
-export const reenviarRegistro = (uuid, userData) => async (dispatch) => {
+export const reenviarRegistro = (uuid, formData) => async (dispatch) => {
   try {
-    const response = await axios.put(`/usuarios/usuarios/${uuid}/reintentar`, userData);
-    dispatch({ type: 'REENVIAR_REGISTRO_SUCCESS', payload: response.data });
+    const response = await api.put(`/usuarios/${uuid}/reenviar`, formData);
+    dispatch({
+      type: 'REENVIAR_REGISTRO_EXITO',
+      payload: response.data,
+    });
     return response.data;
   } catch (error) {
-    throw error.response ? error.response.data : error;
+    console.error('Error en reenviarRegistro:', error.response || error.message);
+    throw new Error(error.response?.data?.message || 'Error al reenviar registro.');
   }
 };
 
-  
-  
+
+export const fetchRenaperData = (dni) => async (dispatch) => {
+  dispatch({ type: 'FETCH_RENAPER_REQUEST' });
+
+  try {
+      const { data } = await api.get(`/renaper/renaper/${dni}`);
+      if (data.success) {
+          dispatch({ type: 'FETCH_RENAPER_SUCCESS', payload: data.data.persona });
+          return data.data.persona;
+      } else {
+          dispatch({ type: 'FETCH_RENAPER_FAILURE', payload: data.message || 'Error al buscar los datos.' });
+          throw new Error(data.message || 'Error al buscar los datos.');
+      }
+  } catch (error) {
+      dispatch({
+          type: 'FETCH_RENAPER_FAILURE',
+          payload: error.response?.data?.message || 'Error inesperado.',
+      });
+      throw error;
+  }
+};
+
+export const reintentarRegistro = (uuid, formData) => async (dispatch) => {
+  dispatch({ type: REINTENTAR_REGISTRO_REQUEST });
+
+  try {
+    // Validar parámetros antes de enviar
+    if (!uuid) {
+      throw new Error('UUID del usuario es requerido.');
+    }
+
+    if (!formData || Object.keys(formData).length === 0) {
+      throw new Error('Los datos del formulario son requeridos.');
+    }
+
+    console.log('Enviando datos para reintentar registro:', { uuid, formData });
+
+    // Realizar la solicitud al backend
+    const response = await api.put(`/usuarios/${uuid}/reintentar`, formData, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`, // Agregar token de autenticación
+        'Content-Type': 'application/json', // Asegurar el tipo de contenido
+      },
+    });
+
+    // Manejo exitoso
+    dispatch({
+      type: REINTENTAR_REGISTRO_SUCCESS,
+      payload: response.data,
+    });
+
+    // Mostrar notificación de éxito
+    notification.success({
+      message: 'Registro reenviado',
+      description: 'Tu registro ha sido reenviado correctamente para revisión.',
+    });
+
+    return response.data; // Retornar datos al componente si es necesario
+  } catch (error) {
+    // Log detallado del error
+    console.error('Error en reintentarRegistro:', {
+      errorData: error.response?.data,
+      errorStatus: error.response?.status,
+      errorMessage: error.message,
+    });
+
+    // Preparar mensaje de error
+    const errorMessage = error.response?.data?.message || 'Error al reintentar registro.';
+
+    // Dispatch del error a Redux
+    dispatch({
+      type: REINTENTAR_REGISTRO_ERROR,
+      payload: errorMessage,
+    });
+
+    // Mostrar notificación de error
+    notification.error({
+      message: 'Error',
+      description: errorMessage,
+    });
+
+    // Lanzar el error para manejarlo en el componente
+    throw new Error(errorMessage);
+  }
+};
+

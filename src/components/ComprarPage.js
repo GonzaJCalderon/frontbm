@@ -37,6 +37,8 @@ const ComprarPage = () => {
   const [marcas, setMarcas] = useState([]);
   const [modelos, setModelos] = useState([]);
   const [isVisible, setIsVisible] = useState(false);
+  const [tipoDeSujeto, setTipoDeSujeto] = useState(null);
+
   const handleCancel = () => {
     setIsVisible(false); // Cierra el Modal
   };
@@ -141,7 +143,39 @@ const handleMarcaChange = async (marca) => {
   }
 };
 
-  
+const validateDNIWithRenaper = async (dni) => {
+  try {
+    if (!dni) {
+      message.error('El DNI es obligatorio.');
+      return;
+    }
+
+    const { data } = await api.get(`/renaper/${dni}`);
+    if (data.success) {
+      const persona = data.data.persona;
+
+      // Establece automáticamente los datos obtenidos del Renaper
+      formStep1.setFieldsValue({
+        nombre: persona.nombres,
+        apellido: persona.apellidos,
+        cuit: persona.nroCuil,
+        direccion: {
+          calle: persona.domicilio.calle || '',
+          altura: persona.domicilio.nroCalle || '',
+          barrio: persona.domicilio.barrio || '',
+          departamento: persona.domicilio.localidad || '',
+        },
+      });
+
+      message.success('Datos cargados correctamente desde Renaper.');
+    } else {
+      message.error(data.message || 'Persona no encontrada en Renaper.');
+    }
+  } catch (error) {
+    console.error('Error al validar el DNI con Renaper:', error);
+    message.error('Error al validar el DNI.');
+  }
+};
   
   
   
@@ -215,60 +249,88 @@ const agregarNuevoModelo = async () => {
   }
 };
 
-  const handleFinishStep1 = async (values) => {
-    try {
-        const { nombre, apellido, email, dni, cuit, tipo, razonSocial, direccion } = values;
+const handleFinishStep1 = async (values) => {
+  try {
+      const { nombre, apellido, email, dni, cuit, tipo, razonSocial, direccion } = values;
 
-        // Verificar si el usuario ya está registrado
-        const existingUserResponse = await dispatch(checkExistingUser({ dni, email }));
-        
-        if (existingUserResponse?.existe) {
-            const existingUser = existingUserResponse.usuario;
+      // Validación previa para asegurarse de que los campos obligatorios estén completos
+      if (!dni || !nombre || !apellido || !email) {
+          message.error('Por favor, completa todos los campos obligatorios (DNI, Nombre, Apellido, Email).');
+          return;
+      }
 
-            if (existingUser.rolDefinitivo !== 'vendedor') {
-                // Actualizar el rol si no es vendedor
-                const updateResponse = await dispatch(registerUsuarioPorTercero({
-                    uuid: existingUser.uuid,
-                    rolTemporal: 'vendedor',
-                    ...values,
-                }));
+      // Log para verificar los valores antes de procesar
+      console.log('Datos enviados en el paso 1:', values);
 
-                if (updateResponse.error) {
-                    throw new Error(updateResponse.error);
-                }
-            }
+      // Verificar si el usuario ya está registrado
+      const existingUserResponse = await dispatch(
+        checkExistingUser({
+          dni: values.dni, // Asegúrate de que este valor esté disponible
+          nombre: values.nombre, // Asegúrate de que este valor esté disponible
+          apellido: values.apellido, // Asegúrate de que este valor esté disponible
+        })
+      );
+      
+      console.log("Datos enviados a checkExistingUser:", {
+        dni: values.dni,
+        nombre: values.nombre,
+        apellido: values.apellido,
+      });
+      
 
-            setVendedorId(existingUser.uuid); // Asignar el UUID del usuario existente
-            message.success('Usuario identificado como vendedor.');
-            setStep(2);
-            return;
-        }
+      if (existingUserResponse?.existe) {
+          const existingUser = existingUserResponse.usuario;
 
-        // Registrar un nuevo usuario como vendedor
-        const newUserResponse = await dispatch(registerUsuarioPorTercero({
-            nombre,
-            apellido,
-            email,
-            dni,
-            cuit,
-            tipo,
-            razonSocial: tipo === 'juridica' ? razonSocial : null,
-            direccion,
-            rolTemporal: 'vendedor',
-        }));
+          // Verificar si el rol definitivo no es "vendedor"
+          if (existingUser.rolDefinitivo !== 'vendedor') {
+              console.log('El usuario existe pero no es vendedor, actualizando rol...');
+              const updateResponse = await dispatch(registerUsuarioPorTercero({
+                  uuid: existingUser.uuid,
+                  rolTemporal: 'vendedor',
+                  ...values,
+              }));
 
-        if (newUserResponse?.uuid) {
-            setVendedorId(newUserResponse.uuid); // Asignar el UUID del nuevo usuario
-            message.success('Usuario registrado como vendedor con éxito.');
-            setStep(2);
-        } else {
-            throw new Error('No se pudo registrar al usuario.');
-        }
-    } catch (error) {
-        console.error('Error en el paso 1:', error.message || error);
-        message.error(error.message || 'Ocurrió un error en el registro del usuario.');
-    }
+              if (updateResponse.error) {
+                  throw new Error(updateResponse.error);
+              }
+          }
+
+          setVendedorId(existingUser.uuid); // Asignar el UUID del usuario existente
+          message.success('Usuario identificado como vendedor.');
+          setStep(2);
+          return;
+      }
+
+      // Registrar un nuevo usuario como vendedor
+      console.log('Registrando un nuevo usuario...');
+      const newUserResponse = await dispatch(registerUsuarioPorTercero({
+          nombre,
+          apellido,
+          email,
+          dni,
+          cuit,
+          tipo,
+          razonSocial: tipo === 'juridica' ? razonSocial : null,
+          direccion,
+          rolTemporal: 'vendedor',
+      }));
+
+      console.log('Respuesta al registrar un nuevo usuario:', newUserResponse);
+
+      if (newUserResponse?.uuid) {
+          setVendedorId(newUserResponse.uuid); // Asignar el UUID del nuevo usuario
+          message.success('Usuario registrado como vendedor con éxito.');
+          setStep(2);
+      } else {
+          throw new Error('No se pudo registrar al usuario.');
+      }
+  } catch (error) {
+      console.error('Error en el paso 1:', error.message || error);
+      message.error(error.message || 'Ocurrió un error en el registro del usuario.');
+  }
 };
+
+
 const handleFinishStep2 = async (values) => {
   try {
     const compradorDni = JSON.parse(localStorage.getItem('userData')).dni || '';
@@ -304,71 +366,200 @@ const handleFinishStep2 = async (values) => {
 };
 
 
-  return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
-        <Button icon={<LogoutOutlined />} onClick={() => { localStorage.removeItem('userData'); navigate('/home'); }}>Cerrar Sesión</Button>
-      </div>
+return (
+  <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+    {/* Título Principal */}
+    <Title level={2} style={{ textAlign: 'center', marginBottom: 20 }}>
+      Formulario para Comprar un Bien Mueble
+    </Title>
 
-      <Title level={3}>{step === 1 ? 'Paso 1: Datos del Vendedor' : 'Paso 2: Datos del Bien'}</Title>
-      
-      {step === 1 && (
-        <Form
-          layout="vertical"
-          onFinish={handleFinishStep1}
-          form={formStep1}
+    {/* Barra Superior */}
+    <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between' }}>
+      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+        Volver
+      </Button>
+      <Button
+        icon={<LogoutOutlined />}
+        onClick={() => {
+          localStorage.removeItem('userData');
+          navigate('/home');
+        }}
+      >
+        Cerrar Sesión
+      </Button>
+    </div>
+
+    {/* Paso 1: Resaltado */}
+    {step === 1 && (
+      <>
+        <Title level={3} style={{ marginBottom: 10 }}>
+          Paso 1: Datos del vendedor
+        </Title>
+        <div
+          style={{
+            backgroundColor: '#fff4c2', // Amarillo suave
+            borderRadius: '8px',
+            padding: '10px 15px',
+            marginBottom: 20,
+            boxShadow: '0px 1px 5px rgba(0, 0, 0, 0.1)',
+          }}
         >
-          <Form.Item label="Tipo de Sujeto" name="tipo" rules={[{ required: true, message: 'Por favor, selecciona un tipo de sujeto.' }]}>
-            <Select>
-              <Option value="persona">Persona Humana</Option>
-              <Option value="juridica">Persona Jurídica</Option>
-            </Select>
-          </Form.Item>
+          Complete los datos del vendedor. Ingrese el DNI y espere unos segundos mientras el RENAPER
+          (Registro Nacional de las Personas) verifica la información ingresada.
+        </div>
+      </>
+    )}
 
-          {formStep1.getFieldValue('tipo') === 'juridica' && (
-            <Form.Item label="Razón Social" name="razonSocial" rules={[{ required: true, message: 'Por favor, ingresa la razón social.' }]}>
-              <Input placeholder="Razón Social" />
-            </Form.Item>
-          )}
+    {/* Formulario Paso 1 */}
+    {step === 1 && (
+     <Form
+     layout="vertical"
+     onFinish={handleFinishStep1}
+     form={formStep1}
+   >
+     {/* Selección del tipo de sujeto */}
+     <Form.Item
+       label="Tipo de Sujeto"
+       name="tipo"
+       rules={[{ required: true, message: 'Por favor, selecciona un tipo de sujeto.' }]}
+     >
+       <Select
+         onChange={(tipo) => {
+           formStep1.resetFields(['dni', 'nombre', 'apellido', 'email', 'cuit', 'direccion', 'razonSocial', 'direccionEmpresa']);
+           setTipoDeSujeto(tipo); // Estado para controlar el tipo seleccionado
+         }}
+       >
+         <Option value="persona">Persona Humana</Option>
+         <Option value="juridica">Persona Jurídica</Option>
+       </Select>
+     </Form.Item>
+   
+     {tipoDeSujeto === 'juridica' && (
+       <>
+         {/* Razón Social */}
+         <Form.Item
+           label="Razón Social"
+           name="razonSocial"
+           rules={[{ required: true, message: 'Por favor, ingresa la razón social.' }]}
+         >
+           <Input placeholder="Razón Social de la empresa" />
+         </Form.Item>
+   
+         {/* Dirección de la Empresa */}
+         <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>
+           Dirección de la Empresa
+         </Title>
+         <Form.Item
+           label="Calle"
+           name={['direccionEmpresa', 'calle']}
+           rules={[{ required: true, message: 'Por favor, ingresa la calle de la empresa.' }]}
+         >
+           <Input placeholder="Calle de la empresa" />
+         </Form.Item>
+         <Form.Item
+           label="Numeración"
+           name={['direccionEmpresa', 'altura']}
+           rules={[{ required: true, message: 'Por favor, ingresa la numeración de la empresa.' }]}
+         >
+           <Input placeholder=" Numeración de la empresa" />
+         </Form.Item>
+       </>
+     )}
+   
+     {/* Campo de DNI */}
+     <Form.Item
+    label="DNI"
+    name="dni"
+    rules={[
+      { required: true, message: 'El DNI es obligatorio.' },
+      { pattern: /^\d{7,8}$/, message: 'El DNI debe tener 7 u 8 dígitos.' },
+    ]}
+  >
+    <Input
+      placeholder="Ingresa el DNI"
+      onBlur={(e) => validateDNIWithRenaper(e.target.value)}
+    />
+  </Form.Item>
 
-          <Form.Item label="Nombre" name="nombre" rules={[{ required: true, message: 'Por favor, ingresa tu nombre.' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="Apellido" name="apellido" rules={[{ required: true, message: 'Por favor, ingresa tu apellido.' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="Correo Electrónico" name="email" rules={[
-            { required: true, message: 'Por favor, ingresa tu correo electrónico.' },
-            { type: 'email', message: 'Por favor, ingresa un correo electrónico válido.' }
-          ]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="DNI" name="dni" rules={[{ required: true, message: 'Por favor, ingresa tu DNI.' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="CUIT" name="cuit" rules={[{ required: true, message: 'Por favor, ingresa tu CUIT.' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="Calle" name={['direccion', 'calle']} rules={[{ required: true, message: 'Por favor, ingresa la calle.' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="Numeración" name={['direccion', 'altura']} rules={[{ required: true, message: 'Por favor, ingresa la numeración.' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="Barrio" name={['direccion', 'barrio']}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="Departamento" name={['direccion', 'departamento']} rules={[{ required: true, message: 'Por favor, selecciona un departamento.' }]}>
-            <Select>
-              {departments.map((department) => (
-                <Option key={department} value={department}>{department}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Button type="primary" htmlType="submit" block loading={loading}>Siguiente</Button>
-        </Form>
-      )}
+  <Form.Item
+    label="Nombre"
+    name="nombre"
+    rules={[{ required: true, message: 'El nombre es obligatorio.' }]}
+  >
+    <Input placeholder="Nombre completo" />
+  </Form.Item>
+
+  <Form.Item
+    label="Apellido"
+    name="apellido"
+    rules={[{ required: true, message: 'El apellido es obligatorio.' }]}
+  >
+    <Input placeholder="Apellido completo" />
+  </Form.Item>
+
+     <Form.Item
+       label="CUIT"
+       name="cuit"
+       rules={[{ required: true, message: 'Por favor, ingresa tu CUIT.' }]}
+     >
+       <Input placeholder="CUIT" />
+     </Form.Item>
+   
+     {/* Dirección de la Persona */}
+     <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>
+       Dirección de la Persona
+     </Title>
+     <Form.Item
+       label="Calle"
+       name={['direccion', 'calle']}
+       rules={[{ required: true, message: 'Por favor, ingresa la calle.' }]}
+     >
+       <Input placeholder="Calle" />
+     </Form.Item>
+     <Form.Item
+       label="Numeración"
+       name={['direccion', 'altura']}
+       rules={[{ required: true, message: 'Por favor, ingresa la numeracion.' }]}
+     >
+       <Input placeholder="Numeración" />
+     </Form.Item>
+     <Form.Item
+       label="Barrio"
+       name={['direccion', 'barrio']}
+     >
+       <Input placeholder="Barrio" />
+     </Form.Item>
+     <Form.Item
+       label="Departamento"
+       name={['direccion', 'departamento']}
+       rules={[{ required: true, message: 'Por favor, selecciona un departamento.' }]}
+     >
+       <Select>
+         {departments.map((department) => (
+           <Option key={department} value={department}>
+             {department}
+           </Option>
+         ))}
+       </Select>
+     </Form.Item>
+     <Form.Item
+       label="Correo Electrónico"
+       name="email"
+       rules={[
+         { required: true, message: 'Por favor, ingresa tu correo electrónico.' },
+         { type: 'email', message: 'Por favor, ingresa un correo electrónico válido.' },
+       ]}
+     >
+       <Input placeholder="Correo Electrónico" />
+     </Form.Item>
+   
+     {/* Botón para continuar */}
+     <Button type="primary" htmlType="submit" block>
+       Siguiente
+     </Button>
+   </Form>
+   
+    )}
 {step === 2 && (
   <Form layout="vertical" onFinish={handleFinishStep2} form={formStep2}>
     {/* Tipo de Bien */}

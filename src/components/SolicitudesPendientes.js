@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchPendingRegistrations, approveUser, denyRegistration } from '../redux/actions/usuarios';
-import { notification, Modal, Input, Button } from 'antd';
+import { fetchPendingRegistrations, approveUser, denyRegistration,fetchRejectedUsers } from '../redux/actions/usuarios';
+import { notification, Modal, Input, Button, Table } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
 
@@ -13,152 +13,204 @@ const SolicitudesPendientes = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
     const [selectedUserUuid, setSelectedUserUuid] = useState(null);
-    const [updatedRegistrations, setUpdatedRegistrations] = useState([]);
+    const [filteredRegistrations, setFilteredRegistrations] = useState([]);
+    const [filters, setFilters] = useState({});
 
-    // Obtener datos del usuario actual
     const storedData = localStorage.getItem('userData');
     const currentUser = storedData ? JSON.parse(storedData) : null;
+    const isAdmin = currentUser?.rolDefinitivo === 'admin';
+    const isModerator = currentUser?.rolDefinitivo === 'moderador';
+  
     const userData = JSON.parse(localStorage.getItem('userData'));
-const isAdmin = userData?.rolDefinitivo === 'admin'; // Verifica si es admin
-const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es moderador
-
-
+    
     // Obtener las solicitudes pendientes al cargar
     useEffect(() => {
         dispatch(fetchPendingRegistrations());
     }, [dispatch]);
 
-    // Ordenar y actualizar la lista de solicitudes
+    // Ordenar y filtrar la lista de solicitudes
     useEffect(() => {
         if (pendingRegistrations && pendingRegistrations.length > 0) {
             const sortedRegistrations = [...pendingRegistrations].sort((a, b) => {
-                const dateA = new Date(a.fechaRechazo || a.fechaCreacion);
-                const dateB = new Date(b.fechaRechazo || b.fechaCreacion);
+                const dateA = new Date(a.createdAt);
+                const dateB = new Date(b.createdAt);
                 return dateB - dateA; // Orden descendente por fecha
             });
-            setUpdatedRegistrations(sortedRegistrations);
+            setFilteredRegistrations(sortedRegistrations);
         }
     }, [pendingRegistrations]);
 
-    // Manejo de aprobación de usuarios
-    const handleApprove = async (uuid) => {
-        if (isModerator) {
-            notification.warning({
-                message: 'Acción no permitida',
-                description: 'Los moderadores no pueden aprobar usuarios.',
+    // Manejo de búsqueda
+    const handleSearch = (newFilters) => {
+        setFilters((prevFilters) => {
+            const updatedFilters = { ...prevFilters, ...newFilters };
+            const filtered = pendingRegistrations.filter((usuario) => {
+                const matchesNombre = updatedFilters.nombre ? usuario.nombre?.toLowerCase().includes(updatedFilters.nombre.toLowerCase()) : true;
+                const matchesApellido = updatedFilters.apellido ? usuario.apellido?.toLowerCase().includes(updatedFilters.apellido.toLowerCase()) : true;
+                const matchesDni = updatedFilters.dni ? usuario.dni?.includes(updatedFilters.dni) : true;
+                const matchesEmail = updatedFilters.email ? usuario.email?.toLowerCase().includes(updatedFilters.email.toLowerCase()) : true;
+
+                return matchesNombre && matchesApellido && matchesDni && matchesEmail;
             });
-            return;
-        }
-    
-        const storedData = localStorage.getItem('userData');
-        const currentUser = storedData ? JSON.parse(storedData) : null;
-    
-        if (!currentUser || !currentUser.uuid || !currentUser.nombre) {
-            notification.error({
-                message: 'Error',
-                description: 'No se pudo obtener el usuario actual para aprobar.',
-            });
-            return;
-        }
-    
-        try {
-            const fechaAprobacion = new Date().toISOString();
-            const aprobadoPor = currentUser.uuid;
-            const aprobadoPorNombre = `${currentUser.nombre} ${currentUser.apellido}`; // Nombre completo
-            const estado = 'aprobado';
-    
-            const payload = {
-                fechaAprobacion,
-                aprobadoPor,
-                aprobadoPorNombre,
-                estado, // Cambia el estado del usuario
-            };
-    
-            console.log('Payload enviado al Redux action:', payload);
-    
-            await dispatch(approveUser(uuid, payload));
-    
-            notification.success({
-                message: 'Registro aprobado',
-                description: `El usuario con UUID ${uuid} ha sido aprobado.`,
-            });
-    
-            setUpdatedRegistrations((prev) => prev.filter((user) => user.uuid !== uuid));
-        } catch (error) {
-            notification.error({
-                message: 'Error',
-                description: 'No se pudo aprobar al usuario.',
-            });
-        }
+            setFilteredRegistrations(filtered);
+            return updatedFilters;
+        });
     };
-    
+
+    // Manejo de aprobación de usuarios
+    const handleApprove = (userUuid) => {
+        if (!userUuid) {
+          notification.error({
+            message: 'Error',
+            description: 'No se pudo obtener el UUID del usuario. Inténtalo de nuevo.',
+          });
+          return;
+        }
+      
+        if (isAdmin) {
+          const fechaAprobacion = new Date().toISOString();
+          const aprobadoPor = userData.uuid;
+          const aprobadoPorNombre = `${userData.nombre} ${userData.apellido}`;
+          const estado = 'aprobado';
+      
+          dispatch(approveUser(userUuid, { estado, fechaAprobacion, aprobadoPor, aprobadoPorNombre }))
+            .then(() => {
+              notification.success({
+                message: 'Usuario aprobado',
+                description: `El usuario con UUID ${userUuid} ha sido aprobado correctamente.`,
+              });
+      
+              // Refrescar la lista de rechazados
+              dispatch(fetchRejectedUsers());
+            })
+            .catch((error) => {
+              notification.error({
+                message: 'Error al aprobar usuario',
+                description: error.message || 'Ocurrió un error inesperado.',
+              });
+            });
+        }
+      };
+      
 
     // Mostrar modal de rechazo
     const showModal = (uuid) => {
-        console.log('Usuario seleccionado para denegar:', uuid); // Log para verificar
         setSelectedUserUuid(uuid);
         setIsModalVisible(true);
     };
 
     // Manejo de rechazo de usuarios
     const handleDeny = async () => {
-        if (!selectedUserUuid || !rejectionReason.trim()) {
-          notification.warning({
-            message: 'Motivo requerido',
-            description: 'Por favor, ingresa un motivo para la denegación.',
-          });
-          return;
+        if (!rejectionReason.trim()) {
+            notification.warning({
+                message: 'Motivo requerido',
+                description: 'Por favor, ingresa un motivo para la denegación.',
+            });
+            return;
         }
+
         try {
-          const payload = {
-            rechazadoPor: currentUser.uuid, // ID del usuario que rechaza
-            motivoRechazo: rejectionReason, // Motivo del rechazo
-          };
-      
-          console.log('Payload enviado al backend:', payload);
-      
-          await dispatch(denyRegistration(selectedUserUuid, payload));
-      
-          notification.error({
-            message: 'Registro denegado',
-            description: `El usuario con UUID ${selectedUserUuid} ha sido rechazado. Motivo: ${rejectionReason}`,
-          });
-          setUpdatedRegistrations((prev) =>
-            prev.filter((user) => user.uuid !== selectedUserUuid)
-          );
-          setIsModalVisible(false);
-          setRejectionReason('');
+            const payload = {
+                estado: 'rechazado',
+                motivoRechazo: rejectionReason,
+                fechaRechazo: new Date().toISOString(),
+                rechazadoPor: currentUser.uuid,
+            };
+
+            await dispatch(denyRegistration(selectedUserUuid, payload));
+
+            notification.success({
+                message: 'Registro denegado',
+                description: 'El usuario ha sido rechazado correctamente.',
+            });
+
+            setFilteredRegistrations((prev) =>
+                prev.filter((user) => user.uuid !== selectedUserUuid)
+            );
+            setIsModalVisible(false);
+            setRejectionReason('');
         } catch (error) {
-          console.error('Error al rechazar usuario:', error);
-          notification.error({
-            message: 'Error',
-            description: 'No se pudo rechazar al usuario.',
-          });
+            notification.error({
+                message: 'Error',
+                description: 'No se pudo rechazar al usuario.',
+            });
         }
-      };
-      
+    };
+
     // Cerrar modal de rechazo
     const handleCancel = () => {
         setIsModalVisible(false);
         setRejectionReason('');
     };
 
-    // Navegación
-    const handleLogout = () => {
-        localStorage.removeItem('userData');
-        notification.success({
-            message: 'Cierre de sesión exitoso',
-            description: 'Has cerrado sesión correctamente.',
-        });
-        navigate('/home');
-    };
-
-    const handleBack = () => navigate('/admin/dashboard');
+    const columns = [
+        {
+            title: 'Nombre',
+            dataIndex: 'nombre',
+            key: 'nombre',
+        },
+        {
+            title: 'Apellido',
+            dataIndex: 'apellido',
+            key: 'apellido',
+        },
+        {
+            title: 'Email',
+            dataIndex: 'email',
+            key: 'email',
+        },
+        {
+            title: 'DNI',
+            dataIndex: 'dni',
+            key: 'dni',
+        },
+        {
+            title: 'CUIT',
+            dataIndex: 'cuit',
+            key: 'cuit',
+            render: (cuit) => cuit || 'N/A',
+        },
+        {
+            title: 'Dirección',
+            dataIndex: 'direccion',
+            key: 'direccion',
+            render: (direccion) => 
+                direccion
+                    ? `${direccion.calle}, ${direccion.altura}, ${direccion.departamento}`
+                    : 'Sin Dirección',
+        },
+        {
+            title: 'Fecha de Solicitud',
+            dataIndex: 'createdAt',
+            key: 'createdAt',
+            render: (createdAt) => new Date(createdAt).toLocaleString(),
+        },
+        {
+            title: 'Acciones',
+            key: 'acciones',
+            render: (_, user) => (
+                <div>
+                    <Button
+                        onClick={() => handleApprove(user.uuid)}
+                        className="bg-green-600 text-white rounded mr-2"
+                    >
+                        Aprobar
+                    </Button>
+                    <Button
+                        onClick={() => showModal(user.uuid)}
+                        className="bg-red-600 text-white rounded"
+                    >
+                        Denegar
+                    </Button>
+                </div>
+            ),
+        },
+    ];
 
     return (
         <div className="p-6 bg-gray-100 min-h-screen">
             <div className="flex flex-col md:flex-row justify-between items-center mb-4">
-                <Button type="primary" icon={<ArrowLeftOutlined />} onClick={handleBack}>
+                <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/dashboard')}>
                     Volver
                 </Button>
                 <div className="flex space-x-4 mt-2 md:mt-0">
@@ -169,81 +221,49 @@ const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es m
                     >
                         Inicio
                     </Button>
-                    <Button type="primary" icon={<LogoutOutlined />} onClick={handleLogout}>
+                    <Button type="primary" icon={<LogoutOutlined />} onClick={() => navigate('/home')}>
                         Cerrar Sesión
                     </Button>
                 </div>
             </div>
 
             <h2 className="text-2xl font-bold mb-4">Solicitudes de Registro Pendientes</h2>
+
+            <div className="grid grid-cols-4 gap-4 mb-4">
+                <Input
+                    placeholder="Nombre"
+                    onChange={(e) => handleSearch({ nombre: e.target.value })}
+                    allowClear
+                />
+                <Input
+                    placeholder="Apellido"
+                    onChange={(e) => handleSearch({ apellido: e.target.value })}
+                    allowClear
+                />
+                <Input
+                    placeholder="DNI"
+                    onChange={(e) => handleSearch({ dni: e.target.value })}
+                    allowClear
+                />
+                <Input
+                    placeholder="Correo Electrónico"
+                    onChange={(e) => handleSearch({ email: e.target.value })}
+                    allowClear
+                />
+            </div>
+
             {loading ? (
                 <p>Cargando solicitudes...</p>
-            ) : error ? (
-                <p>Error al cargar solicitudes: {error}</p>
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="table-auto w-full bg-white rounded shadow-md">
-                    <thead>
-    <tr>
-        <th>Nombre</th>
-        <th>Apellido</th>
-        <th style={{ minWidth: '200px' }}>Email</th>
-        <th>DNI</th>
-        <th>CUIT</th>
-        <th>Dirección</th>
-        <th>Rol</th>
-        {/* Renderiza el encabezado "Acciones" solo si no es moderador */}
-        {!isModerator && <th>Acciones</th>}
-    </tr>
-</thead>
-
-                        <tbody>
-    {updatedRegistrations.map((user) => (
-        <tr key={user.uuid}>
-            <td>{user.nombre}</td>
-            <td>{user.apellido}</td>
-            <td>{user.email}</td>
-            <td>{user.dni}</td>
-            <td>{user.cuit || 'N/A'}</td>
-            <td>
-                {user.direccion
-                    ? `${user.direccion.calle}, ${user.direccion.altura}, ${user.direccion.departamento}`
-                    : 'Sin Dirección'}
-            </td>
-            <td>
-                {user.estado === 'pendiente_revision' ? (
-                    <span className="text-blue-600">Pendiente de Revisión</span>
-                ) : (
-                    <span className="text-yellow-600">Pendiente</span>
-                )}
-            </td>
-            {/* Renderiza la columna de acciones solo si no es moderador */}
-            {!isModerator && (
-                <td>
-                    <div>
-                        <Button
-                            onClick={() => handleApprove(user.uuid)}
-                            className="bg-green-600 text-white rounded"
-                        >
-                            Aprobar
-                        </Button>
-                        <Button
-                            onClick={() => showModal(user.uuid)}
-                            className="bg-red-600 text-white rounded"
-                        >
-                            Denegar
-                        </Button>
-                    </div>
-                </td>
+                <Table
+                    dataSource={filteredRegistrations}
+                    columns={columns}
+                    rowKey="uuid"
+                    pagination={{ pageSize: 10 }}
+                />
             )}
-        </tr>
-    ))}
-</tbody>
- 
 
-                    </table>
-                </div>
-            )}
+            {error && <p className="text-red-500">Error al cargar solicitudes: {error}</p>}
 
             <Modal
                 title="Motivo de Rechazo"
@@ -253,7 +273,7 @@ const isModerator = userData?.rolDefinitivo === 'moderador'; // Verifica si es m
             >
                 <Input.TextArea
                     rows={4}
-                    placeholder="Ingresa el motivo de rechazo"
+                    placeholder="Ingresa el motivo para rechazar"
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                 />

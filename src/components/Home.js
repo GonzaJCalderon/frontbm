@@ -42,9 +42,15 @@ const Home = () => {
             <img src={logo} alt="Premium Benefits" className="object-contain w-full h-auto max-h-96" />
           </div>
           <div className="flex flex-col items-center justify-center md:items-start">
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-6 md:!leading-[55px] text-blue-100">
-            Sistema Provincial Preventivo Bienes Muebles Usados
-            </h2>
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-6 md:!leading-[55px] text-blue-100 text-center">
+  Sistema Provincial Preventivo Bienes Muebles Usados{' '}
+  <span className="inline-flex items-center">
+    Ley N° 9556
+  </span>
+</h2>
+
+         
+
             <p className="text-base text-blue-200 mb-10">
               ¡Bienvenido! Aquí podrá registrar la compra y venta de Bienes Muebles Usados
             </p>

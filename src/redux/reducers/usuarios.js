@@ -63,7 +63,10 @@ import {
     REGISTER_USER_THIRD_PARTY_ERROR,
     FETCH_HISTORIAL_CAMBIOS_REQUEST,
     FETCH_HISTORIAL_CAMBIOS_SUCCESS,
-    FETCH_HISTORIAL_CAMBIOS_ERROR,    
+    FETCH_HISTORIAL_CAMBIOS_ERROR, 
+    REINTENTAR_REGISTRO_REQUEST, 
+    REINTENTAR_REGISTRO_SUCCESS, 
+    REINTENTAR_REGISTRO_ERROR   
 } from '../actions/actionTypes';
 
 const initialState = {
@@ -383,24 +386,14 @@ const usuariosReducer = (state = initialState, action) => {
 
         // Negar registro
         case DENY_REGISTRATION_REQUEST:
-            return {
-                ...state,
-                loading: true,
-            };
-        case DENY_REGISTRATION_SUCCESS:
-            return {
-                ...state,
-                pendingRegistrations: state.pendingRegistrations.filter(user => user.id !== action.payload.id),
-                loading: false,
-            };
+            return { ...state, loading: true, success: null, error: null };
+          case DENY_REGISTRATION_SUCCESS:
+            return { ...state, loading: false, success: action.payload, error: null };
+          case DENY_REGISTRATION_ERROR:
+            return { ...state, loading: false, success: null, error: action.payload };
+         
+            return state;
 
-
-        case DENY_REGISTRATION_ERROR:
-            return {
-                ...state,
-                loading: false,
-                error: action.error,
-            };
             case FETCH_APPROVED_USERS_REQUEST:
                 return { ...state, loading: true, error: null };
                 case FETCH_APPROVED_USERS_SUCCESS:
@@ -481,6 +474,31 @@ case FETCH_HISTORIAL_CAMBIOS_ERROR:
         loading: false,
         error: action.error,
     };
+
+    case REINTENTAR_REGISTRO_REQUEST:
+        return {
+          ...state,
+          reintentarRegistroLoading: true,
+          reintentarRegistroSuccess: null,
+          reintentarRegistroError: null,
+        };
+  
+      case REINTENTAR_REGISTRO_SUCCESS:
+        return {
+          ...state,
+          reintentarRegistroLoading: false,
+          reintentarRegistroSuccess: action.payload,
+          reintentarRegistroError: null,
+        };
+  
+      case REINTENTAR_REGISTRO_ERROR:
+        return {
+          ...state,
+          reintentarRegistroLoading: false,
+          reintentarRegistroSuccess: null,
+          reintentarRegistroError: action.payload,
+        };
+  
 
         default:
             return state;
