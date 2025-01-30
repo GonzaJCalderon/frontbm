@@ -38,6 +38,7 @@ export const ADD_USUARIO_ERROR = 'ADD_USUARIO_ERROR';
 // Tipos de acción para bienes
 export const FETCH_BIENES = 'FETCH_BIENES';
 export const ADD_BIEN = 'ADD_BIEN';
+export const ADD_BIENES = 'ADD_BIENES';
 export const ADD_BIEN_ERROR = 'ADD_BIEN_ERROR';
 export const FETCH_BIEN_DETAILS = 'FETCH_BIEN_DETAILS';
 export const UPDATE_BIEN = 'UPDATE_BIEN';

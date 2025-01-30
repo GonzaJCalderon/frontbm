@@ -5,8 +5,7 @@ import { UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { finalizarCreacionBienes } from '../redux/actions/stockActions';
-import { verificarIMEI } from '../redux/actions/bienes';
-import { v4 as uuidv4 } from 'uuid'; 
+import { fetchBienes } from '../redux/actions/bienes';
 
 const { Title, Paragraph } = Typography;
 
@@ -20,9 +19,13 @@ const ExcelUploadPage = () => {
 
     const handleDownloadTemplate = () => {
         const data = [
-            ['Tipo', 'Descripción', 'Precio', 'Marca', 'Modelo', 'Cantidad Stock'],
-            ['Ejemplo: Laptop, Teléfono', 'Breve descripción', 'Precio (número)', 'Marca', 'Modelo', 'Cantidad total'],
+            ['Tipo', 'Descripción', 'Precio', 'Marca', 'Modelo', 'Cantidad Stock', 'IMEI'],
+            ['Teléfono Móvil', 'Teléfono con pantalla AMOLED y 128GB', 65000, 'Xiaomi', 'Redmi Note 10', 2, '123456789012345,987654321098765'],
+            ['Notebook', 'Notebook con procesador Intel i7 y 16GB RAM', 120000, 'Dell', 'XPS 15', 1, ''],
+            ['TV', 'Smart TV 50 pulgadas 4K UHD', 45000, 'Samsung', 'Series 7', 1, ''],
+            ['Tablet', 'Tablet de 10 pulgadas con 64GB', 28000, 'Huawei', 'MediaPad T5', 1, ''],
         ];
+
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');
@@ -34,122 +37,160 @@ const ExcelUploadPage = () => {
         if (selectedFile) {
             const reader = new FileReader();
             reader.onload = (event) => {
-                const data = new Uint8Array(event.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                try {
+                    const data = new Uint8Array(event.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                const headers = jsonData[0]; // Encabezados
-                const rows = jsonData.slice(1); // Filas de datos
+                    if (!jsonData || jsonData.length < 2) {
+                        message.error('El archivo está vacío o no tiene el formato correcto');
+                        return;
+                    }
 
-                const previewDataWithHeaders = rows.map((row) => {
-                    const rowData = {};
-                    headers.forEach((header, index) => {
-                        rowData[header] = row[index];
-                    });
-                    return rowData;
-                });
+                    const headers = jsonData[0];
+                    const rows = jsonData.slice(1);
+                    const camposRequeridos = ['Tipo', 'Descripción', 'Precio', 'Marca', 'Modelo', 'Cantidad Stock', 'IMEI'];
+                    const headersNormalized = headers.map((header) => header?.trim().toLowerCase());
+                    const missingHeaders = camposRequeridos.filter(
+                        (header) => !headersNormalized.includes(header.toLowerCase())
+                    );
 
-                setPreviewData(previewDataWithHeaders);
-                setFile(selectedFile);
+                    if (missingHeaders.length > 0) {
+                        message.error(`Faltan los siguientes encabezados: ${missingHeaders.join(', ')}`);
+                        return;
+                    }
+
+                    const expandedData = rows
+                        .filter((row) => row.length > 0)
+                        .flatMap((row) => {
+                            const imeis = (row[6] || '').split(',').map((imei) => imei.trim());
+                            const stock = parseInt(row[5], 10);
+
+                            if (isNaN(stock) || stock <= 0) {
+                                message.warn(`Fila con error: Cantidad Stock no válida para el bien ${row[3] || 'Desconocido'}`);
+                                return [];
+                            }
+
+                            return imeis.map((imei) => ({
+                                Tipo: row[0],
+                                Descripción: row[1],
+                                Precio: row[2],
+                                Marca: row[3],
+                                Modelo: row[4],
+                                CantidadStock: 1,
+                                IMEI: imei,
+                            }));
+                        });
+
+                    if (expandedData.length === 0) {
+                        message.error('No se encontraron datos válidos en el archivo');
+                        return;
+                    }
+
+                    setPreviewData(expandedData);
+                    setFile(selectedFile);
+                } catch (error) {
+                    console.error('Error al procesar el archivo:', error);
+                    message.error('Error al procesar el archivo. Verifica que el formato sea correcto.');
+                }
             };
             reader.readAsArrayBuffer(selectedFile);
         }
     };
 
     const handleImageUpload = (file, rowIndex) => {
+        const validImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
+
+        if (!validImageTypes.includes(file.type)) {
+            message.error('Formato de imagen no válido. Solo se permiten imágenes JPG, PNG o GIF.');
+            return false;
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
-            setRowImages((prevImages) => ({
-                ...prevImages,
-                [rowIndex]: e.target.result, // Base64 de la imagen
-            }));
+            const base64Image = e.target.result;
+            if (typeof base64Image === 'string' && base64Image.startsWith('data:image')) {
+                setRowImages((prevImages) => {
+                    const updatedImages = { ...prevImages };
+                    updatedImages[rowIndex] = [...(updatedImages[rowIndex] || []), base64Image];
+                    return updatedImages;
+                });
+            } else {
+                message.error('Formato de imagen no válido. Por favor, sube una imagen válida.');
+            }
         };
         reader.readAsDataURL(file);
     };
 
-    const handleImageRemove = (rowIndex) => {
+    const handleImageRemove = (rowIndex, imageIndex) => {
         setRowImages((prevImages) => {
             const updatedImages = { ...prevImages };
-            delete updatedImages[rowIndex];
+            updatedImages[rowIndex] = updatedImages[rowIndex].filter((_, idx) => idx !== imageIndex);
+            if (updatedImages[rowIndex].length === 0) {
+                delete updatedImages[rowIndex];
+            }
             return updatedImages;
         });
     };
 
     const handleFinalSubmit = async () => {
         setIsSubmitting(true);
-    
-        const datosActualizados = await Promise.all(
-            previewData.map(async (row, index) => {
-                const nuevoRow = { ...row };
-                const erroresFila = [];
-    
-                // Validar IMEI para teléfonos móviles
-                if (row.Tipo && row.Tipo.toLowerCase() === 'teléfono móvil') {
-                    if (!row.IMEI) {
-                        // Generar IMEI único si no se proporciona
-                        nuevoRow.IMEI = `${uuidv4()}`;
-                    } else {
-                        try {
-                            const imeiExists = await dispatch(verificarIMEI(row.IMEI)); // Uso válido de `await` dentro de `async`
-                            if (imeiExists) {
-                                nuevoRow.IMEI = (
-                                    <span style={{ color: 'red' }}>
-                                        IMEI {row.IMEI} ya existe en la base de datos.
-                                    </span>
-                                );
-                                erroresFila.push('IMEI duplicado');
-                            }
-                        } catch (error) {
-                            console.error(`Error verificando IMEI (${row.IMEI}):`, error);
-                            erroresFila.push('Error al verificar IMEI');
-                        }
-                    }
-                }
-    
-                if (erroresFila.length > 0) {
-                    nuevoRow.tieneErrores = true;
-                }
-    
-                return nuevoRow;
-            })
-        );
-    
-        setPreviewData(datosActualizados);
-    
-        const bienesFiltrados = datosActualizados.filter((row) => !row.tieneErrores);
-    
-        if (bienesFiltrados.length === 0) {
-            message.error('Todos los bienes tienen errores. Por favor, corrige y vuelve a intentar.');
-            setIsSubmitting(false);
-            return;
-        }
-    
+
         try {
-            const bienesAEnviar = bienesFiltrados.map((row, index) => ({
-                tipo: row.Tipo,
-                descripcion: row.Descripción,
-                precio: row.Precio,
-                marca: row.Marca,
-                modelo: row.Modelo,
-                cantidadStock: row['Cantidad Stock'],
-                imei: row.IMEI,
-                fotos: rowImages[index] ? [rowImages[index]] : [],
-            }));
-    
+            const bienesMap = new Map();
+            previewData.forEach((row, index) => {
+                const imeis = row.Tipo.toLowerCase().includes('teléfono móvil')
+                    ? (row.IMEI || '').split(',').map((imei) => imei.trim())
+                    : [];
+                const key = `${row.Tipo}-${row.Marca}-${row.Modelo}`;
+                if (!bienesMap.has(key)) {
+                    bienesMap.set(key, {
+                        tipo: row.Tipo,
+                        descripcion: row.Descripción,
+                        precio: row.Precio,
+                        marca: row.Marca,
+                        modelo: row.Modelo,
+                        cantidadStock: row.CantidadStock,
+                        imeis,
+                        fotos: rowImages[index] || [],
+                    });
+                } else {
+                    const existing = bienesMap.get(key);
+                    existing.cantidadStock += row.CantidadStock;
+                    existing.imeis.push(...imeis);
+                    existing.fotos.push(...(rowImages[index] || []));
+                    bienesMap.set(key, existing);
+                }
+            });
+
+            const bienesAEnviar = Array.from(bienesMap.values());
+            if (bienesAEnviar.length === 0) {
+                throw new Error('No hay bienes válidos para registrar.');
+            }
+
             const response = await dispatch(finalizarCreacionBienes(bienesAEnviar));
-            if (response) {
-                message.success('Bienes creados exitosamente.');
+            if (response && response.message === 'Bienes registrados correctamente.') {
+                message.success(response.message);
+                const userUuid = localStorage.getItem('userUuid');
+                if (userUuid) {
+                    await dispatch(fetchBienes(userUuid));
+                }
+                setFile(null);
+                setPreviewData([]);
+                setRowImages({});
                 navigate('/user/dashboard');
+            } else {
+                throw new Error('Error en la respuesta del servidor.');
             }
         } catch (error) {
-            message.error('Error al registrar los bienes. Por favor, intenta nuevamente.');
+            console.error('Error:', error);
+            message.error(error.message || 'Error al registrar los bienes.');
         } finally {
             setIsSubmitting(false);
         }
     };
-    
 
     return (
         <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
@@ -163,7 +204,7 @@ const ExcelUploadPage = () => {
             <Title level={2} className="text-center">Carga de Stock Múltiple</Title>
             <Paragraph className="text-center">
                 Descarga un ejemplo de plantilla, complétala con la información de tus bienes y luego súbela aquí.
-                Puedes agregar imágenes a cada bien antes de enviarlos.
+                Puedes agregar imágenes a cada IMEI antes de enviarlos.
             </Paragraph>
 
             <div className="text-center mb-6">
@@ -207,14 +248,8 @@ const ExcelUploadPage = () => {
                     <Table
                         dataSource={previewData.map((row, index) => ({
                             key: index,
-                            Tipo: row.Tipo,
-                            Descripción: row.Descripción,
-                            Precio: row.Precio,
-                            Marca: row.Marca,
-                            Modelo: row.Modelo,
-                            CantidadStock: row['Cantidad Stock'],
-                            IMEI: row.IMEI,
-                            Imagen: rowImages[index] || null,
+                            ...row,
+                            Imagen: rowImages[index] || [],
                         }))}
                         columns={[
                             { title: 'Tipo', dataIndex: 'Tipo', key: 'Tipo' },
@@ -222,46 +257,35 @@ const ExcelUploadPage = () => {
                             { title: 'Precio', dataIndex: 'Precio', key: 'Precio' },
                             { title: 'Marca', dataIndex: 'Marca', key: 'Marca' },
                             { title: 'Modelo', dataIndex: 'Modelo', key: 'Modelo' },
+                            { title: 'Cantidad Stock', dataIndex: 'CantidadStock', key: 'CantidadStock' },
+                            { title: 'IMEI', dataIndex: 'IMEI', key: 'IMEI' },
                             {
-                                title: 'Cantidad Stock',
-                                dataIndex: 'CantidadStock',
-                                key: 'CantidadStock',
-                                render: (text) => text || <span style={{ color: 'red' }}>Faltante</span>,
-                            },
-                            {
-                                title: 'IMEI',
-                                dataIndex: 'IMEI',
-                                key: 'IMEI',
-                                render: (text) => text, // Mostrar errores de IMEI aquí
-                            },
-                            {
-                                title: 'Imagen',
+                                title: 'Imágenes',
                                 dataIndex: 'Imagen',
                                 key: 'Imagen',
-                                render: (text, record, rowIndex) => (
-                                    <>
-                                        {text ? (
-                                            <div>
-                                                <img src={text} alt="Preview" style={{ width: 50, marginRight: 8 }} />
+                                render: (images, _, rowIndex) => (
+                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                        {images.map((img, imgIndex) => (
+                                            <div key={imgIndex}>
+                                                <img src={img} alt="Preview" style={{ width: 50, height: 50 }} />
                                                 <Button
                                                     type="link"
                                                     danger
-                                                    onClick={() => handleImageRemove(rowIndex)}
+                                                    onClick={() => handleImageRemove(rowIndex, imgIndex)}
                                                 >
                                                     Eliminar
                                                 </Button>
                                             </div>
-                                        ) : (
+                                        ))}
+                                        {images.length < 3 && (
                                             <Upload
-                                                beforeUpload={(file) => {
-                                                    handleImageUpload(file, rowIndex);
-                                                    return false;
-                                                }}
+                                                beforeUpload={(file) => handleImageUpload(file, rowIndex)}
+                                                showUploadList={false}
                                             >
                                                 <Button icon={<UploadOutlined />}>Subir Imagen</Button>
                                             </Upload>
                                         )}
-                                    </>
+                                    </div>
                                 ),
                             },
                         ]}

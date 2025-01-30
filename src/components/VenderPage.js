@@ -40,137 +40,55 @@ const { Title } = Typography;
 const { Option } = Select;
 const { Search } = Input;
 
-
-// Listas de ejemplo
 const departments = [
-  'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén',
-  'Rivadavia', 'San Martín', 'La Paz', 'Santa Rosa', 'General Alvear',
-  'Malargüe', 'San Carlos', 'Tupungato', 'Tunuyán', 'San Rafael',
-  'Lavalle', 'Luján de Cuyo'
+  'Capital','Godoy Cruz','Junín','Las Heras','Maipú','Guaymallén','Rivadavia','San Martín','La Paz','Santa Rosa','General Alvear',
+  'Malargüe','San Carlos','Tupungato','Tunuyán','San Rafael','Lavalle','Luján de Cuyo'
 ];
-
 
 const tiposDeBienesIniciales = [
-  'bicicleta', 'TV', 'equipo de audio', 'cámara fotográfica',
-  'notebook', 'tablet', 'teléfono movil'
+  'bicicleta','TV','equipo de audio','cámara fotográfica','notebook','tablet','teléfono movil'
 ];
-
-
 
 const VenderPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   
-  // ----- Paso 1: Form para registrar comprador
+  
+  // Paso 1: Form para registrar comprador
   const [formPaso1] = Form.useForm();
-  
-  // ----- Paso 2B: Form para crear bien nuevo
+  // Paso 2B: Form para crear bien nuevo
   const [formPaso2B] = Form.useForm();
-  
-  // ----- Paso 3: Form para confirmar venta (cantidad, pago, IMEIs)
+  // Paso 3: Form para confirmar venta
   const [formPaso3] = Form.useForm();
 
-  // Control de steps:
-  // 1 => Registrar comprador
-  // 2 => Elegir bien existente o nuevo
-  // 3 => Confirmar venta
+  // Control de steps
   const [step, setStep] = useState(1);
-
-  // Sub-step del paso 2
-  // null => no ha elegido
-  // 'existente' => vender un bien ya existente
-  // 'nuevo' => crear un bien nuevo
   const [subStep2, setSubStep2] = useState(null);
   
+  const [datosPaso1, setDatosPaso1] = useState(null);
+  const [datosPaso2B, setDatosPaso2B] = useState(null);
+  const [datosPaso3, setDatosPaso3] = useState(null);
+  
+
   // Loading general
   const [loading, setLoading] = useState(false);
-  
-  // Para mostrar spinner especial en la pantalla (por ejemplo al crear comprador)
+  // Para spinner especial
   const [isRegisteringComprador, setIsRegisteringComprador] = useState(false);
 
   // Datos del comprador
   const [compradorId, setCompradorId] = useState(null);
   
-  // Usuario vendedor
+  // Usuario vendedor (de localStorage)
   const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
   const vendedorId = usuario?.uuid;
   
-  // Lista de bienes del vendedor (para Paso 2A)
+  // Lista de bienes
   const [bienes, setBienes] = useState([]);
   const [bienesFiltrados, setBienesFiltrados] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [imeisSeleccionados, setImeisSeleccionados] = useState([]);
-  
-  const validateDNIWithRenaper = async (dni) => {
-    try {
-      if (!dni) {
-        message.error("El DNI es obligatorio.");
-        return;
-      }
-  
-      const { data } = await api.get(`/renaper/${dni}`);
-      if (data.success) {
-        const persona = data.data.persona;
-  
-        formPaso1.setFieldsValue({
-          nombre: persona.nombres || "",
-          apellido: persona.apellidos || "",
-          email: persona.email || "", // Agregar email si está disponible
-          cuit: persona.nroCuil || "",
-          direccion: {
-            calle: persona.domicilio?.calle || "",
-            altura: persona.domicilio?.nroCalle || "",
-            barrio: persona.domicilio?.barrio || "",
-            departamento: persona.domicilio?.localidad || "",
-          },
-        });
-  
-        message.success("Datos cargados correctamente desde RENAPER.");
-      } else {
-        message.error(data.message || "Persona no encontrada en RENAPER.");
-      }
-    } catch (error) {
-      console.error("Error al validar el DNI con RENAPER:", error);
-      message.error("Error al validar el DNI.");
-    }
-  };
-  
+  const [imeisSeleccionados, setImeisSeleccionados] = useState([]); 
 
-  const handleImeisChange = (selectedImeis) => {
-    setImeisSeleccionados(selectedImeis);
-  };
-  
-  const renderImeisDisponibles = () => {
-    if (bienSeleccionado?.tipo.toLowerCase() === 'teléfono movil') {
-      const imeisDisponibles = bienSeleccionado?.identificadores || []; // Asume que `identificadores` contiene los IMEIs disponibles.
-      return (
-        <Form.Item
-          label="Selecciona los IMEIs a vender"
-          name="imeis"
-          rules={[
-            {
-              required: true,
-              message: 'Debes seleccionar al menos un IMEI.',
-            },
-          ]}
-        >
-          <Select
-            mode="multiple"
-            placeholder="Selecciona IMEIs"
-            value={imeisSeleccionados}
-            onChange={(selectedImeis) => setImeisSeleccionados(selectedImeis)}
-            options={imeisDisponibles.map((imei) => ({ label: imei, value: imei }))}
-            style={{ width: '100%' }}
-          />
-        </Form.Item>
-      );
-    }
-    return null;
-  };
-  
-  
-
-  // Bien seleccionado (o creado), si 'uuid = null' => es nuevo
+  // Bien seleccionado / creado
   const [bienSeleccionado, setBienSeleccionado] = useState({
     uuid: null,
     tipo: '',
@@ -181,24 +99,22 @@ const VenderPage = () => {
     imeis: [],
   });
 
-  // Datos para crear bien nuevo
+  // Para 2B (crear bien nuevo)
   const [tiposDeBienes] = useState(tiposDeBienesIniciales);
   const [marcas, setMarcas] = useState([]);
   const [modelos, setModelos] = useState([]);
   const [nuevaMarca, setNuevaMarca] = useState('');
   const [nuevoModelo, setNuevoModelo] = useState('');
-
-  // Fotos (si se crea un bien nuevo)
   const [fileList, setFileList] = useState([]);
-
-  // Estados para almacenar los IMEIs dinámicos en Paso 2B y Paso 3
   const [imeisPaso2B, setImeisPaso2B] = useState([]);
+
+  // Para Paso 3
   const [imeisPaso3, setImeisPaso3] = useState([]);
 
-  // Modal de confirmación (opcional)
+  // Modal de confirmación
   const [confirmVisible, setConfirmVisible] = useState(false);
 
-  // 1. Proteger la ruta si no hay vendedor logueado
+  // Bloquear si no hay vendedor logueado
   useEffect(() => {
     if (!vendedorId) {
       message.error('Debe iniciar sesión como vendedor para continuar.');
@@ -206,17 +122,36 @@ const VenderPage = () => {
     }
   }, [vendedorId, navigate]);
 
+  const handleBack = () => {
+    if (step === 2) {
+        if (datosPaso1) {
+            formPaso1.setFieldsValue(datosPaso1); // Restaurar datos del paso 1
+        }
+        setStep(1);
+    } else if (step === 3) {
+        if (subStep2 === 'nuevo' && datosPaso2B) {
+            formPaso2B.setFieldsValue(datosPaso2B); // Restaurar datos del paso 2B si está en "nuevo"
+        }
+        setStep(2);
+    } else {
+        navigate('/user/dashboard'); // Si está en el Paso 1, ir al Dashboard
+    }
+};
+
+
+
+  // Al ir a paso 2, cargar bienes
   useEffect(() => {
     if (step === 2) {
       const cargarBienes = async () => {
         try {
           const response = await dispatch(fetchBienes(vendedorId));
           if (response.success) {
-            const bienesConStock = response.data.filter((bien) => bien.stock > 0); // Filtra bienes con stock > 0
+            const bienesConStock = response.data.filter((bien) => bien.stock > 0);
             setBienes(bienesConStock);
             setBienesFiltrados(bienesConStock);
           } else {
-            message.error('No se pudieron cargar los bienes.');
+            message.error(response.message || 'No se pudieron cargar los bienes.');
           }
         } catch (err) {
           console.error('Error al cargar bienes:', err);
@@ -226,37 +161,58 @@ const VenderPage = () => {
       cargarBienes();
     }
   }, [step, vendedorId, dispatch]);
-  
 
-  // ------------------- PASO 1: Registrar/identificar comprador -------------------
+  // ------------------------
+  // Paso 1: Registrar comprador
+  // ------------------------
+  const validateDNIWithRenaper = async (dni) => {
+    try {
+      if (!dni) {
+        message.error("El DNI es obligatorio.");
+        return;
+      }
+      const { data } = await api.get(`/renaper/${dni}`);
+      if (data.success) {
+        const persona = data.data.persona;
+        formPaso1.setFieldsValue({
+          nombre: persona.nombres || "",
+          apellido: persona.apellidos || "",
+          email: persona.email || "",
+          cuit: persona.nroCuil || "",
+          direccion: {
+            calle: persona.domicilio?.calle || "",
+            altura: persona.domicilio?.nroCalle || "",
+            barrio: persona.domicilio?.barrio || "",
+            departamento: persona.domicilio?.localidad || "",
+          },
+        });
+        message.success("Datos cargados correctamente desde RENAPER.");
+      } else {
+        message.error(data.message || "Persona no encontrada en RENAPER.");
+      }
+    } catch (error) {
+      console.error("Error al validar el DNI con RENAPER:", error);
+      message.error("Error al validar el DNI.");
+    }
+  };
+
   const handleFinishPaso1 = async (values) => {
-    console.log("Valores enviados desde el formulario:", values); // Verificar los valores
-  
+    console.log("Valores paso 1:", values);
     const { nombre, apellido, dni, email, tipo, cuit, direccion } = values;
-  
     try {
       setLoading(true);
       const existingUserResponse = await dispatch(checkExistingUser({ dni, nombre, apellido }));
-      console.log("Respuesta al verificar usuario existente:", existingUserResponse);
-  
+      console.log("Respuesta usuario existente:", existingUserResponse);
+
       if (existingUserResponse.existe) {
         setCompradorId(existingUserResponse.usuario.uuid);
         message.success("Comprador identificado correctamente.");
       } else {
-        const newUserResponse = await dispatch(
-          registerUsuarioPorTercero({
-            dni,
-            email,
-            nombre,
-            apellido,
-            tipo,
-            cuit,
-            direccion,
-          })
-        );
-  
-        console.log("Respuesta al registrar nuevo usuario:", newUserResponse);
-  
+        const newUserResponse = await dispatch(registerUsuarioPorTercero({
+          dni, email, nombre, apellido, tipo, cuit, direccion
+        }));
+        console.log("Respuesta registrar nuevo usuario:", newUserResponse);
+
         if (newUserResponse.uuid) {
           setCompradorId(newUserResponse.uuid);
           message.success("Comprador registrado con éxito.");
@@ -264,20 +220,22 @@ const VenderPage = () => {
           throw new Error("No se pudo registrar el comprador.");
         }
       }
-  
+      setDatosPaso1(values);
       setStep(2);
     } catch (error) {
-      console.error("Error al verificar/registrar comprador:", error.message);
+      console.error("Error en Paso 1 (comprador):", error.message);
       message.error(error.message || "Error al procesar el comprador.");
     } finally {
       setLoading(false);
     }
   };
-  
 
-  // ------------------- PASO 2: Elegir bien existente o nuevo -------------------
+  // ------------------------
+  // Paso 2: Elegir bien existente o nuevo
+  // ------------------------
   const handleSelectVentaTipo = (value) => {
     setSubStep2(value);
+    // Resetear el bien seleccionado
     setBienSeleccionado({
       uuid: null,
       tipo: '',
@@ -289,10 +247,10 @@ const VenderPage = () => {
     });
     formPaso2B.resetFields();
     setFileList([]);
-    setImeisPaso2B([]); // Resetear IMEIs en Paso 2B
+    setImeisPaso2B([]);
   };
 
-  // 2A: Buscador
+  // Buscador en 2A
   const handleSearchBienes = (val) => {
     setSearchTerm(val);
     if (!val.trim()) {
@@ -309,29 +267,25 @@ const VenderPage = () => {
     }
   };
 
+  // Seleccionar Bien existente
   const handleSelectBien = (bien) => {
     setBienSeleccionado({
       ...bien,
-      imeis: bien.imeis || [], // Asegura que 'imeis' siempre sea un arreglo
+      imeis: bien.imeis || [],
     });
     message.info(`Has seleccionado: ${bien.marca} ${bien.modelo}`);
-    // Paso 3
     setStep(3);
   };
 
-  // 2B: Crear un bien nuevo
+  // Paso 2B: Crear Bien nuevo
   const handleFinishPaso2B = async (values) => {
-    console.log('Datos enviados para registrar bien nuevo:', values);
-  
+    console.log('Datos Paso 2B (nuevo):', values);
     const { tipo, marca, modelo, bienDescripcion, bienPrecio, imeis } = values;
-  
     try {
-      // Validar IMEIs si es un teléfono móvil
       if (tipo.toLowerCase() === 'teléfono movil' && (!imeis || imeis.length === 0)) {
         message.error('Debe ingresar al menos un IMEI.');
         return;
       }
-  
       const bienNuevo = {
         uuid: null,
         tipo,
@@ -339,22 +293,21 @@ const VenderPage = () => {
         modelo,
         descripcion: bienDescripcion,
         precio: bienPrecio,
-        fileList, // Asumimos que `fileList` contiene las fotos
+        fileList,
         imeis: tipo.toLowerCase() === 'teléfono movil' ? imeis : [],
       };
-  
-      console.log('Bien nuevo listo para registro:', bienNuevo);
+      console.log('Bien nuevo temporal:', bienNuevo);
       setBienSeleccionado(bienNuevo);
       message.success('Bien nuevo registrado temporalmente. Continúa al paso 3.');
+      setDatosPaso2B(values);
       setStep(3);
     } catch (error) {
-      console.error('Error en Paso 2B - Registrar Bien Nuevo:', error.response?.data || error.message);
+      console.error('Error en Paso 2B:', error.response?.data || error.message);
       message.error('No se pudo registrar el bien nuevo.');
     }
   };
-  
 
-  // Manejo de Tipo/Marca/Modelo en Paso 2B
+  // Manejo de Tipo/Marca/Modelo
   const handleTipoChange = async (tipo) => {
     try {
       const r = await api.get(`/bienes/bienes/marcas?tipo=${tipo}`);
@@ -427,28 +380,30 @@ const VenderPage = () => {
     }
   };
 
-  // ------------------- PASO 3: Confirmar venta -------------------
-  // Si el bien es nuevo (bienSeleccionado.uuid === null), lo creamos primero en /bienes/add
+  // ------------------------
+  // Paso 3: Confirmar venta
+  // ------------------------
   const handleFinishPaso3 = async (values) => {
+    setDatosPaso3(values); 
     const { cantidad, metodoPago } = values;
-    console.log('Datos enviados para confirmar venta:', values);
+    console.log('Datos Paso 3:', values);
   
     const ventaData = {
       compradorId,
       vendedorUuid: vendedorId,
-      bienUuid: bienSeleccionado.uuid, // UUID del bien seleccionado o `null` si es nuevo
+      bienUuid: bienSeleccionado.uuid,
       cantidad,
       metodoPago,
       precio: bienSeleccionado.precio,
       imeis: bienSeleccionado.tipo.toLowerCase() === 'teléfono movil' ? imeisSeleccionados : [],
     };
   
-    console.log('Datos de venta preparados para envío:', ventaData);
+    console.log('Datos a enviar venta:', ventaData);
   
     try {
       setLoading(true);
       const response = await dispatch(registrarVenta(ventaData));
-      console.log('Respuesta al registrar venta:', response);
+      console.log('Respuesta registrar venta:', response);
   
       if (response?.message === 'Venta registrada con éxito.') {
         message.success('Venta registrada con éxito.');
@@ -457,25 +412,19 @@ const VenderPage = () => {
         throw new Error(response?.message || 'Error al registrar la venta.');
       }
     } catch (error) {
-      console.error('Error en Paso 3 - Confirmar Venta:', error.response?.data || error.message);
+      console.error('Error en Paso 3 (confirmar venta):', error.response?.data || error.message);
       message.error(error.response?.data?.mensaje || 'Error al procesar la venta.');
     } finally {
       setLoading(false);
     }
   };
-  
-  
-  
 
-  // Manejo de cambios en Paso 3 para generar IMEIs si es teléfono movil
-  const handleValuesChangePaso3 = (changedValues, allValues) => {
-    // Solo generamos IMEIs si el tipo es "teléfono movil"
+  // Manejo de cambios en Paso 3
+  const handleValuesChangePaso3 = (changedValues) => {
     if (bienSeleccionado?.tipo.toLowerCase() === 'teléfono movil') {
-      // Verificamos si se cambió el campo "cantidad"
       if ('cantidad' in changedValues) {
         const nuevaCantidad = changedValues.cantidad;
         if (nuevaCantidad > 0) {
-          // Generar un array con "nuevaCantidad" posiciones vacías
           const imeisArray = Array(nuevaCantidad).fill('');
           setImeisPaso3(imeisArray);
           formPaso3.setFieldsValue({ imeis: imeisArray });
@@ -484,168 +433,148 @@ const VenderPage = () => {
     }
   };
 
-  // ------------------- PASO 3: Renderizar IMEIs -------------------
-  const renderImeisPaso3 = () => {
-    if (bienSeleccionado?.tipo.toLowerCase() === 'teléfono movil') {
-      return renderImeisDisponibles();
-    }
-  
-    return (
-      <p style={{ color: 'gray' }}>
-      
-      </p>
-    );
+  // Para seleccionar IMEIs en Paso 3
+  const handleImeisChange = (selectedImeis) => {
+    setImeisSeleccionados(selectedImeis);
   };
-  
+
+  // ------------------------
+  // Render principal
+  // ------------------------
   return (
     <div style={{ padding: 20, maxWidth: 800, margin: '0 auto', position: 'relative' }}>
-      {/* Título principal */}
+      
       <Title level={2} style={{ textAlign: 'center', marginBottom: 20 }}>
         Formulario para Vender un Bien Mueble
       </Title>
-  
-      {/* Barra Superior */}
+      
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between' }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
-          Volver
-        </Button>
-        <Button
-          icon={<LogoutOutlined />}
-          onClick={() => {
-            localStorage.removeItem('userData');
-            navigate('/home');
-          }}
-        >
-          Cerrar Sesión
-        </Button>
-      </div>
-  
-      {/* Títulos de los pasos */}
+  <Button icon={<ArrowLeftOutlined />} onClick={handleBack}>
+    Volver
+  </Button>
+  <Button
+    icon={<LogoutOutlined />}
+    onClick={() => {
+      localStorage.removeItem('userData');
+      navigate('/home');
+    }}
+  >
+    Cerrar Sesión
+  </Button>
+</div>
+
+
+      {/* ============= PASO 1 ============= */}
       {step === 1 && (
         <>
           <Title level={3} style={{ marginBottom: 10 }}>
             Paso 1
           </Title>
-  
-          {/* Resaltado con estilo */}
           <div
             style={{
-              backgroundColor: '#fff4c2', // Color amarillo suave
+              backgroundColor: '#fff4c2',
               borderRadius: '8px',
               padding: '10px 15px',
               marginBottom: 20,
               boxShadow: '0px 1px 5px rgba(0, 0, 0, 0.1)',
             }}
           >
-            Complete los datos del comprador. Ingrese el DNI y espere unos segundos mientras el RENAPER (Registro Nacional de las Personas) verifica la información ingresada.
+            Complete los datos del comprador. Ingrese el DNI y espere unos segundos mientras RENAPER verifica la información.
           </div>
+
+          <Form layout="vertical" form={formPaso1} onFinish={handleFinishPaso1}>
+            <Form.Item
+              label="Tipo de Persona"
+              name="tipo"
+              rules={[{ required: true, message: 'Selecciona el tipo de persona.' }]}
+            >
+              <Select placeholder="Selecciona tipo">
+                <Option value="persona">Persona Humana</Option>
+                <Option value="juridica">Persona Jurídica</Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              label="DNI"
+              name="dni"
+              rules={[
+                { required: true, message: "Ingresa el DNI." },
+                { pattern: /^\d{7,8}$/, message: "El DNI debe tener 7 u 8 dígitos." },
+              ]}
+            >
+              <Input
+                placeholder="Ingresa el DNI"
+                onBlur={(e) => {
+                  const dni = e.target.value;
+                  if (dni) validateDNIWithRenaper(dni);
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item label="Nombre" name="nombre" rules={[{ required: true, message: 'Ingresa el nombre.' }]}>
+              <Input placeholder="Nombre completo" />
+            </Form.Item>
+            <Form.Item label="Apellido" name="apellido" rules={[{ required: true, message: 'Ingresa el apellido.' }]}>
+              <Input placeholder="Apellido completo" />
+            </Form.Item>
+            <Form.Item
+              label="Correo Electrónico"
+              name="email"
+              rules={[
+                { required: true, message: 'Ingresa un correo electrónico.' },
+                { type: 'email', message: 'Correo inválido.' },
+              ]}
+            >
+              <Input placeholder="Correo Electrónico" />
+            </Form.Item>
+            <Form.Item
+              label="CUIT"
+              name="cuit"
+              rules={[{ required: true, message: 'Ingresa el CUIT.' }]}
+            >
+              <Input placeholder="CUIT" />
+            </Form.Item>
+
+            <Form.Item
+              label="Calle"
+              name={['direccion', 'calle']}
+              rules={[{ required: true, message: 'Ingresa la calle.' }]}
+            >
+              <Input placeholder="Calle" />
+            </Form.Item>
+            <Form.Item
+              label="Numeración"
+              name={['direccion', 'altura']}
+              rules={[{ required: true, message: 'Ingresa la numeración.' }]}
+            >
+              <Input placeholder="Numeración" />
+            </Form.Item>
+            <Form.Item label="Barrio (Opcional)" name={['direccion', 'barrio']}>
+              <Input placeholder="Barrio" />
+            </Form.Item>
+            <Form.Item
+              label="Departamento"
+              name={['direccion', 'departamento']}
+              rules={[{ required: true, message: 'Selecciona un departamento.' }]}
+            >
+              <Select>
+                {departments.map((dep) => (
+                  <Option key={dep} value={dep}>
+                    {dep}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+
+            <Button type="primary" htmlType="submit" block loading={loading}>
+              Siguiente
+            </Button>
+          </Form>
         </>
       )}
-  
-      {/* Formulario Paso 1 */}
-      {step === 1 && (
-        <Form layout="vertical" form={formPaso1} onFinish={handleFinishPaso1}>
-          <Form.Item
-            label="Tipo de Persona"
-            name="tipo"
-            rules={[{ required: true, message: 'Selecciona el tipo de persona.' }]}
-          >
-            <Select placeholder="Selecciona tipo">
-              <Option value="persona">Persona Humana</Option>
-              <Option value="juridica">Persona Jurídica</Option>
-            </Select>
-          </Form.Item>
-  
-          <Form.Item
-  label="DNI"
-  name="dni"
-  rules={[
-    { required: true, message: "Ingresa el DNI." },
-    { pattern: /^\d{7,8}$/, message: "El DNI debe tener 7 u 8 dígitos." },
-  ]}
->
-  <Input
-    placeholder="Ingresa el DNI"
-    onBlur={(e) => {
-      const dni = e.target.value;
-      if (dni) validateDNIWithRenaper(dni);
-    }}
-  />
-</Form.Item>
 
-  
-          {/* Campos adicionales */}
-          <Form.Item
-            label="Nombre"
-            name="nombre"
-            rules={[{ required: true, message: 'Ingresa el nombre.' }]}
-          >
-            <Input placeholder="Nombre completo" />
-          </Form.Item>
-          <Form.Item
-            label="Apellido"
-            name="apellido"
-            rules={[{ required: true, message: 'Ingresa el apellido.' }]}
-          >
-            <Input placeholder="Apellido completo" />
-          </Form.Item>
-          <Form.Item
-            label="Correo Electrónico"
-            name="email"
-            rules={[
-              { required: true, message: 'Ingresa un correo electrónico.' },
-              { type: 'email', message: 'Correo inválido.' },
-            ]}
-          >
-            <Input placeholder="Correo Electrónico" />
-          </Form.Item>
-          <Form.Item
-            label="CUIT"
-            name="cuit"
-            rules={[{ required: true, message: 'Ingresa el CUIT.' }]}
-          >
-            <Input placeholder="CUIT" />
-          </Form.Item>
-          <Form.Item
-            label="Calle"
-            name={['direccion', 'calle']}
-            rules={[{ required: true, message: 'Ingresa la calle.' }]}
-          >
-            <Input placeholder="Calle" />
-          </Form.Item>
-          <Form.Item
-            label="Numeración"
-            name={['direccion', 'altura']}
-            rules={[{ required: true, message: 'Ingresa la numeración.' }]}
-          >
-            <Input placeholder="Numeración" />
-          </Form.Item>
-          <Form.Item label="Barrio (Opcional)" name={['direccion', 'barrio']}>
-            <Input placeholder="Barrio" />
-          </Form.Item>
-          <Form.Item
-            label="Departamento"
-            name={['direccion', 'departamento']}
-            rules={[{ required: true, message: 'Selecciona un departamento.' }]}
-          >
-            <Select>
-              {departments.map((dep) => (
-                <Option key={dep} value={dep}>
-                  {dep}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-  
-          <Button type="primary" htmlType="submit" block loading={loading}>
-            Siguiente
-          </Button>
-        </Form>
-      )}
-
- 
-
-      {/* ================== PASO 2 ================== */}
+      {/* ============= PASO 2 ============= */}
       {step === 2 && (
         <>
           <Radio.Group
@@ -659,47 +588,100 @@ const VenderPage = () => {
 
           {!subStep2 && <p>Selecciona una opción para continuar.</p>}
 
-          {/* ============= 2A: Bien Existente ============= */}
-          {subStep2 === 'existente' && (
-            <div>
-              <Title level={4}>Selecciona un Bien Existente</Title>
-              <Search
-                placeholder="Buscar por tipo, marca, modelo..."
-                value={searchTerm}
-                onChange={(e) => handleSearchBienes(e.target.value)}
-                onSearch={handleSearchBienes}
-                enterButton={<SearchOutlined />}
-                style={{ marginBottom: 16, maxWidth: 300 }}
-              />
-              <List
-                grid={{ gutter: 16, column: 2 }}
-                dataSource={bienesFiltrados}
-                renderItem={(bien) => (
-                  <List.Item key={bien.uuid}>
-                    <Card
-                      hoverable
-                      cover={
-                        <img
-                          alt={bien.descripcion || 'Bien'}
-                          src={bien.fotos?.[0] || '/placeholder.png'}
-                          style={{ height: 150, objectFit: 'cover' }}
-                        />
-                      }
-                      onClick={() => handleSelectBien(bien)}
-                    >
-                      <Card.Meta
-                        title={`${bien.marca} ${bien.modelo}`}
-                        description={`Tipo: ${bien.tipo} - Stock: ${bien.stock}`}
-                      />
-                    </Card>
-                  </List.Item>
-                )}
-              />
-              <p>Haz clic en el bien para avanzar al Paso 3.</p>
-            </div>
-          )}
+          {/* =========== 2A: Bien Existente =========== */}
+          {subStep2 === 'existente' && (() => {
+  // Expandir la lista para mostrar 1 card por IMEI, SÓLO si es teléfono
+  const bienesExpandidos = bienesFiltrados.flatMap((b) => {
+    // Si es TELÉFONO MÓVIL y tiene 'identificadores'
+    if (
+      b.tipo?.toLowerCase().includes('teléfono') &&
+      Array.isArray(b.identificadores) &&
+      b.identificadores.length > 0
+    ) {
+      // Tomamos solo los IMEIs "no vendidos"
+      const imeisDisponibles = b.identificadores.filter(
+        (det) => det.estado !== 'vendido'  // Ocultar IMEIs vendidos
+      );
 
-          {/* ============= 2B: Bien Nuevo ============= */}
+      // Por cada IMEI disponible, creamos un 'item'
+      return imeisDisponibles.map((det) => ({
+        ...b,
+        stock: 1, // cada IMEI es 1 unidad
+        imeiSeleccionado: det.identificador_unico,
+        estadoImei: det.estado,
+        fotoImei: det.foto, // si tu backend envía 'det.foto'
+        // O si no tienes foto individual, podrías reusar b.fotos?.[0]
+      }));
+    } else {
+      // Bien normal => retornamos tal cual (1 item)
+      // Ojo: si tu backend ya maneja b.fotos, muéstralas con b.fotos[0]
+      // No hay 'estadoImei' aquí
+      return [b];
+    }
+  });
+
+  return (
+    <div>
+      <Title level={4}>Selecciona un Bien Existente</Title>
+      <Search
+        placeholder="Buscar por tipo, marca, modelo..."
+        value={searchTerm}
+        onChange={(e) => handleSearchBienes(e.target.value)}
+        onSearch={handleSearchBienes}
+        enterButton={<SearchOutlined />}
+        style={{ marginBottom: 16, maxWidth: 300 }}
+      />
+
+      <List
+        grid={{ gutter: 16, column: 2 }}
+        dataSource={bienesExpandidos}
+        renderItem={(item) => {
+          // Determinar qué foto mostrar:
+          // - Si es teléfono => foto del IMEI (si existe)
+          // - Si no => la 1era foto del Bien
+          const fotoParaMostrar = item.tipo?.toLowerCase().includes('teléfono')
+            ? (item.fotoImei || item.fotos?.[0]) // 1) fotoImei, sino fallback a la general
+            : (item.fotos?.[0] || '/placeholder.png'); // Bien normal => su foto principal
+
+          // Determinar la descripción:
+          // - Si es teléfono => "IMEI: ... - Estado: ..."
+          // - Si no => "Stock: ...", o lo que quieras
+          const descripcion = item.tipo?.toLowerCase().includes('teléfono')
+            ? `IMEI: ${item.imeiSeleccionado} - Estado: ${item.estadoImei || 'disponible'}`
+            : `Stock: ${item.stock || 0}`;
+
+          return (
+            <List.Item key={item.imeiSeleccionado || item.uuid}>
+              <Card
+                hoverable
+                cover={
+                  <img
+                    alt={item.descripcion || 'Bien'}
+                    src={fotoParaMostrar}
+                    onError={(e) => {
+                      e.target.src = '/placeholder.png';
+                    }}
+                    style={{ height: 150, objectFit: 'cover' }}
+                  />
+                }
+                onClick={() => handleSelectBien(item)}
+              >
+                <Card.Meta
+                  title={`${item.marca} ${item.modelo}`}
+                  description={descripcion}
+                />
+              </Card>
+            </List.Item>
+          );
+        }}
+      />
+      <p>Haz clic en el bien (o IMEI) para avanzar al Paso 3.</p>
+    </div>
+  );
+})()}
+
+
+          {/* =========== 2B: Bien Nuevo =========== */}
           {subStep2 === 'nuevo' && (
             <Form layout="vertical" form={formPaso2B} onFinish={handleFinishPaso2B}>
               <Title level={4}>Registrar un Bien Nuevo</Title>
@@ -716,7 +698,7 @@ const VenderPage = () => {
                     formPaso2B.setFieldsValue({ marca: undefined, modelo: undefined });
                     setMarcas([]);
                     setModelos([]);
-                    setImeisPaso2B([]); // Resetear IMEIs al cambiar el tipo
+                    setImeisPaso2B([]);
                   }}
                 >
                   {tiposDeBienes.map((t) => (
@@ -817,7 +799,6 @@ const VenderPage = () => {
                 </Upload>
               </Form.Item>
 
-              {/* IMEIs para teléfono móvil */}
               {formPaso2B.getFieldValue('tipo')?.toLowerCase() === 'teléfono movil' && (
                 <>
                   <p>Ingresa IMEIs para este nuevo teléfono (uno por cada unidad que registrarás en el inventario):</p>
@@ -851,6 +832,7 @@ const VenderPage = () => {
                 </>
               )}
 
+
               <Button type="primary" htmlType="submit" block loading={loading} style={{ marginTop: 16 }}>
                 Siguiente (Ir al Paso 3)
               </Button>
@@ -859,96 +841,95 @@ const VenderPage = () => {
         </>
       )}
 
-      {/* ================== PASO 3 ================== */}
+      {/* ============= PASO 3 ============= */}
       {step === 3 && (
- <Form
- layout="vertical"
- form={formPaso3}
- onFinish={handleFinishPaso3}
- onValuesChange={handleValuesChangePaso3}
->
- <Title level={4}>Confirmar Venta</Title>
+        <Form
+          layout="vertical"
+          form={formPaso3}
+          onFinish={handleFinishPaso3}
+          onValuesChange={handleValuesChangePaso3}
+        >
+          <Title level={4}>Confirmar Venta</Title>
 
- {/* Detalles del bien */}
- {bienSeleccionado?.uuid ? (
-   <p>
-     Vas a vender el bien existente: {bienSeleccionado.marca} {bienSeleccionado.modelo}
-   </p>
- ) : (
-   <p>
-     Vas a vender un bien NUEVO: {bienSeleccionado?.tipo} {bienSeleccionado?.marca} {bienSeleccionado?.modelo}
-   </p>
- )}
+          {bienSeleccionado?.uuid ? (
+            <p>Vas a vender el bien existente: {bienSeleccionado.marca} {bienSeleccionado.modelo}</p>
+          ) : (
+            <p>Vas a vender un bien NUEVO: {bienSeleccionado.tipo} {bienSeleccionado.marca} {bienSeleccionado.modelo}</p>
+          )}
+  
+          <Form.Item
+            label="Cantidad"
+            name="cantidad"
+            rules={[{
+              required: true,
+              type: 'number',
+              min: 1,
+              max: bienSeleccionado?.stock || 1,
+              message: 'Debes ingresar una cantidad válida.',
+            }]}
+          >
+            <InputNumber min={1} max={bienSeleccionado?.stock} style={{ width: '100%' }} />
+          </Form.Item>
+  
+          <Form.Item
+            label="Precio por unidad"
+            name="precio"
+            rules={[
+              { required: true, message: 'Debes ingresar el precio por unidad.' },
+              { type: 'number', min: 0, message: 'El precio debe ser un valor positivo.' },
+            ]}
+          >
+            <InputNumber
+              min={0}
+              placeholder="Ingresa el precio por unidad"
+              style={{ width: '100%' }}
+              defaultValue={bienSeleccionado?.precio || 0}
+            />
+          </Form.Item>
 
- {/* Campo para la cantidad */}
- <Form.Item
-   label="Cantidad"
-   name="cantidad"
-   rules={[
-     {
-       required: true,
-       type: 'number',
-       min: 1,
-       max: bienSeleccionado?.stock || 1,
-       message: 'Debes ingresar una cantidad válida.',
-     },
-   ]}
- >
-   <InputNumber min={1} max={bienSeleccionado?.stock} style={{ width: '100%' }} />
- </Form.Item>
+          {bienSeleccionado?.tipo.toLowerCase() === 'teléfono movil' ? (
+            <Form.Item
+              label="Selecciona los IMEIs a vender"
+              name="imeis"
+              rules={[{ required: true, message: 'Debes seleccionar al menos un IMEI.' }]}
+            >
+              <Select
+                mode="multiple"
+                placeholder="Selecciona IMEIs"
+                value={imeisSeleccionados}
+                onChange={setImeisSeleccionados}
+                // Si backend trae (b.identificadores = [{ identificador_unico:..., estado:...}])
+                // Ajusta la 'label' y 'value' como necesites
+                options={(bienSeleccionado.identificadores || []).map((detalle) => ({
+                  label: detalle, // o detalle.identificador_unico
+                  value: detalle, // o detalle.identificador_unico
+                }))}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          ) : (
+            <p style={{ color: 'gray' }}></p>
+          )}
 
- {/* Campo para el precio */}
- <Form.Item
-   label="Precio por unidad"
-   name="precio"
-   rules={[
-     {
-       required: true,
-       message: 'Debes ingresar el precio por unidad.',
-     },
-     {
-       type: 'number',
-       min: 0,
-       message: 'El precio debe ser un valor positivo.',
-     },
-   ]}
- >
-   <InputNumber
-     min={0}
-     placeholder="Ingresa el precio por unidad"
-     style={{ width: '100%' }}
-     defaultValue={bienSeleccionado?.precio || 0}
-   />
- </Form.Item>
+          <Form.Item
+            label="Método de Pago"
+            name="metodoPago"
+            rules={[{ required: true, message: 'Selecciona un método de pago.' }]}
+          >
+            <Select placeholder="Selecciona método de pago">
+              <Option value="efectivo">Efectivo</Option>
+              <Option value="transferencia">Transferencia</Option>
+              <Option value="tarjeta">Tarjeta</Option>
+            </Select>
+          </Form.Item>
+      
+          <Button type="primary" htmlType="submit" block loading={loading} style={{ marginTop: 16 }}>
+            Confirmar Venta
+          </Button>
+        </Form>
+      )}
 
- {/* Renderizar IMEIs */}
- {renderImeisPaso3()}
-
- {/* Método de Pago */}
- <Form.Item
-   label="Método de Pago"
-   name="metodoPago"
-   rules={[{ required: true, message: 'Selecciona un método de pago.' }]}
- >
-   <Select placeholder="Selecciona método de pago">
-     <Option value="efectivo">Efectivo</Option>
-     <Option value="transferencia">Transferencia</Option>
-     <Option value="tarjeta">Tarjeta</Option>
-   </Select>
- </Form.Item>
-
- {/* Botón para confirmar */}
- <Button type="primary" htmlType="submit" block loading={loading} style={{ marginTop: 16 }}>
-   Confirmar Venta
- </Button>
-</Form>
-
-
-)}
-
-
-
-      {/* MODAL de confirmación (opcional) */}
+      {/* Modal confirmacion */}
       <Modal
         title="Confirmar Venta"
         open={confirmVisible}
@@ -961,7 +942,7 @@ const VenderPage = () => {
         <p>¿Estás seguro de finalizar la venta?</p>
       </Modal>
 
-      {/* MODAL/Super Overlay para registrar Comprador (PASO 1) */}
+      {/* Modal registrando Comprador (opcional) */}
       <Modal
         open={isRegisteringComprador}
         footer={null}

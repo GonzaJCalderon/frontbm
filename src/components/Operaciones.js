@@ -21,27 +21,28 @@ const OperacionesUsuario = () => {
     
 
 
-useEffect(() => {
-    const cargarTransacciones = async () => {
-        setLoading(true);
-        try {
-            if (usuarioActual && usuarioActual.uuid) {
-                const transaccionesObtenidas = await obtenerTransacciones(usuarioActual.uuid); // Cambiado a uuid
-                console.log('Transacciones obtenidas:', transaccionesObtenidas); // LOG PARA DEPURAR
-                setTransacciones(transaccionesObtenidas);
-            } else {
-                throw new Error('No se encontró el usuario actual en localStorage.');
+    useEffect(() => {
+        const cargarTransacciones = async () => {
+            setLoading(true);
+            try {
+                if (usuarioActual && usuarioActual.uuid) {
+                    const transaccionesObtenidas = await obtenerTransacciones(usuarioActual.uuid);
+                    console.log('📌 Transacciones obtenidas en el frontend:', transaccionesObtenidas); // 🔍 Agregar log
+                    setTransacciones(transaccionesObtenidas);
+                } else {
+                    throw new Error('No se encontró el usuario actual en localStorage.');
+                }
+            } catch (error) {
+                console.error('❌ Error al obtener transacciones:', error);
+                setError(error.message || 'Error al cargar las transacciones.');
+            } finally {
+                setLoading(false);
             }
-        } catch (error) {
-            console.error('Error al obtener transacciones:', error);
-            setError(error.message || 'Error al cargar las transacciones.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    cargarTransacciones();
-}, [usuarioActual?.uuid]); // Cambiado a uuid
+        };
+    
+        cargarTransacciones();
+    }, [usuarioActual?.uuid]);
+    
     
     const transaccionesArray = Array.isArray(transacciones) ? transacciones : [];
     const compras = transaccionesArray.filter(
@@ -57,103 +58,104 @@ useEffect(() => {
     };
     
 
-    const columnsCompras = [
-        {
-            title: 'Imagen',
-            key: 'imagen',
-            render: (text, record) => {
-                const fotos = record.fotos || [];
-                return fotos.length > 0 ? (
-                    fotos.map((url, index) => (
-                        <Image
-                            key={index}
-                            width={80}
-                            src={url}
-                            alt={record?.bienTransaccion?.descripcion || 'Imagen del bien'}
-                            onError={(e) => {
-                                e.target.src = '/images/placeholder.png';
-                            }}
-                        />
-                    ))
-                ) : (
-                    <span>Sin imagen</span>
-                );
-            },
-        },
-        { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
-        { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
-        { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
-        { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        {
-            title: 'Vendedor',
-            render: (text, record) => {
-                const vendedor = record.vendedorTransaccion || {};
-                return (
-                    <span>
-                        {vendedor.nombre || 'Sin nombre'} {vendedor.apellido || ''} <br />
-                        DNI: {vendedor.dni || 'Sin DNI'} <br />
-                        Email: {vendedor.email || 'Sin email'} <br />
-                        Dirección: {renderDireccion(vendedor.direccion)}
-                    </span>
-                );
-            },
-            key: 'vendedor',
-        },
-        {
-            title: 'Fecha',
-            render: (text, record) => new Date(record.fecha).toLocaleString(),
-            key: 'fecha',
-        },
-    ];
+ // Función auxiliar para detectar si es un Teléfono Móvil
+const esTelefonoMovil = (tipo) => {
+    if (!tipo) return false;
+    const lower = tipo.toLowerCase();
+    return lower.includes('teléfono') && (lower.includes('móvil') || lower.includes('movil'));
+};
+
+// Función auxiliar para renderizar las imágenes
+const renderImagen = (text, record) => {
+    let fotos = record.bienTransaccion?.fotos || [];
     
-    const columnsVentas = [
-        {
-            title: 'Imagen',
-            key: 'imagen',
-            render: (text, record) => {
-                const fotos = record.bienTransaccion?.fotos || []; // Accede correctamente a bienTransaccion.fotos
-                return fotos.length > 0 ? (
-                    fotos.map((url, index) => (
-                        <Image
-                            key={index}
-                            width={80}
-                            src={url}
-                            alt={record?.bienTransaccion?.descripcion || 'Imagen del bien'}
-                            onError={(e) => {
-                                e.target.src = '/images/placeholder.png';
-                            }}
-                        />
-                    ))
-                ) : (
-                    <span>Sin imagen</span>
-                );
-            },
-        },
-        { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
-        { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
-        { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
-        { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        {
-            title: 'Comprador',
-            render: (text, record) => {
-                const comprador = record.compradorTransaccion || {};
-                return (
-                    <span>
-                        {comprador.nombre || 'Sin nombre'} {comprador.apellido || ''} <br />
-                        DNI: {comprador.dni || comprador.cuit || 'Sin DNI/CUIT'} <br />
-                        Email: {comprador.email || 'Sin email'} <br />
-                        Dirección: {renderDireccion(comprador.direccion)}
-                    </span>
-                );
-            },
-            key: 'comprador',
-        },
-        {
-            title: 'Fecha',
-            render: (text, record) => new Date(record.fecha).toLocaleString(),
-            key: 'fecha',
-        },
-    ];
+    if (esTelefonoMovil(record.bienTransaccion?.tipo) && record.bienTransaccion?.detalles) {
+        const fotosIMEIs = record.bienTransaccion.detalles
+            .map((det) => det.foto)
+            .filter((url) => url);
+        fotos = [...fotos, ...fotosIMEIs]; 
+    }
+
+    return fotos.length > 0 ? (
+        <Space>
+            {fotos.map((foto, index) => (
+                <Image
+                    key={index}
+                    width={80}
+                    src={foto} 
+                    alt={`Imagen ${index + 1}`}
+                    onError={(e) => {
+                        e.target.src = '/images/placeholder.png'; 
+                    }}
+                />
+            ))}
+        </Space>
+    ) : (
+        <span>Sin imagen</span>
+    );
+};
+
+
+
+// Función para renderizar IMEIs (se usa en ambas columnas)
+const renderIMEI = (detalles, record) => {
+    console.log("📌 Detalles del bien en renderIMEI:", detalles, "Record:", record);
+
+    if (esTelefonoMovil(record.bienTransaccion?.tipo)) {
+        return detalles && detalles.length > 0 ? (
+            <ul>
+                {detalles.map((detalle) => (
+                    <li key={detalle.identificador_unico}>
+                        {detalle.identificador_unico}{' '}
+                        <span style={{ color: detalle.estado === 'vendido' ? 'red' : 'green' }}>
+                            ({detalle.estado})
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        ) : (
+            <span style={{ color: 'gray' }}>Sin identificadores</span>
+        );
+    }
+    return 'N/A';
+};
+
+// Función para renderizar la información del usuario (Comprador/Vendedor)
+const renderUsuario = (usuario) => {
+    return (
+        <span>
+            {usuario?.nombre || 'Sin nombre'} {usuario?.apellido || ''} <br />
+            DNI: {usuario?.dni || usuario?.cuit || 'Sin DNI/CUIT'} <br />
+            Email: {usuario?.email || 'Sin email'} <br />
+            Dirección: {renderDireccion(usuario?.direccion)}
+        </span>
+    );
+};
+
+// Columnas de compras
+const columnsCompras = [
+    { title: 'Imagen', key: 'imagen', render: renderImagen },
+    { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
+    { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
+    { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
+    { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
+    { title: 'IMEI Comprado', dataIndex: ['bienTransaccion', 'detalles'], key: 'imei', render: renderIMEI },
+    { title: 'Vendedor', key: 'vendedor', render: (text, record) => renderUsuario(record.vendedorTransaccion) },
+    { title: 'Fecha', key: 'fecha', render: (text, record) => new Date(record.fecha).toLocaleString() },
+];
+
+// Columnas de ventas
+const columnsVentas = [
+    { title: 'Imagen', key: 'imagen', render: renderImagen },
+    { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
+    { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
+    { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
+    { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
+    { title: 'IMEI Vendido', dataIndex: ['bienTransaccion', 'detalles'], key: 'imei', render: renderIMEI },
+    { title: 'Comprador', key: 'comprador', render: (text, record) => renderUsuario(record.compradorTransaccion) },
+    { title: 'Fecha', key: 'fecha', render: (text, record) => new Date(record.fecha).toLocaleString() },
+];
+
     
 
     const handleBack = () => navigate(-1);

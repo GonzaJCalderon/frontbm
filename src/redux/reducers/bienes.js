@@ -5,6 +5,7 @@ import {
   FETCH_BIENES_SUCCESS,
   FETCH_BIENES_ERROR,
   ADD_BIEN,
+  ADD_BIENES,
   ADD_BIEN_ERROR,
   FETCH_BIEN_DETAILS,
   UPDATE_BIEN,
@@ -58,13 +59,18 @@ const bienesReducer = (state = initialState, action) => {
       case FETCH_BIENES_SUCCESS:
         return {
           ...state,
+          loading: false,
           items: action.payload.map((bien) => ({
             ...bien,
-            identificadores: bien.identificadores || [], // Asegúrate de incluir los identificadores
+            stock: bien.stock !== undefined && bien.stock !== null ? bien.stock : 'No disponible', // ✅ Aseguramos que stock sea el valor correcto
+            identificadores: bien.identificadores || [],
+            todasLasFotos: bien.todasLasFotos || [],
           })),
-          loading: false,
-          error: null,
         };
+      
+      
+      
+      
       
 
     case FETCH_BIENES_ERROR:
@@ -81,6 +87,21 @@ const bienesReducer = (state = initialState, action) => {
           ...state,
           items: [...state.items, action.payload],
         };
+        case ADD_BIENES:
+          return {
+            ...state,
+            items: [
+              ...state.items,
+              ...action.payload.map((bien) => ({
+                ...bien,
+                identificadores: bien.identificadores || [], // Asegúrate de que sea un array
+                stock: bien.stock || 0, // Incluye stock si no está presente
+              })),
+            ],
+            loading: false,
+          };
+        
+      
 
     case ADD_BIEN_ERROR:
       return {
@@ -89,19 +110,26 @@ const bienesReducer = (state = initialState, action) => {
         success: false,
       };
 
-    case UPDATE_BIEN:
-      return {
-        ...state,
-        items: state.items.map((item) =>
-          item.uuid === action.payload.uuid ? action.payload : item // Asegúrate de usar 'uuid' en lugar de 'id' si ese es el campo correcto
-        ),
-        bienDetalles: {
-          ...state.bienDetalles,
-          ...action.payload,
-          fotos: action.payload.fotos || state.bienDetalles.fotos,
-        },
-        success: true,
-      };
+      case UPDATE_BIEN:
+        return {
+          ...state,
+          items: state.items.map((item) =>
+            item.uuid === action.payload.uuid
+              ? {
+                  ...item,
+                  ...action.payload,
+                  identificadores: action.payload.identificadores || item.identificadores, // Actualiza los identificadores si están en la acción
+                }
+              : item
+          ),
+          bienDetalles: {
+            ...state.bienDetalles,
+            ...action.payload,
+            fotos: action.payload.fotos || state.bienDetalles.fotos,
+          },
+          success: true,
+        };
+      
       case UPDATE_STOCK:
         return {
           ...state,

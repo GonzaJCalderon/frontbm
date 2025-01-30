@@ -74,39 +74,53 @@ export const fetchAllBienes = () => async (dispatch) => {
 
 
 // Acción para obtener los bienes del usuario 
-// Acción para obtener los bienes del usuario
-export const fetchBienes = (uuid) => async (dispatch) => {
+export const fetchBienes = (userUuid) => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_REQUEST });
-
   try {
-    // Solicita los datos de los bienes desde el backend
-    const response = await axios.get(`/bienes/usuario/${uuid}`);
-    console.log('Datos recibidos:', response.data);
+    const response = await api.get(`/bienes/usuario/${userUuid}`);
 
-    // Mapea los datos para incluir el campo IMEI (o manejar relaciones anidadas)
-    const mappedData = response.data.map((bien) => ({
-      ...bien,
-      imei: bien.detalles_bien?.identificador_unico || null, // Incluye IMEI si está disponible
-    }));
+    console.log("📌 Datos recibidos desde API:", JSON.stringify(response.data, null, 2));
 
-    // Envía los datos mapeados al reducer
-    dispatch({
-      type: FETCH_BIENES_SUCCESS,
-      payload: mappedData,
-    });
-
-    return { success: true, data: mappedData };
+    const bienesNormalizados = response.data
+    .map((bien) => {
+      // 🔍 Calcular stock desde los IMEIs si es un teléfono móvil
+      const stockCalculado =
+        bien.tipo.toLowerCase().includes("teléfono movil") && bien.detalles
+          ? bien.detalles.filter(det => det.estado === "disponible").length
+          : bien.stock
+          ? bien.stock.cantidad
+          : 0;
+  
+      return {
+        uuid: bien.uuid,
+        tipo: bien.tipo,
+        marca: bien.marca,
+        modelo: bien.modelo,
+        descripcion: bien.descripcion,
+        stock: stockCalculado,
+        identificadores: bien.detalles || [],
+        todasLasFotos: [...(bien.fotos || []), ...(bien.detalles?.map((det) => det.foto).filter(Boolean) || [])],
+        createdAt: new Date(bien.createdAt), // ✅ Convertir la fecha a objeto Date
+      };
+    })
+    .sort((a, b) => b.createdAt - a.createdAt); // 🔥 Ordenar del más nuevo al más viejo
+  
+  console.log("📌 Bienes ordenados antes de renderizar:", JSON.stringify(bienesNormalizados, null, 2));
+  
+  dispatch({
+    type: FETCH_BIENES_SUCCESS,
+    payload: bienesNormalizados,
+  });
+  
   } catch (error) {
-    console.error('Error en fetchBienes:', error);
-
     dispatch({
       type: FETCH_BIENES_ERROR,
-      payload: error.response?.data || error.message,
+      payload: error.response?.data?.message || 'Error al obtener bienes.',
     });
-
-    return { success: false, error: error.response?.data || error.message };
   }
 };
+
+
 
 
 
@@ -198,11 +212,27 @@ export const registrarCompra = (formData) => async (dispatch) => {
     const response = await api.post('/transacciones/comprar', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+
+    dispatch({
+      type: "REGISTRAR_COMPRA_EXITO",
+      payload: response.data,
+    });
+
+    console.log("✅ Compra registrada y almacenada en Redux:", response.data);
+
     return response.data;
   } catch (error) {
+    console.error("❌ Error en registrarCompra:", error);
+
+    dispatch({
+      type: "REGISTRAR_COMPRA_ERROR",
+      payload: error.response?.data?.message || "Error desconocido al registrar la compra",
+    });
+
     throw handleRequestError(error);
   }
 };
+
 
   
 

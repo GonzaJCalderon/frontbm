@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Table, Typography, Spin, Alert, Button, Space, Input, Modal, Carousel } from 'antd';
+import { Table, Typography, Spin, Alert, Button, Space, Input, Modal, Carousel,Image } from 'antd';
 import { LeftOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { fetchBienes } from '../redux/actions/bienes';
-
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -15,62 +14,78 @@ const Inventario = () => {
 
   const [filteredItems, setFilteredItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedImage, setSelectedImage] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-const [currentFotos, setCurrentFotos] = useState([]);
+  const [currentFotos, setCurrentFotos] = useState([]);
 
-  const { items = [], error, loading } = useSelector((state) => state.bienes);
+  // 1) Obtener { items, error, loading } desde el store
+  const { items, error, loading } = useSelector((state) => state.bienes);
 
+  // 2) Al montar, sacar el userUuid y hacer fetchBienes
   useEffect(() => {
-    const userUuid = localStorage.getItem('userUuid'); // Verifica el almacenamiento
+    const userUuid = localStorage.getItem('userUuid');
     if (userUuid) {
-        console.log('UUID del usuario obtenido:', userUuid); // Agrega un log para depurar
-        dispatch(fetchBienes(userUuid)); // Llama a la acción con el UUID
+      dispatch(fetchBienes(userUuid));
     } else {
-        console.error('No se encontró el UUID del usuario en el localStorage');
+      console.error('No se encontró userUuid en localStorage');
     }
-}, [dispatch]);
+  }, [dispatch]);
 
+  // 3) Cuando items cambia, creamos filteredItems (ordenado, etc.)
+  useEffect(() => {
+    if (!loading && Array.isArray(items)) {
+      // Ordenar por fecha descendente
+      const sorted = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setFilteredItems(sorted);
+    }
+  }, [items, loading]);
 
-
-useEffect(() => {
-  console.log('Bienes cargados:', JSON.stringify(items, null, 2)); // Log detallado para depurar
-  if (Array.isArray(items)) {
-    const sortedItems = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    setFilteredItems(sortedItems);
-  }
-}, [items]);
-
-
+  // 4) Manejo de búsqueda
   const handleSearch = (value) => {
     setSearchTerm(value);
-    if (value.trim() === '') {
-      setFilteredItems([...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
-    } else {
-      const filtered = items.filter((item) =>
-        item.tipo.toLowerCase().includes(value.toLowerCase()) ||
-        item.marca.toLowerCase().includes(value.toLowerCase()) ||
-        item.modelo.toLowerCase().includes(value.toLowerCase())
-      );
-      setFilteredItems(filtered);
+    if (!value.trim()) {
+      // Restaurar la lista si no hay búsqueda
+      const resetList = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setFilteredItems(resetList);
+      return;
     }
+
+    const lowerValue = value.toLowerCase();
+    const filtered = items.filter((bien) => {
+      const matchTipo = bien.tipo?.toLowerCase().includes(lowerValue);
+      const matchMarca = bien.marca?.toLowerCase().includes(lowerValue);
+      const matchModelo = bien.modelo?.toLowerCase().includes(lowerValue);
+      const matchImei = bien.identificadores?.some((det) =>
+        det.identificador_unico.toLowerCase().includes(lowerValue)
+      );
+      return matchTipo || matchMarca || matchModelo || matchImei;
+    });
+    setFilteredItems(filtered);
   };
 
+  // 5) Logout
   const handleLogout = () => {
     localStorage.clear();
     navigate('/home');
   };
 
+  // 6) Modal para mostrar fotos
   const handleOpenModal = (fotos) => {
-    setCurrentFotos(fotos); // Almacena todas las fotos válidas
-    setIsModalVisible(true); // Abre el modal
+    setCurrentFotos(fotos);
+    setIsModalVisible(true);
   };
-  
   const handleCloseModal = () => {
     setIsModalVisible(false);
     setCurrentFotos([]);
   };
 
+  // 7) Saber si es Teléfono Móvil
+  const esTelefonoMovil = (tipo) => {
+    if (!tipo) return false;
+    const lower = tipo.toLowerCase();
+    return lower.includes('teléfono') && (lower.includes('móvil') || lower.includes('movil'));
+  };
+
+  // 8) Definir columnas
   const columns = [
     {
       title: 'Tipo',
@@ -87,56 +102,70 @@ useEffect(() => {
     {
       title: 'Stock',
       dataIndex: 'stock',
-      render: (stock) => stock || 0,
+      render: (value, record) => {
+        console.log("📌 Stock recibido en la tabla:", record.tipo, "->", value);
+        
+        return value > 0 ? value : <span style={{ color: 'gray' }}>Sin stock</span>;
+      },
     },
+    
+    
     {
       title: 'IMEI',
       dataIndex: 'identificadores',
-      render: (identificadores, record) =>
-        record.tipo && record.tipo.toLowerCase() === 'teléfono movil' ? (
-          identificadores && identificadores.length > 0 ? (
+      render: (identificadores, record) => {
+        if (esTelefonoMovil(record.tipo)) {
+          return identificadores.length ? (
             <ul>
-              {identificadores.map((detalle) => (
-                <li key={detalle.identificador_unico}>
-                  {detalle.identificador_unico} -{' '}
-                  <span style={{ color: detalle.estado === 'vendido' ? 'red' : 'green' }}>
-                    {detalle.estado}
+              {identificadores.map((d) => (
+                <li key={d.identificador_unico}>
+                  {d.identificador_unico}{' '}
+                  <span style={{ color: d.estado === 'vendido' ? 'red' : 'green' }}>
+                    ({d.estado})
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <span style={{ color: 'gray' }}>Sin identificadores</span>
-          )
-        ) : (
-          'N/A' // Mostrar "N/A" para bienes que no sean teléfonos móviles
-        ),
+            <span style={{ color: 'gray' }}>Sin IMEIs registrados</span>
+          );
+        }
+        return 'N/A';
+      },
     },
     {
       title: 'Fotos',
-      dataIndex: 'fotos',
+      dataIndex: 'todasLasFotos',
       render: (fotos) => {
-        const validFotos = (fotos || []).filter((url) => url !== null && url !== undefined);
-        return validFotos.length > 0 ? (
-          <img
-            src={validFotos[0]} // Muestra solo la primera imagen
-            alt="Foto principal"
-            style={{ width: '100px', height: 'auto', cursor: 'pointer' }}
-            onClick={() => handleOpenModal(validFotos)} // Abre el modal con todas las imágenes
-            onError={(e) => {
-              e.target.src = '/images/placeholder.png'; // Imagen de fallback
-            }}
-          />
-        ) : (
-          <span style={{ color: 'gray' }}>Sin imagen</span>
+        if (!fotos || fotos.length === 0) {
+          return 'Sin fotos';
+        }
+        return (
+          <Space>
+            {fotos.map((foto, index) => (
+              <Image
+                key={index}
+                width={80}
+                src={foto}
+                alt={`Foto ${index + 1}`}
+                onError={(e) => { e.target.src = '/images/placeholder.png'; }}
+              />
+            ))}
+          </Space>
         );
       },
     },
   ];
   
+  
 
-  if (loading) return <Spin tip="Cargando bienes..." />;
-  if (error) return <Alert message="Error" description={error} type="error" />;
+  // 9) Render final
+  if (loading) {
+    return <Spin tip="Cargando bienes..." />;
+  }
+  if (error) {
+    return <Alert message="Error" description={error} type="error" />;
+  }
 
   return (
     <div>
@@ -156,24 +185,26 @@ useEffect(() => {
           onChange={(e) => handleSearch(e.target.value)}
         />
       </Space>
-      <Title level={2}>Inventario</Title>
-      <Table
-  dataSource={filteredItems}
-  columns={columns}
-  rowKey="uuid"
-  pagination={{
-    pageSize: 5, // Número de elementos por página
-    showSizeChanger: false, // No permitir al usuario cambiar el tamaño de la página
-    position: ['bottomCenter'], // Posición del paginado
-  }}
-/>
 
-      <Modal
-  visible={isModalVisible}
+      <Title level={2}>Inventario</Title>
+
+      <Table
+        dataSource={filteredItems}
+        columns={columns}
+        rowKey="uuid"
+        pagination={{
+          pageSize: 5,
+          showSizeChanger: false,
+          position: ['bottomCenter'],
+        }}
+      />
+
+<Modal
+  open={isModalVisible}
   footer={null}
   onCancel={handleCloseModal}
   centered
-  width={600} // Ajusta el tamaño según lo necesites
+  width={600}
 >
   <Carousel autoplay>
     {currentFotos.map((url, index) => (
@@ -182,15 +213,12 @@ useEffect(() => {
           src={url}
           alt={`Imagen ${index + 1}`}
           style={{ width: '100%', height: 'auto' }}
-          onError={(e) => {
-            e.target.src = '/images/placeholder.png';
-          }}
+          onError={(e) => { e.target.src = '/images/placeholder.png'; }} // ✅ Manejo de error
         />
       </div>
     ))}
   </Carousel>
 </Modal>
-
     </div>
   );
 };

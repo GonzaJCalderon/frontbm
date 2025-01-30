@@ -70,26 +70,47 @@ export const registrarCompra = (compraData) => async (dispatch, getState) => {
         });
     }
 };
-
 export const finalizarCreacionBienes = (bienes) => async (dispatch) => {
-    dispatch({ type: FINALIZAR_CREACION_REQUEST });
+    dispatch({ type: 'FINALIZAR_CREACION_REQUEST' });
   
     try {
+      // Validar los bienes antes de enviarlos
+      if (!Array.isArray(bienes) || bienes.length === 0) {
+        throw new Error('No hay bienes para procesar.');
+      }
+  
+      bienes.forEach((bien, index) => {
+        if (!bien.tipo || !bien.marca || !bien.modelo) {
+          throw new Error(`Faltan datos obligatorios en el bien #${index + 1}.`);
+        }
+      });
+  
+      console.log('Enviando bienes al backend:', bienes);
+  
+      // Enviar bienes al servidor
       const response = await api.post('/excel/finalizar-creacion', { bienes });
   
-      console.log('Bienes creados exitosamente:', response.data);
+      console.log('Respuesta del servidor:', response.data);
   
-      dispatch({ type: FINALIZAR_CREACION_SUCCESS, payload: response.data });
+      // Actualizar Redux
+      dispatch({ type: 'ADD_BIENES', payload: response.data.bienes });
+      dispatch({ type: 'FINALIZAR_CREACION_SUCCESS', payload: response.data });
+  
       return Promise.resolve(response.data);
     } catch (error) {
       console.error('Error al finalizar creación de bienes:', error);
+  
+      const mensajeError = error.response?.data?.message || 'Error al crear los bienes.';
+  
       dispatch({
-        type: FINALIZAR_CREACION_FAILURE,
-        payload: error.response?.data?.message || 'Error al crear los bienes.',
+        type: 'FINALIZAR_CREACION_FAILURE',
+        payload: mensajeError,
       });
-      return Promise.reject(error);
+  
+      return Promise.reject(new Error(mensajeError));
     }
   };
+  
   
 
 export const uploadStockExcel = (file, propietario_uuid) => async (dispatch) => {

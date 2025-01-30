@@ -38,6 +38,9 @@ const ComprarPage = () => {
   const [modelos, setModelos] = useState([]);
   const [isVisible, setIsVisible] = useState(false);
   const [tipoDeSujeto, setTipoDeSujeto] = useState(null);
+  const [imeis, setImeis] = useState([]); // Estado para los IMEIs y fotos de cada teléfono
+  const [tipoSeleccionado, setTipoSeleccionado] = useState("");
+
 
   const handleCancel = () => {
     setIsVisible(false); // Cierra el Modal
@@ -100,26 +103,59 @@ console.log('Token de autenticación:', token);
   }, [dispatch, uuid]);
   
   ;
-  const handleTipoChange = async (tipo) => {
-    if (!tipo) {
-        message.warning('Selecciona un tipo para cargar las marcas.');
-        return;
-    }
 
+  const agregarImei = () => {
+    setImeis([...imeis, { imei: '', foto: null }]);
+  };
+  
+  const actualizarImei = (index, value) => {
+    const nuevosImeis = [...imeis];
+    nuevosImeis[index].imei = value;
+    setImeis(nuevosImeis);
+  };
+  
+  const actualizarFotoImei = (index, file) => {
+    const nuevosImeis = [...imeis];
+    nuevosImeis[index].foto = file;
+    setImeis(nuevosImeis);
+  };
+  
+  const eliminarImei = (index) => {
+    const nuevosImeis = [...imeis];
+    nuevosImeis.splice(index, 1);
+    setImeis(nuevosImeis);
+  };
+
+  const handleCompraExitosa = async (formData) => {
     try {
-        const response = await api.get(`/bienes/bienes/marcas?tipo=${tipo}`);
-        if (response.status === 200 && response.data.marcas) {
-            console.log('Marcas cargadas:', response.data.marcas);
-            setMarcas(response.data.marcas);
-            formStep2.setFieldsValue({ marca: undefined });
-        } else {
-            setMarcas([]);
-        }
+      await dispatch(registrarCompra(formData));
+      await dispatch(fetchBienes(uuid));  // Refrescar los bienes después de la compra
     } catch (error) {
-        console.error('Error al cargar las marcas:', error);
-        message.error('No se pudieron cargar las marcas para este tipo.');
+      console.error("❌ Error al procesar la compra:", error);
     }
-};
+  };
+  
+  
+  const handleTipoChange = async (tipo) => {
+    setTipoSeleccionado(tipo);
+    if (!tipo) {
+      message.warning('Selecciona un tipo para cargar las marcas.');
+      return;
+    }
+  
+    try {
+      const response = await api.get(`/bienes/bienes/marcas?tipo=${tipo}`);
+      if (response.status === 200 && response.data.marcas) {
+        setMarcas(response.data.marcas);
+        formStep2.setFieldsValue({ marca: undefined });
+      } else {
+        setMarcas([]);
+      }
+    } catch (error) {
+      console.error('Error al cargar las marcas:', error);
+      message.error('No se pudieron cargar las marcas para este tipo.');
+    }
+  };
 
 const handleMarcaChange = async (marca) => {
   const tipoSeleccionado = formStep2.getFieldValue('tipo');
@@ -142,6 +178,7 @@ const handleMarcaChange = async (marca) => {
       message.error('No se pudieron cargar los modelos para esta marca.');
   }
 };
+
 
 const validateDNIWithRenaper = async (dni) => {
   try {
@@ -251,90 +288,88 @@ const agregarNuevoModelo = async () => {
 
 const handleFinishStep1 = async (values) => {
   try {
-      const { nombre, apellido, email, dni, cuit, tipo, razonSocial, direccion } = values;
+    const { nombre, apellido, email, dni, cuit, tipo, razonSocial, direccion } = values;
 
-      // Validación previa para asegurarse de que los campos obligatorios estén completos
-      if (!dni || !nombre || !apellido || !email) {
-          message.error('Por favor, completa todos los campos obligatorios (DNI, Nombre, Apellido, Email).');
-          return;
-      }
+    // Validación previa para asegurarse de que los campos obligatorios estén completos
+    if (!dni || !nombre || !apellido || !email) {
+      message.error('Por favor, completa todos los campos obligatorios (DNI, Nombre, Apellido, Email).');
+      return;
+    }
 
-      // Log para verificar los valores antes de procesar
-      console.log('Datos enviados en el paso 1:', values);
+    console.log('Datos enviados en el paso 1:', values);
 
-      // Verificar si el usuario ya está registrado
-      const existingUserResponse = await dispatch(
-        checkExistingUser({
-          dni: values.dni, // Asegúrate de que este valor esté disponible
-          nombre: values.nombre, // Asegúrate de que este valor esté disponible
-          apellido: values.apellido, // Asegúrate de que este valor esté disponible
-        })
-      );
-      
-      console.log("Datos enviados a checkExistingUser:", {
-        dni: values.dni,
-        nombre: values.nombre,
-        apellido: values.apellido,
-      });
-      
+    // Verificar si el usuario ya está registrado
+    const existingUserResponse = await dispatch(
+      checkExistingUser({
+        dni,
+        nombre,
+        apellido,
+      })
+    );
 
-      if (existingUserResponse?.existe) {
-          const existingUser = existingUserResponse.usuario;
+    if (existingUserResponse?.existe) {
+      const existingUser = existingUserResponse.usuario;
 
-          // Verificar si el rol definitivo no es "vendedor"
-          if (existingUser.rolDefinitivo !== 'vendedor') {
-              console.log('El usuario existe pero no es vendedor, actualizando rol...');
-              const updateResponse = await dispatch(registerUsuarioPorTercero({
-                  uuid: existingUser.uuid,
-                  rolTemporal: 'vendedor',
-                  ...values,
-              }));
+      // Asignar el UUID del usuario registrado
+      setVendedorId(existingUser.uuid);
 
-              if (updateResponse.error) {
-                  throw new Error(updateResponse.error);
-              }
+      if (existingUser.rolDefinitivo !== 'vendedor') {
+        console.log('El usuario existe pero no es vendedor, actualizando rol...');
+
+        // Intentar actualizar el rol del usuario existente
+        try {
+          const updateResponse = await dispatch(
+            registerUsuarioPorTercero({
+              uuid: existingUser.uuid,
+              rolTemporal: 'vendedor', // Este rol se asigna para que pueda continuar
+              ...values,
+            })
+          );
+
+          if (updateResponse.error) {
+            console.warn('No se pudo actualizar el rol del usuario, pero el flujo continuará.');
           }
-
-          setVendedorId(existingUser.uuid); // Asignar el UUID del usuario existente
-          message.success('Usuario identificado como vendedor.');
-          setStep(2);
-          return;
+        } catch (updateError) {
+          console.error('Error actualizando el rol del usuario:', updateError.message);
+        }
       }
 
-      // Registrar un nuevo usuario como vendedor
-      console.log('Registrando un nuevo usuario...');
-      const newUserResponse = await dispatch(registerUsuarioPorTercero({
-          nombre,
-          apellido,
-          email,
-          dni,
-          cuit,
-          tipo,
-          razonSocial: tipo === 'juridica' ? razonSocial : null,
-          direccion,
-          rolTemporal: 'vendedor',
-      }));
+      message.success('Usuario identificado, continuando al siguiente paso.');
+      setStep(2); // Continuar al paso 2
+      return;
+    }
 
-      console.log('Respuesta al registrar un nuevo usuario:', newUserResponse);
+    // Registrar un nuevo usuario si no existe
+    console.log('Registrando un nuevo usuario...');
+    const newUserResponse = await dispatch(
+      registerUsuarioPorTercero({
+        nombre,
+        apellido,
+        email,
+        dni,
+        cuit,
+        tipo,
+        razonSocial: tipo === 'juridica' ? razonSocial : null,
+        direccion,
+        rolTemporal: 'vendedor', // Registrar como vendedor de forma temporal
+      })
+    );
 
-      if (newUserResponse?.uuid) {
-          setVendedorId(newUserResponse.uuid); // Asignar el UUID del nuevo usuario
-          message.success('Usuario registrado como vendedor con éxito.');
-          setStep(2);
-      } else {
-          throw new Error('No se pudo registrar al usuario.');
-      }
+    if (newUserResponse?.uuid) {
+      setVendedorId(newUserResponse.uuid);
+      message.success('Nuevo usuario registrado, continuando al siguiente paso.');
+      setStep(2); // Continuar al paso 2
+    } else {
+      throw new Error('No se pudo registrar al usuario.');
+    }
   } catch (error) {
-      console.error('Error en el paso 1:', error.message || error);
-      message.error(error.message || 'Ocurrió un error en el registro del usuario.');
+    console.error('Error en el paso 1:', error.message || error);
+    message.error(error.message || 'Ocurrió un error en el registro del usuario.');
   }
 };
 
-
 const handleFinishStep2 = async (values) => {
   try {
-    const compradorDni = JSON.parse(localStorage.getItem('userData')).dni || '';
-
     const formData = new FormData();
     formData.append('tipo', values.tipo);
     formData.append('marca', values.marca);
@@ -344,26 +379,41 @@ const handleFinishStep2 = async (values) => {
     formData.append('cantidad', parseInt(values.bienStock, 10));
     formData.append('metodoPago', values.metodoPago);
     formData.append('vendedorId', vendedorId);
-    formData.append('dniComprador', compradorDni);
+    formData.append('dniComprador', JSON.parse(localStorage.getItem('userData')).dni || '');
 
-    fileList.forEach((file) => {
-      formData.append('fotos', file.originFileObj);
+    if (values.tipo !== "teléfono movil") {
+      // ✅ Subir fotos generales SOLO si el bien NO es un teléfono móvil
+      fileList.forEach((file) => {
+        formData.append('fotos', file.originFileObj);
+      });
+    }
+
+    // ✅ Agregar IMEIs con sus fotos al formData
+    imeis.forEach((item, index) => {
+      formData.append(`imeis[${index}][imei]`, item.imei);
+      if (item.foto) {
+        formData.append(`imeis[${index}][foto]`, item.foto); // Se sube foto individual de cada IMEI
+      }
     });
 
-    console.log('Datos enviados al backend:', formData);
+    console.log('📤 Enviando a backend:', formData);
 
     const result = await dispatch(registrarCompra(formData));
-    if (result && result.message === 'Compra registrada con éxito.') {
+    if (result.message === 'Compra registrada con éxito.') {
       message.success(result.message);
       navigate('/user/dashboard');
     } else {
       throw new Error(result.message || 'Error al registrar la compra.');
     }
   } catch (error) {
-    console.error('Error en registrar el bien:', error);
+    console.error('❌ Error en registrar el bien:', error);
     message.error(error.message || 'No se pudo registrar el bien.');
   }
 };
+
+
+
+
 
 
 return (
@@ -653,8 +703,69 @@ return (
     { type: 'number', min: 1, message: 'La cantidad debe ser mayor a 0.' },
   ]}
 >
-  <InputNumber min={1} placeholder="Cantidad" style={{ width: '100%' }} />
+  <InputNumber
+    min={1}
+    placeholder="Cantidad"
+    style={{ width: '100%' }}
+    onChange={(value) => {
+      if (tipoSeleccionado === "teléfono movil") {
+        // Solo ajustar IMEIs si es un teléfono móvil
+        const nuevaCantidad = value || 0;
+        setImeis((prevImeis) => {
+          const nuevosImeis = [...prevImeis];
+          while (nuevosImeis.length < nuevaCantidad) {
+            nuevosImeis.push({ imei: '', foto: null });
+          }
+          while (nuevosImeis.length > nuevaCantidad) {
+            nuevosImeis.pop();
+          }
+          return nuevosImeis;
+        });
+      }
+    }}
+  />
 </Form.Item>
+
+
+
+{/* IMEIs y Fotos - Sección dentro del Formulario */}
+{imeis.length > 0 && tipoSeleccionado === "teléfono movil" && (
+  <>
+    <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>Registra los IMEIs y sus Fotos</Title>
+    {imeis.map((item, index) => (
+      <div key={index} style={{ marginBottom: '10px', border: '1px solid #ddd', padding: '10px', borderRadius: '5px' }}>
+        <Form.Item
+          label={`IMEI #${index + 1}`}
+          rules={[{ required: true, message: 'Por favor, ingresa un IMEI válido.' }]}
+        >
+          <Input
+            placeholder="Ingrese el IMEI"
+            value={item.imei}
+            onChange={(e) => actualizarImei(index, e.target.value)}
+          />
+        </Form.Item>
+
+        <Form.Item label={`Foto del IMEI #${index + 1}`}>
+  <Upload
+    listType="picture"
+    beforeUpload={(file) => {
+      actualizarFotoImei(index, file);
+      return false; // Evita la subida automática
+    }}
+    showUploadList={true} // ✅ Ahora se verá la lista de imágenes subidas
+  >
+    <Button>Subir Foto</Button>
+  </Upload>
+  {item.foto && <p>{item.foto.name}</p>}
+</Form.Item>
+
+        <Button type="danger" onClick={() => eliminarImei(index)}>Eliminar</Button>
+      </div>
+    ))}
+  </>
+)}
+
+
 
 
     {/* Precio */}
@@ -677,16 +788,21 @@ return (
     </Form.Item>
 
     {/* Fotos */}
-    <Form.Item label="Fotos del Bien">
-      <Upload
-        listType="picture"
-        fileList={fileList}
-        onChange={({ fileList: newFileList }) => setFileList(newFileList)}
-        beforeUpload={() => false}
-      >
-        <Button>Subir Fotos</Button>
-      </Upload>
-    </Form.Item>
+  {/* Fotos generales SOLO si NO es un teléfono móvil */}
+{tipoSeleccionado !== "teléfono movil" && fileList.length === 0 && (
+  <Form.Item label="Fotos del Bien">
+    <Upload
+      listType="picture"
+      fileList={fileList}
+      onChange={({ fileList: newFileList }) => setFileList(newFileList)}
+      beforeUpload={() => false}
+    >
+      <Button>Subir Fotos</Button>
+    </Upload>
+  </Form.Item>
+)}
+
+
 
     {/* Botón de Envío */}
     <Button type="primary" htmlType="submit" block loading={loading}>
