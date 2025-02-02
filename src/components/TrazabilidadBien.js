@@ -1,50 +1,68 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Table, Button, notification, Spin, Alert } from 'antd';
+import { Table, Button, Spin, Alert, Space, Image } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchTrazabilidadBien } from '../redux/actions/bienes';
 
 const TrazabilidadBien = () => {
   const { uuid } = useParams();
   const navigate = useNavigate();
-  const [transacciones, setTransacciones] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [mensaje, setMensaje] = useState("");
+  const dispatch = useDispatch();
+
+  const { transacciones, loading, mensaje, error } = useSelector(state => state.bienes);
 
   useEffect(() => {
-    const fetchTrazabilidad = async () => {
-      try {
-        const response = await axios.get(`http://localhost:5005/bienes/trazabilidad/${uuid}`);
-        if (response.data.message) {
-          setMensaje(response.data.message); // Guarda el mensaje cuando no hay transacciones
-          setTransacciones([]); // Asegúrate de que transacciones esté vacío
-        } else {
-          setTransacciones(response.data); // Guarda las transacciones
-        }
-        setLoading(false);
-      } catch (err) {
-        setError(err.message);
-        setLoading(false);
-      }
-    };
+    dispatch(fetchTrazabilidadBien(uuid));
+  }, [dispatch, uuid]);
+
+  const renderFotos = (bien) => {
+    // Obtener fotos de bienTransaccion y detalles
+    let fotos = bien?.fotos || [];
   
-    fetchTrazabilidad();
-  }, [uuid]);
+    if (bien?.detalles) {
+      const fotosDetalles = bien.detalles
+        .map(det => det.foto)
+        .filter(foto => foto); // Filtra nulls o undefined
+      fotos = [...fotos, ...fotosDetalles];
+    }
+  
+    return fotos.length > 0 ? (
+      <Space>
+        {fotos.map((foto, index) => (
+          <Image
+            key={index}
+            width={80}
+            src={foto}
+            alt={`Imagen ${index + 1}`}
+            onError={(e) => { e.target.src = '/images/placeholder.png'; }}
+          />
+        ))}
+      </Space>
+    ) : 'Sin fotos';
+  };
   
 
-  const renderDireccion = (direccion) => {
-    if (!direccion) return 'N/A';
-    const { calle, altura, barrio, departamento } = direccion;
-    return `${calle || ''} ${altura || ''}, ${barrio || ''}, ${departamento || ''}`;
-  };
+  const renderIMEIs = (imeis) => (
+    imeis.length > 0 ? imeis.join(', ') : 'Sin IMEIs'
+  );
+
+  const renderUsuario = (usuario) => (
+    <div>
+      <p>{usuario?.nombre} {usuario?.apellido}</p>
+      <p>DNI: {usuario?.dni || 'N/A'}</p>
+      <p>Email: {usuario?.email || 'N/A'}</p>
+      <p>CUIT: {usuario?.cuit || 'N/A'}</p>
+      <p>Dirección: {usuario?.direccion?.calle || 'N/A'}, {usuario?.direccion?.altura || ''}</p>
+    </div>
+  );
 
   const columns = [
-    {
-      title: 'Fecha',
-      dataIndex: 'fecha',
-      key: 'fecha',
-      render: (text) => new Date(text).toLocaleString(),
+    { 
+      title: 'Fecha', 
+      dataIndex: 'fecha', 
+      key: 'fecha', 
+      render: (text) => new Date(text).toLocaleString() 
     },
     {
       title: 'Comprador',
@@ -52,11 +70,11 @@ const TrazabilidadBien = () => {
       key: 'comprador',
       render: (comprador) => (
         <div>
-          <p>{comprador.nombre} {comprador.apellido}</p>
-          <p>DNI: {comprador.dni}</p>
-          <p>Email: {comprador.email}</p>
-          <p>CUIT: {comprador.cuit}</p>
-          <p>Dirección: {renderDireccion(comprador.direccion)}</p>
+          <p><strong>{comprador?.nombre} {comprador?.apellido}</strong></p>
+          <p>DNI: {comprador?.dni || 'N/A'}</p>
+          <p>Email: {comprador?.email || 'N/A'}</p>
+          <p>CUIT: {comprador?.cuit || 'N/A'}</p>
+          <p><strong>Dirección:</strong> {comprador?.direccion || 'Sin dirección'}</p>
         </div>
       ),
     },
@@ -66,11 +84,11 @@ const TrazabilidadBien = () => {
       key: 'vendedor',
       render: (vendedor) => (
         <div>
-          <p>{vendedor.nombre} {vendedor.apellido}</p>
-          <p>DNI: {vendedor.dni}</p>
-          <p>Email: {vendedor.email}</p>
-          <p>CUIT: {vendedor.cuit}</p>
-          <p>Dirección: {renderDireccion(vendedor.direccion)}</p>
+          <p><strong>{vendedor?.nombre} {vendedor?.apellido}</strong></p>
+          <p>DNI: {vendedor?.dni || 'N/A'}</p>
+          <p>Email: {vendedor?.email || 'N/A'}</p>
+          <p>CUIT: {vendedor?.cuit || 'N/A'}</p>
+          <p><strong>Dirección:</strong> {vendedor?.direccion || 'Sin dirección'}</p>
         </div>
       ),
     },
@@ -78,26 +96,38 @@ const TrazabilidadBien = () => {
       title: 'Bien',
       dataIndex: 'bienTransaccion',
       key: 'bien',
-      render: (bien) => `${bien.descripcion} - ${bien.marca} ${bien.modelo}`,
-    },
-    {
-      title: 'Identificadores',
-      dataIndex: 'imeis',
-      key: 'imeis',
-      render: (imeis) => (
-        imeis && imeis.length > 0 ? imeis.join(', ') : 'N/A'
+      render: (bien) => (
+        <div>
+          <p><strong>Descripción:</strong> {bien?.descripcion || 'N/A'}</p>
+          <p><strong>Marca:</strong> {bien?.marca || 'N/A'}</p>
+          <p><strong>Modelo:</strong> {bien?.modelo || 'N/A'}</p>
+          <p><strong>Precio:</strong> ${bien?.precio || 'N/A'}</p>
+        </div>
       ),
     },
+    {
+      title: 'Identificadores IMEI',
+      dataIndex: ['bienTransaccion', 'detalles'],
+      key: 'imeis',
+      render: (detalles) => (
+        detalles && detalles.length > 0 
+          ? detalles.map(det => <p key={det.identificador_unico}>{det.identificador_unico} ({det.estado})</p>) 
+          : 'Sin IMEIs'
+      ),
+    },
+    {
+      title: 'Fotos',
+      dataIndex: 'bienTransaccion',
+      key: 'fotos',
+      render: (bien) => renderFotos(bien),
+    },
+    
   ];
   
+  
 
-  if (loading) {
-    return <Spin tip="Cargando..." />;
-  }
-
-  if (error) {
-    return <Alert message="Error" description={error} type="error" />;
-  }
+  if (loading) return <Spin tip="Cargando..." />;
+  if (error) return <Alert message="Error" description={error} type="error" />;
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
@@ -115,7 +145,6 @@ const TrazabilidadBien = () => {
       )}
     </div>
   );
-  
 };
 
 export default TrazabilidadBien;

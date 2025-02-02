@@ -1,5 +1,3 @@
-// redux/reducers/bienesReducer.js
-
 import {
   FETCH_BIENES_REQUEST,
   FETCH_BIENES_SUCCESS,
@@ -18,8 +16,7 @@ import {
   FETCH_TRAZABILIDAD_SUCCESS,
   FETCH_TRAZABILIDAD_ERROR,
   GET_BIENES_USUARIO_REQUEST,
-  GET_BIENES_USUARIO_SUCCESS,
-  GET_BIENES_USUARIO_FAILURE,
+  GET_BIENES_USUARIO_FAILURE, 
   DELETE_BIEN,
 } from '../actions/actionTypes';
 
@@ -28,7 +25,8 @@ const initialState = {
   item: {}, // Detalles de un bien específico
   totalPages: 0,
   currentPage: 1,
-  trazabilidad: {},
+  trazabilidad: [],
+  transacciones: [],
   loading: false,
   bienDetalles: {
     tipo: '',
@@ -41,9 +39,7 @@ const initialState = {
   stock: [],
   error: null,
   success: false,
-  searchResults: {
-    bienes: [], // Inicializa con un arreglo vacío
-  },
+  mensaje: '',
 };
 
 const bienesReducer = (state = initialState, action) => {
@@ -56,22 +52,18 @@ const bienesReducer = (state = initialState, action) => {
         loading: true,
         error: null,
       };
-      case FETCH_BIENES_SUCCESS:
-        return {
-          ...state,
-          loading: false,
-          items: action.payload.map((bien) => ({
-            ...bien,
-            stock: bien.stock !== undefined && bien.stock !== null ? bien.stock : 'No disponible', // ✅ Aseguramos que stock sea el valor correcto
-            identificadores: bien.identificadores || [],
-            todasLasFotos: bien.todasLasFotos || [],
-          })),
-        };
-      
-      
-      
-      
-      
+
+    case FETCH_BIENES_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        items: action.payload.map((bien) => ({
+          ...bien,
+          stock: bien.stock !== undefined && bien.stock !== null ? bien.stock : 'No disponible',
+          identificadores: bien.identificadores || [],
+          todasLasFotos: bien.todasLasFotos || [],
+        })),
+      };
 
     case FETCH_BIENES_ERROR:
     case FETCH_TRAZABILIDAD_ERROR:
@@ -82,26 +74,25 @@ const bienesReducer = (state = initialState, action) => {
         error: action.payload?.message || action.payload || 'Error desconocido',
       };
 
-      case ADD_BIEN:
-        return {
-          ...state,
-          items: [...state.items, action.payload],
-        };
-        case ADD_BIENES:
-          return {
-            ...state,
-            items: [
-              ...state.items,
-              ...action.payload.map((bien) => ({
-                ...bien,
-                identificadores: bien.identificadores || [], // Asegúrate de que sea un array
-                stock: bien.stock || 0, // Incluye stock si no está presente
-              })),
-            ],
-            loading: false,
-          };
-        
-      
+    case ADD_BIEN:
+      return {
+        ...state,
+        items: [...state.items, action.payload],
+      };
+
+    case ADD_BIENES:
+      return {
+        ...state,
+        items: [
+          ...state.items,
+          ...action.payload.map((bien) => ({
+            ...bien,
+            identificadores: bien.identificadores || [],
+            stock: bien.stock || 0,
+          })),
+        ],
+        loading: false,
+      };
 
     case ADD_BIEN_ERROR:
       return {
@@ -110,44 +101,43 @@ const bienesReducer = (state = initialState, action) => {
         success: false,
       };
 
-      case UPDATE_BIEN:
-        return {
-          ...state,
-          items: state.items.map((item) =>
-            item.uuid === action.payload.uuid
-              ? {
-                  ...item,
-                  ...action.payload,
-                  identificadores: action.payload.identificadores || item.identificadores, // Actualiza los identificadores si están en la acción
-                }
-              : item
-          ),
-          bienDetalles: {
-            ...state.bienDetalles,
-            ...action.payload,
-            fotos: action.payload.fotos || state.bienDetalles.fotos,
-          },
-          success: true,
-        };
-      
-      case UPDATE_STOCK:
-        return {
-          ...state,
-          items: state.items.map((item) =>
-            item.uuid === action.payload.uuid
-              ? { ...item, stock: action.payload.stock }
-              : item
-          ),
-        };
-
-    case REGISTRAR_VENTA_EXITO:
-    case REGISTRAR_COMPRA_EXITO:
+    case UPDATE_BIEN:
       return {
         ...state,
-        items: [...state.items, action.payload || {}], // Asegúrate de que 'bien' no es necesario aquí
+        items: state.items.map((item) =>
+          item.uuid === action.payload.uuid
+            ? {
+                ...item,
+                ...action.payload,
+                identificadores: action.payload.identificadores || item.identificadores,
+              }
+            : item
+        ),
+        bienDetalles: {
+          ...state.bienDetalles,
+          ...action.payload,
+          fotos: action.payload.fotos || state.bienDetalles.fotos,
+        },
         success: true,
-        error: null,
       };
+
+    case UPDATE_STOCK:
+      return {
+        ...state,
+        items: state.items.map((item) =>
+          item.uuid === action.payload.uuid ? { ...item, stock: action.payload.stock } : item
+        ),
+      };
+
+    case REGISTRAR_VENTA_EXITO:
+      case REGISTRAR_COMPRA_EXITO:
+        return {
+          ...state,
+          items: [...state.items, ...action.payload.map((transaccion) => transaccion.bien)],
+          success: true,
+          error: null,
+        };
+      
 
     case REGISTRAR_VENTA_ERROR:
     case REGISTRAR_COMPRA_ERROR:
@@ -167,19 +157,24 @@ const bienesReducer = (state = initialState, action) => {
         },
       };
 
-    case FETCH_TRAZABILIDAD_SUCCESS:
-      return {
-        ...state,
-        trazabilidad: action.payload,
-        loading: false,
-        error: null,
-      };
-
-      case DELETE_BIEN: // Si decides agregar una acción DELETE_BIEN explícita
+      case FETCH_TRAZABILIDAD_SUCCESS:
   return {
     ...state,
-    items: state.items.filter((bien) => bien.uuid !== action.payload),
-  }
+    loading: false,
+    transacciones: action.payload.map(transaccion => ({
+      ...transaccion,
+      fotos: transaccion.fotos || [],
+      imeis: transaccion.imeis || [],
+    })),
+    mensaje: action.payload.length ? '' : 'Este bien aún no tiene transacciones.',
+  };
+
+
+    case DELETE_BIEN:
+      return {
+        ...state,
+        items: state.items.filter((bien) => bien.uuid !== action.payload),
+      };
 
     default:
       return state;

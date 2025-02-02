@@ -65,12 +65,20 @@ export const fetchAllBienes = () => async (dispatch) => {
 
   try {
     const response = await api.get('/bienes');
+    console.log("📌 Respuesta del servidor en Redux:", response.data);
+    
     const sortedBienes = response.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     dispatch({ type: FETCH_BIENES_SUCCESS, payload: sortedBienes });
+
+    return sortedBienes; // ✅ AHORA RETORNAMOS LOS BIENES
   } catch (error) {
+    console.error('❌ Error en fetchAllBienes:', error);
     dispatch({ type: FETCH_BIENES_ERROR, payload: error.message });
+
+    return []; // ✅ Devuelve un array vacío en caso de error para evitar undefined
   }
 };
+
 
 
 // Acción para obtener los bienes del usuario 
@@ -205,7 +213,7 @@ export const registrarVenta = (ventaData) => async (dispatch) => {
 };
 
 
-
+// Acción para registrar una compra
 // Acción para registrar una compra
 export const registrarCompra = (formData) => async (dispatch) => {
   try {
@@ -214,7 +222,7 @@ export const registrarCompra = (formData) => async (dispatch) => {
     });
 
     dispatch({
-      type: "REGISTRAR_COMPRA_EXITO",
+      type: REGISTRAR_COMPRA_EXITO,
       payload: response.data,
     });
 
@@ -225,7 +233,7 @@ export const registrarCompra = (formData) => async (dispatch) => {
     console.error("❌ Error en registrarCompra:", error);
 
     dispatch({
-      type: "REGISTRAR_COMPRA_ERROR",
+      type: REGISTRAR_COMPRA_ERROR,
       payload: error.response?.data?.message || "Error desconocido al registrar la compra",
     });
 
@@ -245,11 +253,21 @@ export const fetchTrazabilidadBien = (bienUuid) => async (dispatch) => {
 
   try {
     const response = await api.get(`/bienes/trazabilidad/${bienUuid}`);
-    dispatch({ type: FETCH_TRAZABILIDAD_SUCCESS, payload: response.data });
+    console.log("📌 Trazabilidad recibida:", response.data);
+
+    dispatch({
+      type: FETCH_TRAZABILIDAD_SUCCESS,
+      payload: response.data,
+    });
   } catch (error) {
-    dispatch({ type: FETCH_TRAZABILIDAD_ERROR, payload: handleRequestError(error) });
+    dispatch({
+      type: FETCH_TRAZABILIDAD_ERROR,
+      payload: error.message || "Error desconocido",
+    });
   }
 };
+
+
 
 
 export const actualizarStockPorParametros = (updatedData) => async (dispatch) => {
