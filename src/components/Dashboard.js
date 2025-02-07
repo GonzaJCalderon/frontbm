@@ -1,6 +1,7 @@
+// src/components/Dashboard.js
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaSignOutAlt, FaHome, FaSearch, FaUser, FaTimes } from 'react-icons/fa';
+import { FaSignOutAlt, FaHome, FaSearch, FaUser, FaTimes, FaEnvelope } from 'react-icons/fa';
 import { useSelector, useDispatch } from 'react-redux';
 import searchItems from '../redux/actions/search';
 import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
@@ -39,22 +40,19 @@ const Dashboard = () => {
     }, []);
 
     const handleLogout = () => {
+        localStorage.removeItem('userData');
         navigate('/home');
     };
 
     const handleSearch = (e) => {
         const term = e.target.value.trim();
-        setSearchTerm(term); // Guarda el término de búsqueda
-    
+        setSearchTerm(term);
         if (term.length > 2) {
-            // Si el término es mayor que 2 caracteres, despacha la búsqueda
             dispatch(searchItems(term, searchCategory));
         } else {
-            // Si el término es demasiado corto, muestra una advertencia
             console.log("Búsqueda demasiado corta para procesar");
         }
     };
-    
 
     const handleCategoryChange = (e) => {
         setSearchCategory(e.target.value);
@@ -67,9 +65,7 @@ const Dashboard = () => {
 
     const openModal = (item) => {
         setSelectedItem(item);
-    
         if (user.rol === 'moderador' && !item.dni && !item.cuit) {
-            // Si es moderador y está viendo bienes, solo permite ver
             setFormData({
                 tipo: item.tipo || '',
                 marca: item.marca || '',
@@ -78,15 +74,12 @@ const Dashboard = () => {
                 fotos: item.fotos || [],
             });
         } else {
-            // Si es un administrador o está viendo usuarios, permite editar
             setFormData({
                 ...item,
             });
         }
         setShowModal(true);
     };
-    
-
 
     const closeModal = () => {
         setShowModal(false);
@@ -178,22 +171,22 @@ const Dashboard = () => {
                             </div>
                             {(usuarios.length > 0 || bienes.length > 0) && (
                                 <div className="absolute bg-white border border-gray-300 w-full mt-2 max-h-60 overflow-y-auto">
-                                    {usuarios.map(usuario => (
-                                        <div
-                                            key={usuario.id}
-                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                            onClick={() => openModal(usuario)}
+                                    {usuarios.map(user => (
+                                        <div 
+                                          key={user.id} 
+                                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                          onClick={() => openModal(user)}
                                         >
-                                            {usuario.nombre} {usuario.apellido}
+                                            {user.nombre}
                                         </div>
                                     ))}
                                     {bienes.map(bien => (
-                                        <div
-                                            key={bien.id}
-                                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                            onClick={() => openModal(bien)}
+                                        <div 
+                                          key={bien.id} 
+                                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                                          onClick={() => openModal(bien)}
                                         >
-                                            {bien.marca} {bien.modelo}
+                                            {bien.nombre}
                                         </div>
                                     ))}
                                 </div>
@@ -214,93 +207,141 @@ const Dashboard = () => {
                     </button>
                 </div>
             </header>
-            <main className="mt-6 flex-grow flex flex-col items-center">
-                {loading ? (
-                    <div className="flex items-center justify-center w-full h-full">
-                        <p>Cargando...</p>
-                    </div>
-                ) : (
-                    <div className="w-full">
-                        <Link
-                            to="/admin/usuarios"
-                            className="group bg-blue-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center"
-                        >
-                            <FaUser className="text-blue-500 text-5xl" />
-                            <p className="text-xl font-semibold text-gray-900">Usuarios</p>
-                            <p className="text-sm font-semibold text-gray-600">
-                                Administra los usuarios aprobados y pendientes.
-                            </p>
-                        </Link>
-                        <Link
-                            to="/lista-bienes"
-                            className="group bg-green-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center"
-                        >
-                            <i className="fas fa-boxes text-green-500 text-5xl mb-4"></i>
-                            <p className="font-semibold text-gray-900 text-xl">Bienes Muebles</p>
-                            <p className="font-semibold text-gray-600 text-xs">
-                                Administra los bienes muebles aquí.
-                            </p>
-                        </Link>
-                        {showModal && (
-                            <div className="fixed inset-0 flex items-center justify-center z-50">
-                                <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 md:w-1/3">
-                                    <h2 className="text-2xl font-bold mb-4">
-                                        {selectedItem.dni || selectedItem.cuit ? 'Detalles del Usuario' : 'Detalles del Bien'}
-                                    </h2>
-                                    {selectedItem && (
-    <>
-        {selectedItem.dni || selectedItem.cuit ? (
-            // Detalles del usuario
-            <div>
-                <p><strong>Nombre:</strong> {formData.nombre}</p>
-                <p><strong>Apellido:</strong> {formData.apellido}</p>
-                <p><strong>Email:</strong> {formData.email}</p>
-                <p><strong>Rol:</strong> {formData.rol}</p>
-                <p><strong>DNI:</strong> {formData.dni}</p>
-                <p><strong>CUIT:</strong> {formData.cuit}</p>
-                <p><strong>Dirección:</strong> {formData.direccion}</p>
-            </div>
-        ) : (
-            // Detalles del bien (sin edición)
-            <div>
-                <p><strong>Tipo:</strong> {formData.tipo}</p>
-                <p><strong>Marca:</strong> {formData.marca}</p>
-                <p><strong>Modelo:</strong> {formData.modelo}</p>
-                <p><strong>Descripción:</strong> {formData.descripcion}</p>
-                {Array.isArray(formData.fotos) && formData.fotos.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2">
-                        {formData.fotos.map((foto, index) => (
-                            <img
-                                key={index}
-                                src={foto}
-                                alt={`Foto ${index + 1}`}
-                                className="w-full h-32 object-cover rounded-lg"
-                            />
-                        ))}
-                    </div>
-                )}
-            </div>
-        )}
-    </>
-)}
 
-                                    <div className="mt-6 flex justify-end">
-                                        <button
-                                            onClick={closeModal}
-                                            className="bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
-                                        >
-                                            Cerrar
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
+            <main className="mt-6 flex-grow overflow-x-hidden">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <Link
+                        to="/admin/usuarios"
+                        className="group bg-blue-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center"
+                    >
+                        <FaUser className="text-blue-500 text-5xl" />
+                        <p className="text-xl font-semibold text-gray-900">Usuarios</p>
+                        <p className="text-sm font-semibold text-gray-600">
+                            Administra los usuarios aprobados y pendientes.
+                        </p>
+                    </Link>
+                    <Link
+                        to="/lista-bienes"
+                        className="group bg-green-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center"
+                    >
+                        <i className="fas fa-boxes text-green-500 text-5xl mb-4"></i>
+                        <p className="font-semibold text-gray-900 text-xl">Bienes Muebles</p>
+                        <p className="font-semibold text-gray-600 text-xs">
+                            Administra los bienes muebles aquí.
+                        </p>
+                    </Link>
+                    {/* NUEVO ENLACE A LA BANDEJA DE MENSAJES */}
+                    <Link
+                        to="/inbox"
+                        className="group bg-indigo-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center"
+                    >
+                        <FaEnvelope className="text-indigo-500 text-5xl" />
+                        <p className="text-xl font-semibold text-gray-900">Bandeja de Mensajes</p>
+                        <p className="text-sm font-semibold text-gray-600 text-center">
+                            Accede a las conversaciones.
+                        </p>
+                    </Link>
+                </div>
             </main>
+
+            {/* Modal de búsqueda y de detalles (ya existentes) */}
+            {searchTerm && (usuarios.length > 0 || bienes.length > 0) && (
+                <div className="mt-6">
+                    <h2 className="text-2xl font-semibold mb-4">Resultados de la búsqueda:</h2>
+                    <div className="space-y-4">
+                        <div>
+                            <h3 className="font-semibold">Usuarios:</h3>
+                            {usuarios.length === 0 ? (
+                                <p>No se encontraron usuarios.</p>
+                            ) : (
+                                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-md">
+                                    {usuarios.map(user => (
+                                        <div 
+                                            key={user.id} 
+                                            onClick={() => openModal(user)} 
+                                            className="cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
+                                        >
+                                            {user.nombre}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-4">
+                            <h3 className="font-semibold">Bienes:</h3>
+                            {bienes.length === 0 ? (
+                                <p>No se encontraron bienes.</p>
+                            ) : (
+                                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-md">
+                                    {bienes.map(bien => (
+                                        <div 
+                                            key={bien.id} 
+                                            onClick={() => openModal(bien)} 
+                                            className="cursor-pointer hover:bg-gray-100 p-2 rounded-lg"
+                                        >
+                                            {bien.nombre}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {selectedItem && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-11/12 md:w-1/3">
+                        <h3 className="text-xl font-semibold mb-4">
+                            {selectedItem.dni || selectedItem.cuit ? 'Detalles del Usuario' : 'Detalles del Bien'}
+                        </h3>
+                        {selectedItem && (
+                            <>
+                                {selectedItem.dni || selectedItem.cuit ? (
+                                    <div>
+                                        <p><strong>Nombre:</strong> {formData.nombre}</p>
+                                        <p><strong>Apellido:</strong> {formData.apellido}</p>
+                                        <p><strong>Email:</strong> {formData.email}</p>
+                                        <p><strong>Rol:</strong> {formData.rol}</p>
+                                        <p><strong>DNI:</strong> {formData.dni}</p>
+                                        <p><strong>CUIT:</strong> {formData.cuit}</p>
+                                        <p><strong>Dirección:</strong> {formData.direccion}</p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p><strong>Tipo:</strong> {formData.tipo}</p>
+                                        <p><strong>Marca:</strong> {formData.marca}</p>
+                                        <p><strong>Modelo:</strong> {formData.modelo}</p>
+                                        <p><strong>Descripción:</strong> {formData.descripcion}</p>
+                                        {Array.isArray(formData.fotos) && formData.fotos.length > 0 && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {formData.fotos.map((foto, index) => (
+                                                    <img
+                                                        key={index}
+                                                        src={foto}
+                                                        alt={`Foto ${index + 1}`}
+                                                        className="w-full h-32 object-cover rounded-lg"
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                        <div className="flex justify-end mt-4">
+                            <button 
+                                onClick={closeModal} 
+                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-400"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
-    
 };
 
 export default Dashboard;

@@ -17,6 +17,7 @@ import {
   FETCH_TRAZABILIDAD_ERROR,
   GET_BIENES_USUARIO_REQUEST,
   GET_BIENES_USUARIO_FAILURE, 
+  GET_BIENES_USUARIO_SUCCESS,
   DELETE_BIEN,
 } from '../actions/actionTypes';
 
@@ -51,6 +52,12 @@ const bienesReducer = (state = initialState, action) => {
         ...state,
         loading: true,
         error: null,
+      };
+      case GET_BIENES_USUARIO_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        items: action.payload,  // Aquí se asignan los bienes normalizados
       };
 
     case FETCH_BIENES_SUCCESS:
@@ -129,15 +136,18 @@ const bienesReducer = (state = initialState, action) => {
         ),
       };
 
-    case REGISTRAR_VENTA_EXITO:
-      case REGISTRAR_COMPRA_EXITO:
-        return {
-          ...state,
-          items: [...state.items, ...action.payload.map((transaccion) => transaccion.bien)],
-          success: true,
-          error: null,
-        };
-      
+      case REGISTRAR_VENTA_EXITO:
+        case REGISTRAR_COMPRA_EXITO:
+          return {
+            ...state,
+            items: [
+              ...state.items,
+              ...action.payload.transacciones?.map((transaccion) => transaccion.bien || transaccion.bien_uuid) || [],
+            ],
+            success: true,
+            error: null,
+          };
+        
 
     case REGISTRAR_VENTA_ERROR:
     case REGISTRAR_COMPRA_ERROR:

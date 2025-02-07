@@ -6,25 +6,28 @@ export const searchItems = (term, category) => async (dispatch) => {
 
     try {
         const lowerCaseTerm = term.toLowerCase();
-        const userId = localStorage.getItem('userId');
-        const role = localStorage.getItem('role'); // Asumimos que el rol del usuario también se guarda en localStorage
-        console.log("Buscando término:", lowerCaseTerm);
-
-        if (!userId || !role) {
-            throw new Error("userId o role no encontrados en localStorage.");
+        const userData = JSON.parse(localStorage.getItem('userData')) || {};
+        const uuid = userData.uuid || null;
+        const role = userData.role || null;
+        
+        if (!uuid || !role) { // ✅ CORREGIDO: Ahora validamos uuid correctamente
+            console.warn("Advertencia: uuid o role no encontrados en localStorage.");
+            return dispatch({
+                type: SEARCH_ERROR,
+                payload: "No se encontraron credenciales de usuario.",
+            });
         }
 
-        const params = { query: lowerCaseTerm, userId, role };
+        const params = { query: lowerCaseTerm, uuid, role }; // ✅ CORREGIDO: Ahora se usa uuid correctamente
         if (category && category !== 'todos') {
             params.category = category;
         }
 
         const response = await api.get('/search/buscar', { params });
         console.log("Respuesta completa de la API:", response);
-console.log("Usuarios:", response.data.usuarios);
-console.log("Bienes:", response.data.bienes);
+        console.log("Usuarios:", response.data.usuarios);
+        console.log("Bienes:", response.data.bienes);
 
-        console.log("Respuesta de la API:", response);
         dispatch({
             type: SEARCH_SUCCESS,
             payload: {

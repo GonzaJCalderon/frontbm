@@ -82,6 +82,7 @@ export const fetchAllBienes = () => async (dispatch) => {
 
 
 // Acción para obtener los bienes del usuario 
+// Acción para obtener los bienes del usuario 
 export const fetchBienes = (userUuid) => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_REQUEST });
   try {
@@ -90,41 +91,46 @@ export const fetchBienes = (userUuid) => async (dispatch) => {
     console.log("📌 Datos recibidos desde API:", JSON.stringify(response.data, null, 2));
 
     const bienesNormalizados = response.data
-    .map((bien) => {
-      // 🔍 Calcular stock desde los IMEIs si es un teléfono móvil
-      const stockCalculado =
-        bien.tipo.toLowerCase().includes("teléfono movil") && bien.detalles
-          ? bien.detalles.filter(det => det.estado === "disponible").length
-          : bien.stock
-          ? bien.stock.cantidad
-          : 0;
+      .map((bien) => {
+        // 🔍 Calcular stock desde los IMEIS si es un teléfono móvil
+        const stockCalculado =
+          bien.tipo.toLowerCase().includes("teléfono movil") && bien.detalles
+            ? bien.detalles.filter(det => det.estado === "disponible").length
+            : bien.stock
+            ? bien.stock.cantidad
+            : 0;
   
-      return {
-        uuid: bien.uuid,
-        tipo: bien.tipo,
-        marca: bien.marca,
-        modelo: bien.modelo,
-        descripcion: bien.descripcion,
-        stock: stockCalculado,
-        identificadores: bien.detalles || [],
-        todasLasFotos: [...(bien.fotos || []), ...(bien.detalles?.map((det) => det.foto).filter(Boolean) || [])],
-        createdAt: new Date(bien.createdAt), // ✅ Convertir la fecha a objeto Date
-      };
-    })
-    .sort((a, b) => b.createdAt - a.createdAt); // 🔥 Ordenar del más nuevo al más viejo
+        return {
+          uuid: bien.uuid,
+          tipo: bien.tipo,
+          marca: bien.marca,
+          modelo: bien.modelo,
+          descripcion: bien.descripcion,
+          stock: stockCalculado,
+          identificadores: bien.detalles || [],
+          todasLasFotos: [...(bien.fotos || []), ...(bien.detalles?.map((det) => det.foto).filter(Boolean) || [])],
+          createdAt: new Date(bien.createdAt), // ✅ Convertir la fecha a objeto Date
+        };
+      })
+      .sort((a, b) => b.createdAt - a.createdAt); // 🔥 Ordenar del más nuevo al más viejo
   
-  console.log("📌 Bienes ordenados antes de renderizar:", JSON.stringify(bienesNormalizados, null, 2));
+    console.log("📌 Bienes ordenados antes de renderizar:", JSON.stringify(bienesNormalizados, null, 2));
   
-  dispatch({
-    type: FETCH_BIENES_SUCCESS,
-    payload: bienesNormalizados,
-  });
-  
+    dispatch({
+      type: FETCH_BIENES_SUCCESS,
+      payload: bienesNormalizados,
+    });
+    
+    // Retornamos la respuesta para poder usarla en el componente
+    return { success: true, data: bienesNormalizados };
+
   } catch (error) {
+    const errorMsg = error.response?.data?.message || 'Error al obtener bienes.';
     dispatch({
       type: FETCH_BIENES_ERROR,
-      payload: error.response?.data?.message || 'Error al obtener bienes.',
+      payload: errorMsg,
     });
+    return { success: false, message: errorMsg };
   }
 };
 
@@ -196,19 +202,15 @@ export const updateBien = (uuid, formData) => async dispatch => {
 
 // Acción para registrar una venta
 // Acción para registrar una venta
+// Acción para registrar una venta
 export const registrarVenta = (ventaData) => async (dispatch) => {
   try {
-    const response = await api.post('/transacciones/vender', ventaData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-      },
-    });
-
+    // Nota: No se establece manualmente el header 'Content-Type'
+    const response = await api.post('/transacciones/vender', ventaData);
     return response.data; // Retorna la respuesta si es exitosa
   } catch (error) {
     console.error('Error en registrarVenta:', error);
-    throw handleRequestError(error); // Usar la función de manejo de errores
+    throw handleRequestError(error); // Se asume que tienes definida esta función para manejar errores
   }
 };
 
@@ -347,13 +349,42 @@ export const fetchBienesPorUsuario = (uuid) => async (dispatch) => {
   dispatch({ type: GET_BIENES_USUARIO_REQUEST });
 
   try {
-    // El frontend usa 'uuid' en lugar de 'userId'
     const response = await axios.get(`/bienes/usuario/${uuid}`);
-    console.log('Bienes del usuario:', response.data);
+    console.log('Bienes del usuario (raw):', response.data);
+
+    const bienesNormalizados = response.data.map((bien) => {
+      // Calcula el stock según el tipo y detalles
+      const stockCalculado =
+        (bien.tipo.toLowerCase().includes("teléfono movil") && bien.detalles)
+          ? bien.detalles.filter(det => det.estado.toLowerCase() === "disponible").length
+          : (bien.stock && bien.stock.cantidad !== undefined ? bien.stock.cantidad : (bien.stock || 0));
+    
+      return {
+        uuid: bien.uuid,
+        tipo: bien.tipo,
+        marca: bien.marca,
+        modelo: bien.modelo,
+        descripcion: bien.descripcion,
+        // Asegúrate de que el precio sea numérico para poder usar toFixed
+        precio: bien.precio ? Number(bien.precio) : 0,
+        stock: stockCalculado,
+        identificadores: bien.detalles || [],
+        // Combina las fotos del bien y las fotos de cada detalle (si existen)
+        fotos: [
+          ...(bien.fotos || []),
+          ...((bien.detalles && bien.detalles.length > 0)
+              ? bien.detalles.map(det => det.foto).filter(foto => foto)
+              : [])
+        ],
+        createdAt: new Date(bien.createdAt)
+      };
+    }).sort((a, b) => b.createdAt - a.createdAt);
+
+    console.log('Bienes normalizados:', JSON.stringify(bienesNormalizados, null, 2));
 
     dispatch({
       type: GET_BIENES_USUARIO_SUCCESS,
-      payload: response.data,
+      payload: bienesNormalizados,
     });
   } catch (error) {
     dispatch({
@@ -362,6 +393,7 @@ export const fetchBienesPorUsuario = (uuid) => async (dispatch) => {
     });
   }
 };
+
 
 
 

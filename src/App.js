@@ -25,6 +25,9 @@ import UsuarioDetails from './components/UsuarioDetails';
 import UpdateAccount from './components/UpdateAccount';
 import BienEdit from './components/BienEdit';
 import ReintentarRegistro from './components/ReintentarRegistro';
+import MessageToAdmin from './components/MessageToAdmin';
+import MessageAdmin from './components/AdminMessages';
+import AdminInbox from './components/AdminInbox';
 
 const App = () => {
   return (
@@ -56,6 +59,9 @@ const App = () => {
         <Route path="/upload-stock" element={<ExcelUploadPage />} />
         <Route path="/usuarios/:uuid/reintentar" element={<ReintentarRegistro />} />
         <Route path="/usuarios/update-account/:token" element={<UpdateAccount />} />
+        <Route path="/inbox" element={<AdminInbox />} />
+        <Route path="/admin/chat/:userUuid" element={<MessageAdmin />} />
+        <Route path="/mensaje-admin" element={<MessageToAdmin />} />
       </Routes>
     </div>
   );

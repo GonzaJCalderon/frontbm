@@ -36,9 +36,18 @@ const Login = ({ onRegisterClick }) => {
                     // Guardar los datos en localStorage
                     localStorage.setItem('authToken', token);
                     localStorage.setItem('userUuid', usuario.uuid);
-                    localStorage.setItem('userData', JSON.stringify(usuario));
-    
+                    
+                    // Guardar userData correctamente con uuid y role
+                    localStorage.setItem('userData', JSON.stringify({
+                        uuid: usuario.uuid, // ✅ Ahora se asegura que uuid esté presente
+                        role: usuario.rolDefinitivo, // ✅ Guardar el rol correctamente
+                        email: usuario.email,
+                        nombre: usuario.nombre,
+                        apellido: usuario.apellido
+                    }));
+                
                     console.log('Redirigiendo según el rol definitivo:', usuario.rolDefinitivo);
+                
     
                     // Redirige al tablero de administrador para ambos roles, admin y moderador
                     if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {

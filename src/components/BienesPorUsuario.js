@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Table, Spin, Alert, Button, Space, Input, Modal, Carousel, Typography } from 'antd';
 import { LeftOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchBienes } from '../redux/actions/bienes';
+import { fetchBienesPorUsuario } from '../redux/actions/bienes';
 
 const { Search } = Input;
 const { Title } = Typography;
@@ -27,7 +27,7 @@ const BienesPorUsuario = () => {
   // Obtener los bienes del usuario al cargar el componente
   useEffect(() => {
     if (uuid) {
-      dispatch(fetchBienes(uuid)); // Usamos fetchBienes con el UUID
+      dispatch(fetchBienesPorUsuario(uuid)); // Usamos fetchBienes con el UUID
     }
   }, [uuid, dispatch]);
 
@@ -41,6 +41,7 @@ const BienesPorUsuario = () => {
 
   // Actualizar elementos filtrados cuando se cargan bienes
   useEffect(() => {
+    console.log('Items recibidos:', items);
     if (Array.isArray(items)) {
       const sortedItems = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setFilteredItems(sortedItems);
@@ -132,8 +133,9 @@ const BienesPorUsuario = () => {
       title: 'Precio',
       dataIndex: 'precio',
       key: 'precio',
-      render: (precio) => <span className="text-green-500">{precio ? `$${precio}` : 'No disponible'}</span>,
+      render: (precio) => precio ? `$${precio.toFixed(2)}` : 'No disponible',
     },
+    
     {
       title: 'Stock',
       dataIndex: 'stock',

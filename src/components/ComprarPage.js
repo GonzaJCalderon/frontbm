@@ -856,23 +856,26 @@ const ComprarPage = () => {
     onChange={handleCantidadChange} // Aquí usamos la función corregida
   />
 </Form.Item>
-<Form.Item label="Fotos del Bien">
-  <Upload
-    name="fotos"
-    listType="picture"
-    fileList={fileList} // Asegúrate de que fileList esté definido en el state
-    onChange={({ fileList: newFileList }) => {
-      console.log("📸 Archivos seleccionados en `fileList`:", newFileList);
-      setFileList(newFileList);
-    }}
-    beforeUpload={(file) => {
-      console.log("📤 Foto seleccionada:", file);
-      return false; // Evita la subida automática
-    }}
-  >
-    <Button>Subir Foto</Button>
-  </Upload>
-</Form.Item>
+{tipoSeleccionado !== "teléfono movil" && (
+  <Form.Item label="Fotos del Bien">
+    <Upload
+      name="fotos"
+      listType="picture"
+      fileList={fileList} // Asegúrate de que fileList esté definido en el state
+      onChange={({ fileList: newFileList }) => {
+        console.log("📸 Archivos seleccionados en `fileList`:", newFileList);
+        setFileList(newFileList);
+      }}
+      beforeUpload={(file) => {
+        console.log("📤 Foto seleccionada:", file);
+        return false; // Evita la subida automática
+      }}
+    >
+      <Button>Subir Foto</Button>
+    </Upload>
+  </Form.Item>
+)}
+
 
 
 

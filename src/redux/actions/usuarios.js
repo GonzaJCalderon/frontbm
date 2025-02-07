@@ -60,6 +60,8 @@ import {
     DENY_REGISTRATION_ERROR,
     FETCH_APPROVED_USERS_REQUEST,
     FETCH_APPROVED_USERS_SUCCESS,
+    FETCH_APPROVED_USERS_ERROR,
+    
     FETCH_APPROVED_USERS_FAILURE,
     FETCH_REJECTED_USERS_REQUEST,
     FETCH_REJECTED_USERS_SUCCESS,
@@ -87,24 +89,33 @@ import {
 const getToken = () => localStorage.getItem('token');
 
 // Obtener usuarios
-export const fetchUsuarios = (pageNumber = 1) => async dispatch => {
-    dispatch({ type: FETCH_USUARIOS_REQUEST });
-    try {
-        const response = await api.get(`/usuarios?page=${pageNumber}`);
-        console.log('Respuesta de la API:', response.data); // Verifica que la respuesta contenga los datos esperados
+export const fetchUsuarios = () => async (dispatch) => {
+  dispatch({ type: FETCH_USUARIOS_REQUEST });
 
-        const data = Array.isArray(response.data) ? response.data : [];
-        dispatch({
-            type: FETCH_USUARIOS_SUCCESS,
-            payload: data
-        });
-    } catch (error) {
-        dispatch({
-            type: FETCH_USUARIOS_ERROR,
-            error: error.response ? error.response.data : error.message
-        });
+  try {
+    const response = await api.get('/usuarios');
+
+    if (!response.data || !Array.isArray(response.data)) {
+      throw new Error("La respuesta de la API no es válida.");
     }
+
+    dispatch({
+      type: FETCH_USUARIOS_SUCCESS,
+      payload: response.data,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener usuarios:", error);
+    dispatch({
+      type: FETCH_USUARIOS_ERROR,
+      payload: error.response?.data?.message || "Error desconocido al obtener usuarios.",
+    });
+  }
 };
+
+
+
 
 // Definición de la función getCurrentUserId
 const getCurrentUserId = () => {
@@ -534,27 +545,17 @@ export const denyRegistration = (userUuid, data) => async (dispatch) => {
   }
 };
 
-
-
 export const fetchApprovedUsers = () => async (dispatch) => {
-    dispatch({ type: FETCH_APPROVED_USERS_REQUEST });
-
-    try {
-        const response = await api.get('/usuarios/usuarios/aprobados'); // Ruta del backend
-        console.log("Usuarios aprobados obtenidos:", response.data);
-
-        dispatch({
-            type: FETCH_APPROVED_USERS_SUCCESS,
-            payload: Array.isArray(response.data) ? response.data : [], // Siempre un array
-        });
-    } catch (error) {
-        console.error('Error al obtener usuarios aprobados:', error);
-        dispatch({
-            type: FETCH_APPROVED_USERS_FAILURE,
-            error: error.message,
-        });
-    }
+  dispatch({ type: 'FETCH_APPROVED_USERS_REQUEST' });
+  try {
+    const response = await api.get('/usuarios/usuarios/aprobados'); // Verifica la ruta correcta
+    dispatch({ type: 'FETCH_APPROVED_USERS_SUCCESS', payload: response.data });
+  } catch (error) {
+    console.error("Error al obtener usuarios aprobados:", error);
+    dispatch({ type: 'FETCH_APPROVED_USERS_ERROR', payload: error.message });
+  }
 };
+
 
 
 

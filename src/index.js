@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client'; // Importa createRoot
 import { BrowserRouter as Router } from 'react-router-dom';
 import './assets/styles/tailwind.css';
 import './index.css'; // Importa index.css para aplicar el patrón global
@@ -17,24 +17,29 @@ window.addEventListener('error', (event) => {
   }
 });
 
+// Selecciona el contenedor raíz
+const container = document.getElementById('root');
+// Crea la raíz de la aplicación usando createRoot
+const root = createRoot(container);
 
-ReactDOM.render(
-  <Provider store={store}>
-    <Router>
-      <App />
-      <ToastContainer // Configura el contenedor de notificaciones
-        position="top-right" // Posición de las notificaciones
-        autoClose={3000} // Tiempo de cierre automático en milisegundos
-        hideProgressBar={false} // Mostrar barra de progreso
-        newestOnTop={false} // Mostrar notificaciones nuevas en la parte superior
-        closeOnClick // Cerrar al hacer clic
-        rtl={false} // De derecha a izquierda
-        pauseOnFocusLoss // Pausar al perder el foco
-        draggable // Permitir arrastrar la notificación
-        pauseOnHover // Pausar al pasar el ratón
-        theme="light" // Tema claro (puedes cambiar a "dark" si lo prefieres)
-      />
-    </Router>
-  </Provider>,
-  document.getElementById('root')
+root.render(
+  <React.StrictMode>
+    <Provider store={store}>
+      <Router>
+        <App />
+        <ToastContainer
+          position="top-right"       // Posición de las notificaciones
+          autoClose={3000}           // Tiempo de cierre automático en milisegundos
+          hideProgressBar={false}    // Mostrar barra de progreso
+          newestOnTop={false}        // Mostrar notificaciones nuevas en la parte superior
+          closeOnClick              // Cerrar al hacer clic
+          rtl={false}               // De derecha a izquierda
+          pauseOnFocusLoss          // Pausar al perder el foco
+          draggable                 // Permitir arrastrar la notificación
+          pauseOnHover              // Pausar al pasar el ratón
+          theme="light"             // Tema claro (puedes cambiar a "dark" si lo prefieres)
+        />
+      </Router>
+    </Provider>
+  </React.StrictMode>
 );

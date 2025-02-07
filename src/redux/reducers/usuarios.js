@@ -51,6 +51,7 @@ import {
      FETCH_APPROVED_USERS_REQUEST,
     FETCH_APPROVED_USERS_SUCCESS,
     FETCH_APPROVED_USERS_FAILURE,
+    FETCH_APPROVED_USERS_ERROR,
     FETCH_REJECTED_USERS_REQUEST,
     FETCH_REJECTED_USERS_SUCCESS,
     FETCH_REJECTED_USERS_ERROR,
@@ -402,6 +403,12 @@ const usuariosReducer = (state = initialState, action) => {
                         loading: false,
                         approvedUsers: action.payload, // Asigna los usuarios aprobados al array correcto
                     };
+                    case FETCH_APPROVED_USERS_ERROR:
+  return {
+    ...state,
+    loading: false,
+    error: action.payload,
+  };
                 
             case FETCH_APPROVED_USERS_FAILURE:
                 return { ...state, loading: false, error: action.payload };
@@ -417,6 +424,13 @@ const usuariosReducer = (state = initialState, action) => {
                         loading: false,
                         rejectedUsers: action.payload,
                     };
+                    case FETCH_APPROVED_USERS_ERROR:
+  return {
+    ...state,
+    loading: false,
+    error: action.payload,
+  };
+
                 case FETCH_REJECTED_USERS_ERROR:
                     return {
                         ...state,

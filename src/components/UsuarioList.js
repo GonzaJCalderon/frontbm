@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchApprovedUsers, fetchRejectedUsers, fetchPendingRegistrations, deleteUsuario, denyRegistration, approveUser } from '../redux/actions/usuarios';
-
+import { fetchApprovedUsers, fetchRejectedUsers, fetchPendingRegistrations, deleteUsuario, denyRegistration, approveUser} from '../redux/actions/usuarios';
+import { fetchBienes } from '../redux/actions/bienes';
 import { useNavigate } from 'react-router-dom';
 import { notification, Button, Table, Modal, Input, Spin } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
@@ -10,11 +10,12 @@ import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 const UsuarioList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { approvedUsers, loading, error } = useSelector(state => ({
-    approvedUsers: state.usuarios.approvedUsers || [],
+  const { approvedUsers = [], loading, error } = useSelector(state => ({
+    approvedUsers: Array.isArray(state.usuarios.approvedUsers) ? state.usuarios.approvedUsers : [],
     loading: state.usuarios.loading || false,
     error: state.usuarios.error || null,
   }));
+  
   const [filteredUsuarios, setFilteredUsuarios] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -24,14 +25,27 @@ const UsuarioList = () => {
   const [currentUsuario, setCurrentUsuario] = useState(null);
   const [filters, setFilters] = useState({});
   const [isLoadingAction, setIsLoadingAction] = useState(false);
+  const [bienes, setBienes] = useState([]);
 
 
-  const userData = JSON.parse(localStorage.getItem('userData'));
-  const isAdmin = userData && userData.rolDefinitivo === 'admin';
+
+  const userData = JSON.parse(localStorage.getItem('userData')) || {};
+  console.log("Datos del usuario cargados desde localStorage:", userData);
+  
+  const isAdmin = userData?.role?.toLowerCase() === 'admin';
+  
+
 
   useEffect(() => {
-    dispatch(fetchApprovedUsers());
+    dispatch(fetchApprovedUsers())
+      .then((response) => {
+        console.log("Usuarios aprobados cargados:", response); // 🔹 Verifica qué datos devuelve la API
+      })
+      .catch((error) => {
+        console.error("Error al cargar usuarios aprobados:", error);
+      });
   }, [dispatch]);
+  
 
   useEffect(() => {
     setFilteredUsuarios(approvedUsers);
@@ -40,19 +54,23 @@ const UsuarioList = () => {
   const handleSearch = (newFilters) => {
     setFilters((prevFilters) => {
       const updatedFilters = { ...prevFilters, ...newFilters };
-      const filtered = approvedUsers.filter((usuario) => {
-        const matchesNombre = updatedFilters.nombre ? usuario.nombre?.toLowerCase().includes(updatedFilters.nombre.toLowerCase()) : true;
-        const matchesApellido = updatedFilters.apellido ? usuario.apellido?.toLowerCase().includes(updatedFilters.apellido.toLowerCase()) : true;
-        const matchesDni = updatedFilters.dni ? usuario.dni?.includes(updatedFilters.dni) : true;
-        const matchesEmail = updatedFilters.email ? usuario.email?.toLowerCase().includes(updatedFilters.email.toLowerCase()) : true;
+      const filtered = approvedUsers
+        .filter((usuario) => usuario && typeof usuario === 'object') // 🔹 Asegurar que usuario no sea undefined
+        .filter((usuario) => {
+          const matchesNombre = updatedFilters.nombre
+            ? usuario.nombre?.toLowerCase().includes(updatedFilters.nombre.toLowerCase())
+            : true;
   
-        return matchesNombre && matchesApellido && matchesDni && matchesEmail;
-      });
+          return matchesNombre;
+        });
   
       setFilteredUsuarios(filtered);
       return updatedFilters;
     });
   };
+  
+  
+
 
   const handleReject = (usuario) => {
     if (!usuario || !usuario.uuid) {
@@ -156,7 +174,6 @@ const UsuarioList = () => {
   };
   
   
-
   const handleViewBienes = (usuario) => {
     if (!usuario || !usuario.uuid) {
         notification.error({
@@ -166,17 +183,30 @@ const UsuarioList = () => {
         return;
     }
 
-    // Verifica si el usuario tiene bienes
-    if (!usuario.bienes || usuario.bienes.length === 0) {
-        notification.info({
-            message: 'Sin bienes',
-            description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes.`,
+    console.log("🔎 Solicitando bienes del usuario:", usuario.uuid);
+    
+    dispatch(fetchBienes(usuario.uuid))
+        .then((response) => {
+            if (response.success) {
+                console.log("📌 Bienes obtenidos:", response.data);
+                setBienes(response.data);
+                
+                // 🔥 Redirigir después de obtener los bienes
+                navigate(`/bienes-usuario/${usuario.uuid}`);
+            } else {
+                notification.info({
+                    message: 'Sin bienes',
+                    description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes.`,
+                });
+            }
+        })
+        .catch((error) => {
+            console.error("❌ Error al obtener bienes:", error);
+            notification.error({
+                message: 'Error',
+                description: `No se pudieron obtener los bienes del usuario. Detalle: ${error.message || 'Error desconocido'}`,
+            });
         });
-        return;
-    }
-
-    // Si tiene bienes, redirige
-    navigate(`/bienes-usuario/${usuario.uuid}`);
 };
 
   
@@ -234,7 +264,7 @@ const UsuarioList = () => {
             </Button>
           </div>
           <div className="flex gap-2">
-           <Button
+          <Button
   size="small"
   onClick={() => handleViewBienes(usuario)}
   className="bg-purple-500 text-white rounded"
@@ -242,28 +272,25 @@ const UsuarioList = () => {
   Bienes
 </Button>
 
+
             <Button size="small" onClick={() => navigate(`/admin/historial-cambios/${usuario.uuid}`)} className="bg-blue-500 text-white rounded">
               Historial de Cambios
             </Button>
           </div>
-          {isAdmin && (
-            <div className="flex gap-2">
-              <Button size="small" onClick={() => navigate(`/usuarios/${usuario.uuid}/edit`)} className="bg-yellow-500 text-white rounded">
-                Editar
-              </Button>
-              <Button size="small" onClick={() => handleReject(usuario)} className="bg-orange-500 text-white rounded">
-                Rechazar
-              </Button>
-              <Button
-  size="small"
-  onClick={() => handleDelete(usuario)}
-  className="bg-red-500 text-white rounded"
->
-  Eliminar
-</Button>
+          {isAdmin ? (
+  <div className="flex gap-2">
+    <Button size="small" onClick={() => navigate(`/usuarios/${usuario.uuid}/edit`)} className="bg-yellow-500 text-white rounded">
+      Editar
+    </Button>
+    <Button size="small" onClick={() => handleReject(usuario)} className="bg-orange-500 text-white rounded">
+      Rechazar
+    </Button>
+    <Button size="small" onClick={() => handleDelete(usuario)} className="bg-red-500 text-white rounded">
+      Eliminar
+    </Button>
+  </div>
+) : null}
 
-            </div>
-          )}
         </div>
       ),
     },
