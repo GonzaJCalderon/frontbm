@@ -203,7 +203,7 @@ const UserDashboard = () => {
               </span>
             )}
             <p className="text-xl font-semibold text-gray-900">Enviar Mensaje</p>
-            <p className="text-sm font-semibold text-gray-600 text-center">Contacta al administrador</p>
+            <p className="text-sm font-semibold text-gray-600 text-center">Comunícate con el Equipo del Sistema Provincial Preventivo Bienes Muebles Usados </p>
           </Link>
         </div>
       </main>

@@ -104,10 +104,10 @@ const Inventario = () => {
       dataIndex: 'stock',
       render: (value, record) => {
         console.log("📌 Stock recibido en la tabla:", record.tipo, "->", value);
-        
         return value > 0 ? value : <span style={{ color: 'gray' }}>Sin stock</span>;
       },
     },
+    
     
     
     {

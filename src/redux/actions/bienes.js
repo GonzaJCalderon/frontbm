@@ -94,11 +94,11 @@ export const fetchBienes = (userUuid) => async (dispatch) => {
       .map((bien) => {
         // 🔍 Calcular stock desde los IMEIS si es un teléfono móvil
         const stockCalculado =
-          bien.tipo.toLowerCase().includes("teléfono movil") && bien.detalles
-            ? bien.detalles.filter(det => det.estado === "disponible").length
-            : bien.stock
-            ? bien.stock.cantidad
-            : 0;
+        (bien.tipo.toLowerCase().includes("teléfono movil") && bien.detalles && bien.detalles.length > 0)
+          ? bien.detalles.filter(det => det.estado.toLowerCase() === "disponible").length
+          : (typeof bien.stock === "number" ? bien.stock : (bien.stock?.cantidad || 0));
+      
+
   
         return {
           uuid: bien.uuid,
