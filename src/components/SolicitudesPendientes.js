@@ -18,7 +18,8 @@ const SolicitudesPendientes = () => {
 
     const storedData = localStorage.getItem('userData');
     const currentUser = storedData ? JSON.parse(storedData) : null;
-    const isAdmin = currentUser?.rolDefinitivo === 'admin';
+    const isAdmin = currentUser?.role === 'admin'; // Asegúrate de usar la clave correcta
+
     const isModerator = currentUser?.rolDefinitivo === 'moderador';
   
     const userData = JSON.parse(localStorage.getItem('userData'));
@@ -59,38 +60,36 @@ const SolicitudesPendientes = () => {
 
     // Manejo de aprobación de usuarios
     const handleApprove = (userUuid) => {
-        if (!userUuid) {
-          notification.error({
-            message: 'Error',
-            description: 'No se pudo obtener el UUID del usuario. Inténtalo de nuevo.',
-          });
-          return;
-        }
-      
-        if (isAdmin) {
-          const fechaAprobacion = new Date().toISOString();
-          const aprobadoPor = userData.uuid;
-          const aprobadoPorNombre = `${userData.nombre} ${userData.apellido}`;
-          const estado = 'aprobado';
-      
-          dispatch(approveUser(userUuid, { estado, fechaAprobacion, aprobadoPor, aprobadoPorNombre }))
+        console.log(`Intentando aprobar al usuario con UUID: ${userUuid}`);
+    
+        const fechaAprobacion = new Date().toISOString();
+        const aprobadoPor = userData.uuid;
+        const aprobadoPorNombre = `${userData.nombre} ${userData.apellido}`;
+        const estado = 'aprobado';
+    
+        dispatch(approveUser(userUuid, { estado, fechaAprobacion, aprobadoPor, aprobadoPorNombre }))
             .then(() => {
-              notification.success({
-                message: 'Usuario aprobado',
-                description: `El usuario con UUID ${userUuid} ha sido aprobado correctamente.`,
-              });
-      
-              // Refrescar la lista de rechazados
-              dispatch(fetchRejectedUsers());
+                notification.success({
+                    message: 'Usuario aprobado',
+                    description: `El usuario con UUID ${userUuid} ha sido aprobado correctamente.`,
+                });
+    
+                // Actualizar la lista eliminando el usuario aprobado
+                setFilteredRegistrations((prev) => prev.filter((user) => user.uuid !== userUuid));
+    
+                // Volver a cargar la lista de pendientes
+                dispatch(fetchPendingRegistrations());
             })
             .catch((error) => {
-              notification.error({
-                message: 'Error al aprobar usuario',
-                description: error.message || 'Ocurrió un error inesperado.',
-              });
+                notification.error({
+                    message: 'Error al aprobar usuario',
+                    description: error.message || 'Ocurrió un error inesperado.',
+                });
             });
-        }
-      };
+    };
+    
+    
+    
       
 
     // Mostrar modal de rechazo
@@ -108,7 +107,7 @@ const SolicitudesPendientes = () => {
             });
             return;
         }
-
+    
         try {
             const payload = {
                 estado: 'rechazado',
@@ -116,17 +115,20 @@ const SolicitudesPendientes = () => {
                 fechaRechazo: new Date().toISOString(),
                 rechazadoPor: currentUser.uuid,
             };
-
+    
             await dispatch(denyRegistration(selectedUserUuid, payload));
-
+    
             notification.success({
                 message: 'Registro denegado',
                 description: 'El usuario ha sido rechazado correctamente.',
             });
-
-            setFilteredRegistrations((prev) =>
-                prev.filter((user) => user.uuid !== selectedUserUuid)
-            );
+    
+            // Actualizar la lista eliminando el usuario rechazado
+            setFilteredRegistrations((prev) => prev.filter((user) => user.uuid !== selectedUserUuid));
+    
+            // Volver a cargar la lista de pendientes
+            dispatch(fetchPendingRegistrations());
+    
             setIsModalVisible(false);
             setRejectionReason('');
         } catch (error) {
@@ -136,6 +138,7 @@ const SolicitudesPendientes = () => {
             });
         }
     };
+    
 
     // Cerrar modal de rechazo
     const handleCancel = () => {

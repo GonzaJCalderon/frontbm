@@ -497,13 +497,12 @@ export const fetchPendingRegistrations = () => async (dispatch) => {
 
 
 
-
 export const approveUser = (userUuid, data) => async (dispatch) => {
   dispatch({ type: 'APPROVE_USER_REQUEST' });
 
   try {
-      const token = localStorage.getItem('token'); // Usar token si es necesario
-
+      const token = localStorage.getItem('token');
+      console.log('Token:', token);
       console.log('Payload enviado al backend:', data);
 
       const response = await api.put(`/usuarios/${userUuid}/aprobar`, data, {
@@ -511,6 +510,8 @@ export const approveUser = (userUuid, data) => async (dispatch) => {
               Authorization: `Bearer ${token}`,
           },
       });
+
+      console.log('Respuesta del backend:', response.data);
 
       dispatch({ type: 'APPROVE_USER_SUCCESS', payload: response.data });
       return response.data;
@@ -520,6 +521,7 @@ export const approveUser = (userUuid, data) => async (dispatch) => {
       throw error;
   }
 };
+
 
 
 export const denyRegistration = (userUuid, data) => async (dispatch) => {

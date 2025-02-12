@@ -99,7 +99,7 @@ export const getMessagesByUser = (userUuid) => async (dispatch) => {
 
     console.log(`Obteniendo mensajes del usuario seleccionado: ${userUuid}`);
 
-    const response = await api.get(`/messages/${userUuid}`);
+    const response = await api.get(`/messages/user/${userUuid}`);
 
     dispatch({ type: GET_MESSAGES_SUCCESS, payload: response.data });
   } catch (error) {
