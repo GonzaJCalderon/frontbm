@@ -86,13 +86,22 @@ export const getMessages = () => async (dispatch) => {
 };
 
 
-// En tu acción getMessages (o crea una nueva acción getMessagesByUser)
+// Función auxiliar para obtener datos de un usuario por UUID
+const fetchUserData = async (userUuid) => {
+  try {
+    const response = await api.get(`/usuarios/${userUuid}`);
+    return response.data; // Devuelve el objeto del usuario
+  } catch (error) {
+    console.error("Error obteniendo datos del usuario:", error);
+    return null; // Si falla, retorna null
+  }
+};
+
 // Acción para obtener los mensajes de un usuario específico
 export const getMessagesByUser = (userUuid) => async (dispatch) => {
   dispatch({ type: GET_MESSAGES_REQUEST });
 
   try {
-    // Validar que `userUuid` sea válido antes de hacer la petición
     if (!userUuid || userUuid === "undefined") {
       throw new Error("Error: UUID del usuario a consultar no es válido.");
     }
@@ -100,8 +109,21 @@ export const getMessagesByUser = (userUuid) => async (dispatch) => {
     console.log(`Obteniendo mensajes del usuario seleccionado: ${userUuid}`);
 
     const response = await api.get(`/messages/user/${userUuid}`);
+    let messages = response.data;
 
-    dispatch({ type: GET_MESSAGES_SUCCESS, payload: response.data });
+    // Verificar si los mensajes incluyen datos del remitente
+    for (let msg of messages) {
+      if (!msg.sender || !msg.sender.nombre || !msg.sender.apellido) {
+        const userData = await fetchUserData(msg.senderUuid);
+        if (userData) {
+          msg.sender = userData; // Asignar el usuario al mensaje
+        } else {
+          msg.sender = { nombre: "Desconocido", apellido: "" };
+        }
+      }
+    }
+
+    dispatch({ type: GET_MESSAGES_SUCCESS, payload: messages });
   } catch (error) {
     console.error("Error al obtener mensajes:", error);
     dispatch({ type: GET_MESSAGES_FAIL, payload: "Error al obtener mensajes del usuario." });

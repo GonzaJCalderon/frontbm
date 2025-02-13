@@ -122,17 +122,17 @@ const AdminMessages = () => {
           <p className="text-gray-600">No se encontraron mensajes en esta conversación.</p>
         ) : (
           <ul className="divide-y divide-gray-200">
-            {conversationMessages.map((msg) => (
-              <li
-                key={msg.uuid}
-                className="py-4 flex items-center justify-between"
-              >
+          {conversationMessages.map((msg) => {
+            console.log("Mensaje:", msg); // 👈 Verifica qué datos trae cada mensaje
+        
+            return (
+              <li key={msg.uuid} className="py-4 flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex justify-between items-center">
                     <p className="font-medium text-gray-800">
                       {msg.senderUuid === adminUuid
                         ? 'Yo'
-                        : msg.sender?.nombre || 'Usuario'}
+                        : `${msg.sender?.nombre || 'Desconocido'} ${msg.sender?.apellido || ''}`.trim()}
                     </p>
                     <p className="text-sm text-gray-500">
                       {new Date(msg.createdAt).toLocaleString()}
@@ -141,8 +141,11 @@ const AdminMessages = () => {
                   <p className="text-gray-600 mt-1">{msg.content}</p>
                 </div>
               </li>
-            ))}
-          </ul>
+            );
+          })}
+        </ul>
+        
+        
         )}
       </div>
 
