@@ -35,6 +35,9 @@ const Dashboard = () => {
         user: state.auth.user
     }));
 
+    const logoSrc = 'https://res.cloudinary.com/dtx5ziooo/image/upload/v1739288789/logo-png-sin-fondo_lyddzv.png';
+
+
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
@@ -129,84 +132,84 @@ const Dashboard = () => {
 
     return (
         <div className="p-6 bg-gray-100 min-h-screen flex flex-col overflow-hidden">
-            <header className="bg-blue-600 text-black p-4 flex justify-between items-center">
-                <img src={logo} alt="Logo" className="h-10 w-auto mr-6" />
-                <h1 className="text-2xl text-white font-bold mb-4">
-                    Bienvenido/a, {user ? `${user.nombre} ${user.apellido}` : 'Invitado'}
-                </h1>
-                <div className="flex items-center space-x-4">
-                    <FaSearch
-                        className="text-white w-5 h-5 cursor-pointer"
-                        onClick={() => setShowSearch(!showSearch)}
-                    />
-                    {showSearch && (
-                        <div className="relative">
-                            <div className="flex items-center">
-                                <select
-                                    value={searchCategory}
-                                    onChange={handleCategoryChange}
-                                    className="px-2 py-2 rounded border border-gray-300 mr-2"
-                                >
-                                    <option value="nombre">Nombre</option>
-                                    <option value="apellido">Apellido</option>
-                                    <option value="email">Email</option>
-                                    <option value="dni">DNI</option>
-                                    <option value="cuit">CUIT</option>
-                                    <option value="direccion">Dirección</option>
-                                    <option value="marca">Marca</option>
-                                    <option value="modelo">Modelo</option>
-                                    <option value="tipo">Tipo</option>
-                                </select>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar..."
-                                    value={searchTerm}
-                                    onChange={handleSearch}
-                                    className="px-4 py-2 rounded border border-gray-300"
-                                />
-                                <FaTimes
-                                    className="text-gray-500 w-5 h-5 cursor-pointer ml-2"
-                                    onClick={closeSearch}
-                                />
-                            </div>
-                            {(usuarios.length > 0 || bienes.length > 0) && (
-                                <div className="absolute bg-white border border-gray-300 w-full mt-2 max-h-60 overflow-y-auto">
-                                    {usuarios.map(user => (
-                                        <div 
-                                          key={user.id} 
-                                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                          onClick={() => openModal(user)}
-                                        >
-                                            {user.nombre}
-                                        </div>
-                                    ))}
-                                    {bienes.map(bien => (
-                                        <div 
-                                          key={bien.id} 
-                                          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                          onClick={() => openModal(bien)}
-                                        >
-                                            {bien.nombre}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    <button
-                        onClick={() => navigate('/home')}
-                        className="flex items-center px-2 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
-                    >
-                        <FaHome className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center px-2 py-2 bg-red-700 text-white rounded hover:bg-red-800"
-                    >
-                        <FaSignOutAlt className="w-5 h-5" />
-                    </button>
-                </div>
-            </header>
+           <header className="bg-blue-600 text-black p-4 flex justify-between items-center">
+  <img src={logoSrc} alt="Logo" className="h-10 w-auto mr-6" />
+  <h1 className="text-2xl text-white font-bold mb-4">
+    Bienvenido/a, {user ? `${user.nombre} ${user.apellido}` : 'Invitado'}
+  </h1>
+  <div className="flex items-center space-x-4">
+    <FaSearch
+      className="text-white w-5 h-5 cursor-pointer"
+      onClick={() => setShowSearch(!showSearch)}
+    />
+    {showSearch && (
+      <div className="relative">
+        <div className="flex items-center">
+          <select
+            value={searchCategory}
+            onChange={handleCategoryChange}
+            className="px-2 py-2 rounded border border-gray-300 mr-2"
+          >
+            <option value="nombre">Nombre</option>
+            <option value="apellido">Apellido</option>
+            <option value="email">Email</option>
+            <option value="dni">DNI</option>
+            <option value="cuit">CUIT</option>
+            <option value="direccion">Dirección</option>
+            <option value="marca">Marca</option>
+            <option value="modelo">Modelo</option>
+            <option value="tipo">Tipo</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Buscar..."
+            value={searchTerm}
+            onChange={handleSearch}
+            className="px-4 py-2 rounded border border-gray-300"
+          />
+          <FaTimes
+            className="text-gray-500 w-5 h-5 cursor-pointer ml-2"
+            onClick={closeSearch}
+          />
+        </div>
+        {(usuarios.length > 0 || bienes.length > 0) && (
+          <div className="absolute bg-white border border-gray-300 w-full mt-2 max-h-60 overflow-y-auto">
+            {usuarios.map(user => (
+              <div
+                key={user.id}
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => openModal(user)}
+              >
+                {user.nombre}
+              </div>
+            ))}
+            {bienes.map(bien => (
+              <div
+                key={bien.id}
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => openModal(bien)}
+              >
+                {bien.nombre}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+    <button
+      onClick={() => navigate('/home')}
+      className="flex items-center px-2 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
+    >
+      <FaHome className="w-5 h-5" />
+    </button>
+    <button
+      onClick={handleLogout}
+      className="flex items-center px-2 py-2 bg-red-700 text-white rounded hover:bg-red-800"
+    >
+      <FaSignOutAlt className="w-5 h-5" />
+    </button>
+  </div>
+</header>
 
             <main className="mt-6 flex-grow overflow-x-hidden">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

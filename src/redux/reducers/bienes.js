@@ -137,6 +137,21 @@ const bienesReducer = (state = initialState, action) => {
       };
 
       case REGISTRAR_VENTA_EXITO:
+        return {
+          ...state,
+          items: state.items.map(bien => 
+            bien.uuid === action.payload.uuid
+              ? {
+                  ...bien,
+                  propietario: action.payload.propietario ?? bien.propietario,
+                  stock: action.payload.stock ?? bien.stock,
+                  fechaActualizacion: action.payload.updatedAt ?? bien.fechaActualizacion,
+                }
+              : bien
+          ),
+          success: true,
+        };
+      
         case REGISTRAR_COMPRA_EXITO:
           return {
             ...state,

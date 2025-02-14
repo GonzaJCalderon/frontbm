@@ -138,7 +138,7 @@ const UserDashboard = () => {
         <div className="flex items-center">
           <img src={logo} alt="Logo" className="h-10 w-10 mr-2" />
           <h1 className="text-lg md:text-l font-semibold text-center md:text-left">
-            Bienvenido/a <span className="text-yellow-200">{fullName},</span> al Registro de Bienes Muebles
+            Bienvenido/a, <span className="text-yellow-200">{fullName},</span> al Registro de Bienes Muebles.
           </h1>
         </div>
         <div className="flex items-center space-x-2 mt-2 md:mt-0 relative">

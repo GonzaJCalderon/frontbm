@@ -889,7 +889,7 @@ const ComprarPage = () => {
       />
     </Form.Item>
 
-    <Form.Item label="Foto del IMEI">
+    <Form.Item label="Foto del teléfono">
     <Upload
   listType="picture"
   beforeUpload={(file) => {

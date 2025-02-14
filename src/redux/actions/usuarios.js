@@ -577,7 +577,7 @@ export const fetchRejectedUsers = () => async (dispatch) => {
 // Acción para verificar si el usuario existe
 export const checkExistingUser = (params) => async (dispatch) => {
   try {
-    console.log("Datos enviados a checkExistingUser:", params); // Log para verificar
+    console.log("📌 Enviando datos a checkExistingUser:", params);
     const { dni, nombre, apellido } = params;
 
     if (!dni || !nombre || !apellido) {
@@ -585,12 +585,18 @@ export const checkExistingUser = (params) => async (dispatch) => {
     }
 
     const response = await api.post("/usuarios/check", { dni, nombre, apellido });
-    return response.data;
+
+    if (response.data?.usuario) {
+      return { existe: true, usuario: response.data.usuario };
+    } else {
+      return { existe: false }; // Si no existe, devolvemos `{ existe: false }`
+    }
   } catch (error) {
-    console.error("Error en checkExistingUser:", error.message);
-    throw error;
+    console.error("❌ Error en checkExistingUser:", error.message);
+    return { existe: false }; // Devolver `existe: false` si hay error
   }
 };
+
 
 // Acción para enviar el enlace de actualización de cuenta
 export const sendUpdateAccountLink = (userId) => async () => {
@@ -604,44 +610,58 @@ export const sendUpdateAccountLink = (userId) => async () => {
   }
 };
 
-
 export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
   dispatch({ type: REGISTER_USER_THIRD_PARTY_REQUEST });
 
   try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-          throw new Error('Token no disponible.');
-      }
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Token no disponible.');
+    }
 
-      const response = await api.post(
-          '/usuarios/register-usuario-por-tercero',
-          usuarioData,
-          {
-              headers: {
-                  Authorization: `Bearer ${token}`,
-              },
-          }
-      );
+    console.log("📌 Enviando datos para registrar usuario:", usuarioData);
 
-      if (response.data?.usuario) {
-          dispatch({
-              type: REGISTER_USER_THIRD_PARTY_SUCCESS,
-              payload: response.data.usuario,
-          });
+    // 🔹 Asegurarnos de que la estructura es correcta antes de enviar
+    const cleanedData = {
+      dni: usuarioData.dni,
+      nombre: usuarioData.nombre.trim(),
+      apellido: usuarioData.apellido.trim(),
+      email: usuarioData.email.trim(),
+      tipo: usuarioData.tipo,
+      cuit: usuarioData.cuit?.trim() || "", // Evitar `undefined`
+      direccion: usuarioData.direccion || {}, // Evitar `undefined`
+      razonSocial: usuarioData.tipo === 'juridica' ? usuarioData.razonSocial?.trim() : null,
+    };
 
-          return response.data.usuario; // Asegúrate de retornar el usuario registrado
-      }
+    const response = await api.post('/usuarios/register-usuario-por-tercero', cleanedData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-      throw new Error('No se pudo registrar el usuario.');
-  } catch (error) {
+    if (response.data?.usuario) {
       dispatch({
-          type: REGISTER_USER_THIRD_PARTY_ERROR,
-          error: error.message,
+        type: REGISTER_USER_THIRD_PARTY_SUCCESS,
+        payload: response.data.usuario,
       });
-      throw error; // Propaga el error para manejarlo en el UI
+
+      console.log("✅ Usuario registrado con éxito:", response.data.usuario);
+      return response.data.usuario;
+    }
+
+    throw new Error('No se pudo registrar el usuario.');
+  } catch (error) {
+    dispatch({
+      type: REGISTER_USER_THIRD_PARTY_ERROR,
+      error: error.message,
+    });
+
+    console.error("❌ Error en registerUsuarioPorTercero:", error.response?.data || error);
+    throw new Error(error.response?.data?.message || "Error en el registro de usuario.");
   }
 };
+
 
   
   // Acción para obtener historial de cambios

@@ -29,10 +29,11 @@ const AdminOperaciones = () => {
 
     // Separar las transacciones en compras y ventas
     const compras = transaccionesArray
-        .filter(transaccion => transaccion.comprador_uuid === uuid) // Filtrar por comprador_uuid
+        .filter(transaccion => transaccion.comprador_uuid === uuid)
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    
     const ventas = transaccionesArray
-        .filter(transaccion => transaccion.vendedor_uuid === uuid) // Filtrar por vendedor_uuid
+        .filter(transaccion => transaccion.vendedor_uuid === uuid)
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
     // Función para renderizar la dirección
@@ -40,44 +41,60 @@ const AdminOperaciones = () => {
         return direccion ? `${direccion.calle}, ${direccion.altura}, ${direccion.barrio}, ${direccion.departamento}` : 'Sin dirección';
     };
 
+    // Función auxiliar para detectar si es un Teléfono Móvil
+    const esTelefonoMovil = (tipo) => {
+        if (!tipo) return false;
+        const lower = tipo.toLowerCase();
+        return lower.includes('teléfono') && (lower.includes('móvil') || lower.includes('movil'));
+    };
+
+    // Función para renderizar las imágenes, incluyendo fotos de IMEIs si el bien es un teléfono móvil
+    const renderImagen = (text, record) => {
+        let fotos = record.bienTransaccion?.fotos || [];
+
+        if (esTelefonoMovil(record.bienTransaccion?.tipo) && record.bienTransaccion?.detalles) {
+            const fotosIMEIs = record.bienTransaccion.detalles
+                .map((det) => det.foto)
+                .filter((url) => url);
+            fotos = [...fotos, ...fotosIMEIs]; 
+        }
+
+        return fotos.length > 0 ? (
+            <Space>
+                {fotos.map((foto, index) => (
+                    <Image
+                        key={index}
+                        width={80}
+                        src={foto} 
+                        alt={`Imagen ${index + 1}`}
+                        onError={(e) => {
+                            e.target.src = '/images/placeholder.png'; 
+                        }}
+                    />
+                ))}
+            </Space>
+        ) : (
+            <span>Sin imagen</span>
+        );
+    };
+
     // Configurar las columnas de las tablas
     const columnsCompras = [
-        {
-            title: 'Imagen',
-            dataIndex: 'fotos', // Cambiar de ['bien', 'fotos'] a 'fotos'
-            key: 'imagen',
-            render: (fotos) => {
-                return Array.isArray(fotos) && fotos.length > 0 ? (
-                    fotos.map((url, index) => (
-                        <Image
-                            key={index}
-                            width={80}
-                            src={url}
-                            alt="Imagen del bien"
-                            onError={(e) => {
-                                e.target.src = '/images/placeholder.png';
-                            }}
-                        />
-                    ))
-                ) : (
-                    <span>Sin imagen</span>
-                );
-            },
-        },
+        { title: 'Imagen', key: 'imagen', render: renderImagen },
         { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
         { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
         { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
-        { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' },  // Accediendo correctamente al campo tipo
+        { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' },
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
         {
             title: 'Vendedor',
             render: (text, record) => (
                 <span>
-                    {record.vendedorTransaccion.nombre} {record.vendedorTransaccion.apellido} <br />
-                    DNI: {record.vendedorTransaccion.dni} <br />
-                    CUIT: {record.vendedorTransaccion.cuit} <br />
-                    Email: {record.vendedorTransaccion.email} <br />
-                    Dirección: {renderDireccion(record.vendedorTransaccion.direccion)} <br />
+                    {record.vendedorTransaccion?.nombre} {record.vendedorTransaccion?.apellido} <br />
+                    DNI: {record.vendedorTransaccion?.dni} <br />
+                    CUIT: {record.vendedorTransaccion?.cuit} <br />
+                    Email: {record.vendedorTransaccion?.email} <br />
+                    Dirección: {renderDireccion(record.vendedorTransaccion?.direccion)}
                 </span>
             ),
             key: 'vendedor',
@@ -90,42 +107,21 @@ const AdminOperaciones = () => {
     ];
 
     const columnsVentas = [
-        {
-            title: 'Imagen',
-            dataIndex: 'fotos', // Cambiar de ['bien', 'fotos'] a 'fotos'
-            key: 'imagen',
-            render: (fotos) => {
-                return Array.isArray(fotos) && fotos.length > 0 ? (
-                    fotos.map((url, index) => (
-                        <Image
-                            key={index}
-                            width={80}
-                            src={url}
-                            alt="Imagen del bien"
-                            onError={(e) => {
-                                e.target.src = '/images/placeholder.png';
-                            }}
-                        />
-                    ))
-                ) : (
-                    <span>Sin imagen</span>
-                );
-            },
-        },
+        { title: 'Imagen', key: 'imagen', render: renderImagen },
         { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
         { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
         { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
-        { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' }, // Accediendo correctamente al campo tipo
+        { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' },
         { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
         {
             title: 'Comprador',
             render: (text, record) => (
                 <span>
-                    {record.compradorTransaccion.nombre} {record.compradorTransaccion.apellido} <br />
-                    DNI: {record.compradorTransaccion.dni} <br />
-                    CUIT: {record.compradorTransaccion.cuit} <br />
-                    Email: {record.compradorTransaccion.email} <br />
-                    Dirección: {renderDireccion(record.compradorTransaccion.direccion)} <br />
+                    {record.compradorTransaccion?.nombre} {record.compradorTransaccion?.apellido} <br />
+                    DNI: {record.compradorTransaccion?.dni} <br />
+                    CUIT: {record.compradorTransaccion?.cuit} <br />
+                    Email: {record.compradorTransaccion?.email} <br />
+                    Dirección: {renderDireccion(record.compradorTransaccion?.direccion)}
                 </span>
             ),
             key: 'comprador',

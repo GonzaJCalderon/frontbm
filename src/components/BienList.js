@@ -15,55 +15,46 @@ const BienList = () => {
   const userData = JSON.parse(localStorage.getItem('userData'));
   const isAdmin = userData?.rolDefinitivo === 'admin';
 
+  const [refreshFlag, setRefreshFlag] = useState(false); // 🚀 Estado para controlar recargas
+
   useEffect(() => {
-  
     const loadBienes = async () => {
       setIsLoading(true);
       try {
         const response = await dispatch(fetchAllBienes());
-    
+  
         if (response && Array.isArray(response)) {
           console.log("📌 Bienes recibidos (frontend):", response);
-    
-          const sortedBienes = response.map(bien => {
-            // 🔹 Asegurar stock correcto para todos los bienes
-            const stockCalculado = bien.tipo?.toLowerCase().includes('teléfono movil') && bien.detalles
-              ? bien.detalles.filter(det => det.estado === "disponible").length
-              : bien.stock !== undefined && bien.stock !== null 
-                ? bien.stock 
-                : 0; // Si no hay stock, se asigna 0
-    
-            const todasLasFotos = [
-              ...(bien.fotos || []), 
-              ...(bien.detalles?.map(d => d.foto).filter(Boolean) || [])
-            ];
-    
-            return {
-              ...bien,
-              stock: stockCalculado,
-              todasLasFotos,
-              propietario: bien.propietario ? `${bien.propietario.nombre} ${bien.propietario.apellido}` : "Desconocido", // ✅ Restaurar propietario
-              fechaCreacion: new Date(bien.createdAt).toLocaleDateString(), // ✅ Restaurar fecha
-            };
-          });
-    
-          sortedBienes.sort((a, b) => b.createdAt - a.createdAt);
+  
+          const sortedBienes = response.map((bien) => ({
+            ...bien,
+            stock: bien.detalles
+              ? bien.detalles.filter((det) => det.estado === "disponible").length
+              : bien.stock !== undefined && bien.stock !== null
+              ? bien.stock
+              : 0,
+            propietario: bien.propietario || "Desconocido",
+            fechaActualizacion: bien.fechaActualizacion || "Sin fecha",
+
+          }));
+  
+          sortedBienes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)); // 🔥 Asegurar que se ordenan bien
           setFilteredBienes(sortedBienes);
         } else {
           console.error("⚠️ fetchAllBienes no devolvió un array:", response);
         }
       } catch (error) {
-        console.error('❌ Error al cargar los bienes:', error);
+        console.error("❌ Error al cargar los bienes:", error);
       } finally {
         setIsLoading(false);
       }
     };
-    
-
-
   
     loadBienes();
-  }, [dispatch]);
+  }, [dispatch, refreshFlag]); // 🔥 Se actualiza cuando cambia refreshFlag
+  
+  
+  
   
 
   const handleDelete = (bien) => {
@@ -89,15 +80,15 @@ const BienList = () => {
     { title: 'Marca', dataIndex: 'marca', key: 'marca' },
     { title: 'Descripción', dataIndex: 'descripcion', key: 'descripcion' },
     {
-      title: 'Propietario', // ✅ Restauramos la columna
+      title: 'Propietario', // ✅ Mostrar correctamente el propietario
       dataIndex: 'propietario',
       key: 'propietario',
+      render: (propietario, record) => propietario ?? "Sin propietario",
     },
-    {
-      title: 'Fecha', // ✅ Restauramos la columna
-      dataIndex: 'fechaCreacion',
-      key: 'fechaCreacion',
-    },
+    { title: "Fecha", 
+      dataIndex: "fechaActualizacion", 
+      key: "fechaActualizacion" },
+
     {
       title: 'Fotos',
       dataIndex: 'todasLasFotos',

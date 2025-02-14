@@ -1,5 +1,8 @@
 import axios from 'axios';
 import api from '../axiosConfig'; // Importa tu instancia de Axios
+import { fetchAllBienes } from '../actions/bienes';
+
+
 import { 
     UPDATE_STOCK, 
     FETCH_USUARIO_COMPRAS_VENTAS_REQUEST, 
@@ -17,21 +20,33 @@ import {
     FINALIZAR_CREACION_REQUEST,
     FINALIZAR_CREACION_SUCCESS,
     FINALIZAR_CREACION_FAILURE ,
+    REGISTRAR_VENTA_EXITO,
+    REGISTRAR_VENTA_ERROR,
     
 } from './actionTypes';
 
 export const registrarVenta = (ventaData) => async (dispatch) => {
     try {
-        const response = await api.post('/bienes/transaccion', ventaData); // Cambia a 'api'
-        dispatch({ type: 'REGISTRAR_VENTA_EXITO', payload: response.data });
+      const response = await api.post('/ventas/registrar', ventaData);
+      console.log("📌 Venta registrada, respuesta del backend:", response.data);
+  
+      if (response.data.success) {
+        dispatch({ type: REGISTRAR_VENTA_EXITO, payload: response.data });
+        
+        // 🔥 Forzar actualización de bienes después de la venta
+        dispatch(fetchAllBienes());
+  
         return response.data;
+      } else {
+        throw new Error(response.data.message || "Error al registrar la venta");
+      }
     } catch (error) {
-        console.error('Error al registrar la venta:', error);
-        dispatch({ type: 'REGISTRAR_VENTA_ERROR', payload: error });
-        throw error;
+      console.error('❌ Error en registrarVenta:', error);
+      dispatch({ type: REGISTRAR_VENTA_ERROR, payload: error.message });
+      return { error: error.message };
     }
-};
-
+  };
+  
 export const registrarCompra = (compraData) => async (dispatch, getState) => {
     try {
         const { auth: { token } } = getState();
