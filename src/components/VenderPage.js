@@ -351,13 +351,36 @@ const actualizarPrecioImei = (index, value) => {
 };
 
 // Actualizar la foto
+
 const actualizarFotoImei = (index, file) => {
-  setImeisNuevo(prev => {
-    const nuevos = [...prev];
-    nuevos[index].foto = file;
-    return nuevos;
+  if (!file) {
+    console.error("❌ ERROR: `file` es undefined en actualizarFotoImei");
+    return;
+  }
+
+  setImeisNuevo(prevImeis => {
+    const nuevosImeis = [...prevImeis];
+    nuevosImeis[index] = { ...nuevosImeis[index], foto: file.originFileObj || file };
+
+    // 🔥 ACTUALIZAMOS `bienesAVender` DESDE AQUÍ
+    setBienesAVender(prevBienes => {
+      return prevBienes.map(bien => {
+        if (bien.tipo.toLowerCase() === "teléfono movil") {
+          return {
+            ...bien,
+            imeis: nuevosImeis, // 🔥 Ahora `imeis` realmente se actualiza
+          };
+        }
+        return bien;
+      });
+    });
+
+    return nuevosImeis;
   });
+
+  console.log("✅ IMEI actualizado correctamente:", index, file.originFileObj || file);
 };
+
 
 // Función para eliminar un teléfono
 const eliminarImei = (index) => {
@@ -372,32 +395,7 @@ const eliminarImei = (index) => {
   const agregarBienAVenta = (values) => {
     let bienesParaAgregar = [];
   
-    if (subStep2 === 'existente') {
-      if (!selectedGoods || selectedGoods.length === 0) {
-        message.error("Debes seleccionar al menos un bien existente.");
-        return;
-      }
-  
-    bienesParaAgregar = selectedGoods.map(bien => ({
-  uuid: bien.uuid,
-  tipo: bien.tipo,
-  marca: bien.marca,
-  modelo: bien.modelo,
-  descripcion: bien.descripcion,
-  precio: bien.tipo.toLowerCase() === "teléfono movil" ? null : values.precio || bien.precio,
-  cantidad: values.cantidad || 1,
-  metodoPago: values.metodoPago || "efectivo",
-  imeis: bien.tipo.toLowerCase() === "teléfono movil"
-    ? (bien.identificadores || []).map(imeiObj => ({
-        imei: imeiObj.identificador_unico,
-        precio: bien.precio, // 🔥 Se usa el precio individual de cada teléfono
-        foto: imeiObj.foto || null, // 🔥 Se usa la foto existente
-      }))
-    : [],
-  fotos: bien.fotos && bien.fotos.length > 0 ? bien.fotos : [], // 🔥 Mantiene las fotos originales
-}));
-
-    } else if (subStep2 === 'nuevo') {
+    if (subStep2 === "nuevo") {
       if (values.tipo.toLowerCase() === "teléfono movil") {
         bienesParaAgregar.push({
           uuid: null,
@@ -405,11 +403,16 @@ const eliminarImei = (index) => {
           marca: values.marca,
           modelo: values.modelo,
           descripcion: values.descripcion,
-          precio: null, // 🔥 Se ignora el precio global
+          precio: null, 
           cantidad: values.cantidad,
           metodoPago: values.metodoPago || "efectivo",
-          imeis: imeisNuevo, // 🔥 Enviamos el precio individual de cada IMEI
-          fotos: []
+          imeis: imeisNuevo.map((imeiObj, index) => ({
+            imei: imeiObj.imei,
+            precio: imeiObj.precio,
+            foto: imeiObj.foto ? (imeiObj.foto.originFileObj || imeiObj.foto) : null
+            // 🔥 IMPORTANTE: Enviar la imagen correctamente
+          })),
+          fotos: [],
         });
       } else {
         bienesParaAgregar.push({
@@ -418,12 +421,12 @@ const eliminarImei = (index) => {
           marca: values.marca,
           modelo: values.modelo,
           descripcion: values.descripcion,
-          precio: values.precio, // 🔥 Solo se usa en bienes que NO son teléfonos móviles
+          precio: values.precio,
           cantidad: values.cantidad,
           metodoPago: values.metodoPago || "efectivo",
           imeis: [],
           fotos: fileList.map(file => ({
-            url: file.originFileObj,  // Se envía como objeto de archivo
+            url: file.originFileObj, // 🔥 IMPORTANTE: Enviar la imagen correctamente
           })),
         });
       }
@@ -460,6 +463,18 @@ const eliminarImei = (index) => {
       formData.append("compradorId", compradorId);
       formData.append("ventaData", JSON.stringify(bienesAVender));
   
+      // 📌 Agregar imágenes de IMEIs
+      bienesAVender.forEach((bien, bienIndex) => {
+        bien.imeis.forEach((imei, imeiIndex) => {
+          if (imei.foto) {
+            console.log(`📸 Enviando imagen de IMEI ${imei.imei}:`, imei.foto); // 🔥 DEBE MOSTRAR EL ARCHIVO
+            formData.append(`venta[${bienIndex}][imeis][${imeiIndex}][foto]`, imei.foto);
+          } else {
+            console.warn(`⚠️ IMEI ${imei.imei} NO tiene imagen asignada.`);
+          }
+        });
+      });
+  
       console.log("📤 Enviando datos al backend...");
       const response = await dispatch(registrarVenta(formData));
   
@@ -467,8 +482,6 @@ const eliminarImei = (index) => {
   
       if (response?.message === "Venta registrada correctamente.") {
         message.success("✅ Venta completada con éxito.");
-        setRefreshFlag(prev => !prev); // 🔥 Forzar recarga de bienes después de la venta
-        await dispatch(fetchAllBienes());
         navigate("/user/dashboard");
       } else {
         throw new Error(response?.message || "❌ Error al registrar la venta.");
@@ -480,8 +493,6 @@ const eliminarImei = (index) => {
       setLoadingVenta(false);
     }
   };
-  
-  
   
   
   
@@ -843,18 +854,25 @@ const eliminarImei = (index) => {
             />
           </Form.Item>
           <Form.Item label="Foto del teléfono">
-            <Upload
-              name="imeiFoto"
-              listType="picture"
-              beforeUpload={(file) => {
-                actualizarFotoImei(index, file);
-                return false;
-              }}
-              showUploadList={true}
-            >
-              <Button>Subir Foto teléfono</Button>
-            </Upload>
-          </Form.Item>
+  <Upload
+    name="imeiFoto"
+    listType="picture"
+    beforeUpload={(file) => {
+      console.log("📸 Foto seleccionada:", file); // 🔥 Esto debe mostrar un archivo real
+      actualizarFotoImei(index, file);
+      return false; // 🔥 Detiene la carga automática para manejarla manualmente
+    }}
+    onChange={(info) => {
+      console.log("📸 onChange recibido:", info.file); // 🔥 Debe mostrar un archivo real
+      actualizarFotoImei(index, info.file);
+    }}
+    showUploadList={true}
+  >
+    <Button>Subir Foto teléfono</Button>
+  </Upload>
+</Form.Item>
+
+
           <Button type="danger" onClick={() => eliminarImei(index)}>
             Eliminar
           </Button>
