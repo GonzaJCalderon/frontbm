@@ -61,7 +61,8 @@ const VenderPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGood, setSelectedGood] = useState(null);
   const [selectedGoods, setSelectedGoods] = useState([]);
-const [tipoNuevo, setTipoNuevo] = useState(null);
+  const [tipoNuevo, setTipoNuevo] = useState('');
+
 
 
   // Paginación para bienes existentes
@@ -82,6 +83,8 @@ const [tipoNuevo, setTipoNuevo] = useState(null);
   const [modelos, setModelos] = useState([]);
   const [nuevaMarca, setNuevaMarca] = useState('');
   const [nuevoModelo, setNuevoModelo] = useState('');
+  const [totalPrecioIndividual, setTotalPrecioIndividual] = useState(0);
+
 
   // Loading global
   const [loading, setLoading] = useState(false);
@@ -182,6 +185,11 @@ const [tipoNuevo, setTipoNuevo] = useState(null);
     }
   };
   
+  useEffect(() => {
+    const total = imeisNuevo.reduce((acc, curr) => acc + (Number(curr.precio) || 0), 0);
+    setTotalPrecioIndividual(total);
+  }, [imeisNuevo]);
+  
 
   // --- Paso 2: Cargar bienes existentes con paginación ---
   useEffect(() => {
@@ -252,6 +260,7 @@ const [tipoNuevo, setTipoNuevo] = useState(null);
 
   // --- Funciones para bienes nuevos (tipo, marca, modelo) ---
   const handleTipoChange = async (tipo) => {
+    setTipoNuevo(tipo);
     try {
       const r = await api.get(`/bienes/bienes/marcas?tipo=${tipo}`);
       if (r.status === 200 && r.data.marcas) {
@@ -346,9 +355,16 @@ const actualizarPrecioImei = (index, value) => {
   setImeisNuevo(prev => {
     const nuevos = [...prev];
     nuevos[index].precio = value;
+
+    // 🔥 Recalcular el total de precios individuales
+    const total = nuevos.reduce((acc, curr) => acc + (Number(curr.precio) || 0), 0);
+    setTotalPrecioIndividual(total);
+
     return nuevos;
   });
 };
+
+
 
 // Actualizar la foto
 
@@ -886,13 +902,15 @@ const eliminarImei = (index) => {
         Agregar IMEI
       </Button>
       {/* Campo de solo lectura que muestra el total calculado */}
-      <Form.Item label="Total Precio">
-        <InputNumber
-          value={imeisNuevo.reduce((acc, curr) => acc + (Number(curr.precio) || 0), 0)}
-          disabled
-          style={{ width: '100%' }}
-        />
-      </Form.Item>
+   {/* 🔥 Ocultar precio global si es un teléfono móvil y hay precios individuales */}
+{tipoNuevo && tipoNuevo.toLowerCase() !== 'teléfono movil' && (
+  <Form.Item label="Precio" name="precio" rules={[{ required: true, message: 'Ingresa un precio.' }]}>
+    <InputNumber min={0} style={{ width: '100%' }} />
+  </Form.Item>
+)}
+
+
+
     </>
   )}
 
@@ -968,9 +986,20 @@ const eliminarImei = (index) => {
               ]}>
                 <InputNumber min={1} style={{ width: '100%' }} onChange={handleCantidadChange} />
               </Form.Item>
-<Form.Item label="Precio" name="precio" rules={[{ required: true, message: 'Ingresa un precio.' }]}>
-  <InputNumber min={0} style={{ width: '100%' }} />
-</Form.Item>
+{/* 🔥 Ocultar el campo de Precio General si el tipo es "teléfono movil" */}
+{tipoNuevo && tipoNuevo.toLowerCase() !== 'teléfono movil' && (
+  <Form.Item label="Precio" name="precio" rules={[{ required: true, message: 'Ingresa un precio.' }]}>
+    <InputNumber min={0} style={{ width: '100%' }} />
+  </Form.Item>
+)}
+
+{/* 🔥 Mostrar la suma de los precios individuales si es un teléfono móvil */}
+{tipoNuevo && tipoNuevo.toLowerCase() === 'teléfono movil' && (
+  <Form.Item label="Total Precio Individual">
+    <InputNumber value={totalPrecioIndividual} disabled style={{ width: '100%' }} />
+  </Form.Item>
+)}
+
 
 
               {tipoNuevo?.toLowerCase() !== 'teléfono movil' && (
@@ -1036,13 +1065,13 @@ const eliminarImei = (index) => {
         </Button>
       </div>
     ))}
-    <Button
+    {/* <Button
       type="dashed"
       onClick={() => setImeisNuevo(prev => [...prev, { imei: '', foto: null, precio: null }])}
       style={{ width: '100%', marginTop: 8 }}
     >
       Agregar IMEI
-    </Button>
+    </Button> */}
   </>
 )}
 
@@ -1075,6 +1104,12 @@ const eliminarImei = (index) => {
             </div>
           )}
      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+{/* 🔥 Mostrar total de precios individuales si es un teléfono móvil */}
+{tipoNuevo && tipoNuevo.toLowerCase() === 'teléfono movil' && (
+  <Form.Item label="Total Precio Individual">
+    <InputNumber value={totalPrecioIndividual} disabled style={{ width: '100%' }} />
+  </Form.Item>
+)}
   {/* 🔥 Loader de Ant Design mientras se procesa la venta */}
   {loadingVenta && (
     <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -1087,7 +1122,7 @@ const eliminarImei = (index) => {
     type="primary"
     onClick={confirmarVenta}
     disabled={bienesAVender.length === 0 || loadingVenta} // 🔥 Se desactiva mientras se procesa
-  >
+    >
     Confirmar Venta
   </Button>
 </div>
