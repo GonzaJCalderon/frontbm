@@ -204,7 +204,7 @@ const ExcelUploadPage = () => {
             <Title level={2} className="text-center">Carga de Stock Múltiple</Title>
             <Paragraph className="text-center">
                 Descarga un ejemplo de plantilla, complétala con la información de tus bienes y luego súbela aquí.
-                Puedes agregar imágenes a cada IMEI antes de enviarlos.
+                Puedes agregar imágenes a cada bien antes de enviarlos.
             </Paragraph>
 
             <div className="text-center mb-6">

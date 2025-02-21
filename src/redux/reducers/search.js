@@ -1,4 +1,4 @@
-import { SEARCH_REQUEST, SEARCH_SUCCESS, SEARCH_ERROR } from '../actions/actionTypes';  // Importa los tipos de acción
+import { SEARCH_REQUEST, SEARCH_SUCCESS, SEARCH_ERROR } from '../actions/actionTypes';
 
 const initialState = {
     usuarios: [],
@@ -10,14 +10,14 @@ const initialState = {
 const searchReducer = (state = initialState, action) => {
     switch (action.type) {
         case SEARCH_REQUEST:
-            return { ...state, loading: true };
+            return { ...state, loading: true, error: null };
         case SEARCH_SUCCESS:
-            console.log("Datos recibidos en el reducer:", action.payload);  // Para verificar la estructura
+            console.log("Datos guardados en Redux:", action.payload);
             return {
                 ...state,
                 loading: false,
-                usuarios: action.payload.usuarios || [],  // Asegúrate de que 'usuarios' existe en la respuesta
-                bienes: action.payload.bienes || [],      // Asegúrate de que 'bienes' existe en la respuesta
+                usuarios: action.payload.usuarios || [], // Se asegura de que nunca sea `undefined`
+                bienes: action.payload.bienes || [],
             };
         case SEARCH_ERROR:
             return { ...state, loading: false, error: action.payload };

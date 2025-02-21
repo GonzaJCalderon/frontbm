@@ -188,6 +188,11 @@ const Inventario = () => {
 
       <Title level={2}>Inventario</Title>
 
+      <p class="mb-4">Aquí podrás Gestionar tú inventario y stock de Bienes Muebles</p>
+
+
+  
+
       <Table
         dataSource={filteredItems}
         columns={columns}

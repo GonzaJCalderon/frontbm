@@ -5,7 +5,6 @@ import { FaSignOutAlt, FaHome, FaSearch, FaUser, FaTimes, FaEnvelope } from 'rea
 import { useSelector, useDispatch } from 'react-redux';
 import searchItems from '../redux/actions/search';
 import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
-import logo from '../assets/logo-png-sin-fondo.png';
 import '../assets/styles/fontawesome.css';
 
 const Dashboard = () => {
@@ -35,6 +34,8 @@ const Dashboard = () => {
         user: state.auth.user
     }));
 
+
+
     const logoSrc = 'https://res.cloudinary.com/dtx5ziooo/image/upload/v1739288789/logo-png-sin-fondo_lyddzv.png';
 
 
@@ -46,16 +47,20 @@ const Dashboard = () => {
         localStorage.removeItem('userData');
         navigate('/home');
     };
-
     const handleSearch = (e) => {
         const term = e.target.value.trim();
         setSearchTerm(term);
+        
+        console.log("Texto de búsqueda:", term, "Categoría:", searchCategory);
+        
         if (term.length > 2) {
+            console.log("Ejecutando dispatch de búsqueda...");
             dispatch(searchItems(term, searchCategory));
         } else {
             console.log("Búsqueda demasiado corta para procesar");
         }
     };
+    
 
     const handleCategoryChange = (e) => {
         setSearchCategory(e.target.value);
@@ -138,7 +143,7 @@ const Dashboard = () => {
     Bienvenido/a, {user ? `${user.nombre} ${user.apellido}` : 'Invitado'}
   </h1>
   <div className="flex items-center space-x-4">
-    <FaSearch
+    {/* <FaSearch
       className="text-white w-5 h-5 cursor-pointer"
       onClick={() => setShowSearch(!showSearch)}
     />
@@ -195,7 +200,7 @@ const Dashboard = () => {
           </div>
         )}
       </div>
-    )}
+    )} */}
     <button
       onClick={() => navigate('/home')}
       className="flex items-center px-2 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"

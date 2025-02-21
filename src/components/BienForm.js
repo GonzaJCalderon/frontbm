@@ -53,7 +53,7 @@ const RegistrarBienPage = () => {
   useEffect(() => {
     if (!token || !userUuid) {
       message.error('Usuario no autenticado. Por favor, inicie sesión.');
-      navigate('/login');
+      navigate('/home');
     }
   }, [token, userUuid, navigate]);
 
@@ -322,6 +322,7 @@ const RegistrarBienPage = () => {
       </div>
 
       <Title level={3}>Registro de Bienes</Title>
+      <p>Aquí podas registrar tus bienes de manera individual</p>
 
       <Form form={form} layout="vertical" onFinish={handleFinish}>
         {/* Tipo de Bien */}
@@ -424,7 +425,7 @@ const RegistrarBienPage = () => {
         {/* Stock */}
         <Form.Item
           name="bienStock"
-          label="Stock"
+          label="Cantidad"
           rules={[{ required: true, message: 'Ingrese el stock' }]}
         >
           <InputNumber
