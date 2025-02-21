@@ -411,53 +411,71 @@ const eliminarImei = (index) => {
   const agregarBienAVenta = (values) => {
     let bienesParaAgregar = [];
   
+    // 📌 SI EL BIEN ES NUEVO
     if (subStep2 === "nuevo") {
+      const bienNuevo = {
+        uuid: null, // ⚠️ Importante: `null` porque es un bien nuevo
+        tipo: values.tipo,
+        marca: values.marca,
+        modelo: values.modelo,
+        descripcion: values.descripcion,
+        cantidad: values.cantidad,
+        metodoPago: values.metodoPago || "efectivo",
+        imeis: [],
+        fotos: [],
+      };
+  
       if (values.tipo.toLowerCase() === "teléfono movil") {
-        bienesParaAgregar.push({
-          uuid: null,
-          tipo: values.tipo,
-          marca: values.marca,
-          modelo: values.modelo,
-          descripcion: values.descripcion,
-          precio: null, 
-          cantidad: values.cantidad,
-          metodoPago: values.metodoPago || "efectivo",
-          imeis: imeisNuevo.map((imeiObj, index) => ({
-            imei: imeiObj.imei,
-            precio: imeiObj.precio,
-            foto: imeiObj.foto ? (imeiObj.foto.originFileObj || imeiObj.foto) : null
-            // 🔥 IMPORTANTE: Enviar la imagen correctamente
-          })),
-          fotos: [],
-        });
+        bienNuevo.imeis = imeisNuevo.map((imeiObj) => ({
+          imei: imeiObj.imei,
+          precio: imeiObj.precio,
+          foto: imeiObj.foto ? (imeiObj.foto.originFileObj || imeiObj.foto) : null
+        }));
       } else {
-        bienesParaAgregar.push({
-          uuid: null,
-          tipo: values.tipo,
-          marca: values.marca,
-          modelo: values.modelo,
-          descripcion: values.descripcion,
-          precio: values.precio,
-          cantidad: values.cantidad,
-          metodoPago: values.metodoPago || "efectivo",
-          imeis: [],
-          fotos: fileList.map(file => ({
-            url: file.originFileObj, // 🔥 IMPORTANTE: Enviar la imagen correctamente
-          })),
-        });
+        bienNuevo.precio = values.precio;
+        bienNuevo.fotos = fileList.map(file => ({
+          url: file.originFileObj
+        }));
       }
+  
+      bienesParaAgregar.push(bienNuevo);
     }
   
-    setBienesAVender(prev => [...prev, ...bienesParaAgregar]);
-    message.success("Bien agregado a la venta.");
+    // 📌 SI EL BIEN YA ESTÁ REGISTRADO
+    if (subStep2 === "existente") {
+      if (!selectedGood) {
+        message.warning("⚠️ No has seleccionado un bien existente.");
+        return;
+      }
   
-    // Resetear formularios y estados
+      const bienExistente = {
+        uuid: selectedGood.uuid,
+        tipo: selectedGood.tipo,
+        marca: selectedGood.marca,
+        modelo: selectedGood.modelo,
+        descripcion: selectedGood.descripcion,
+        precio: selectedGood.precio,
+        cantidad: values.cantidad,
+        metodoPago: values.metodoPago || "efectivo",
+        imeis: selectedGood.identificadores || [],
+        fotos: selectedGood.todasLasFotos || [],
+      };
+  
+      bienesParaAgregar.push(bienExistente);
+    }
+  
+    // 📌 AGREGAR TODOS LOS BIENES (NUEVOS Y REGISTRADOS) AL ARRAY FINAL
+    setBienesAVender(prev => [...prev, ...bienesParaAgregar]);
+    message.success("✅ Bien agregado a la venta.");
+  
+    // 🔄 Resetear formularios y estados
     formGood.resetFields();
     setFileList([]);
     setImeisNuevo([]);
     setSelectedGoods([]);
     setSelectedGood(null);
   };
+  
   
   const eliminarBienAVenta = (index) => {
     setBienesAVender(prev => prev.filter((_, i) => i !== index));
@@ -1118,13 +1136,20 @@ const eliminarImei = (index) => {
   )}
 
   {/* Botón para confirmar la venta */}
-  <Button
-    type="primary"
-    onClick={confirmarVenta}
-    disabled={bienesAVender.length === 0 || loadingVenta} // 🔥 Se desactiva mientras se procesa
-    >
-    Confirmar Venta
-  </Button>
+  {bienesAVender.length === 0 && (
+  <p style={{ color: "red", textAlign: "center" }}>
+    ⚠️ No hay bienes agregados a la venta.
+  </p>
+)}
+
+<Button
+  type="primary"
+  onClick={confirmarVenta}
+  disabled={bienesAVender.length === 0 || loadingVenta}
+>
+  Confirmar Venta
+</Button>
+
 </div>
 
         </>
