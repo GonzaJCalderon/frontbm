@@ -18,6 +18,9 @@ import {
   MARK_MESSAGES_AS_READ_SUCCESS,
   MARK_MESSAGES_AS_READ_FAIL, 
   MARK_MESSAGES_AS_READ,
+  ASSIGN_MESSAGE_REQUEST,
+  ASSIGN_MESSAGE_SUCCESS,
+  ASSIGN_MESSAGE_FAIL
 } from './actionTypes';
 
 
@@ -155,22 +158,25 @@ export const deleteConversation = (userUuid) => async (dispatch) => {
 
 // src/redux/actions/messageActions.js
 // src/redux/actions/messageActions.js
-export const markMessagesAsRead = (userUuid) => async (dispatch) => {
+export const markMessagesAsRead = (userUuid, adminUuid) => async (dispatch) => {
   dispatch({ type: MARK_MESSAGES_AS_READ_REQUEST });
+
   try {
-    await api.put(`/messages/mark-as-read/${userUuid}`);
+    await api.put(`/messages/mark-as-read/${userUuid}`, { adminUuid }); // 🔥 Asegura que adminUuid se envía en el body
+
     dispatch({
       type: MARK_MESSAGES_AS_READ_SUCCESS,
-      payload: userUuid, // Enviamos el UUID del usuario cuyos mensajes fueron leídos
+      payload: { userUuid, adminUuid },
     });
+
   } catch (error) {
-    console.error("Error al marcar mensajes como leídos:", error);
     dispatch({
       type: MARK_MESSAGES_AS_READ_FAIL,
       payload: error.response?.data?.message || "Error al marcar mensajes como leídos",
     });
   }
 };
+
 
 // Acción para obtener mensajes no leídos
 export const fetchUnreadMessages = (userUuid) => async (dispatch) => {
@@ -182,5 +188,35 @@ export const fetchUnreadMessages = (userUuid) => async (dispatch) => {
 
   } catch (error) {
     dispatch({ type: GET_MESSAGES_FAIL, payload: "Error al obtener mensajes no leídos." });
+  }
+};
+
+// 🔹 Obtener solo los mensajes sin asignar (para admins)
+export const getMessagesForAdmins = () => async (dispatch) => {
+  dispatch({ type: GET_MESSAGES_REQUEST });
+
+  try {
+    const response = await api.get('/messages/unassigned'); // Asegúrate de que el endpoint sea correcto
+    dispatch({ type: GET_MESSAGES_SUCCESS, payload: response.data });
+  } catch (error) {
+    dispatch({
+      type: GET_MESSAGES_FAIL,
+      payload: error.response?.data?.message || "Error al obtener mensajes.",
+    });
+  }
+};
+
+// 🔹 Asignar un mensaje a un admin cuando lo abre
+export const assignMessageToAdmin = ({ messageUuid, adminUuid }) => async (dispatch) => {
+  dispatch({ type: ASSIGN_MESSAGE_REQUEST });
+
+  try {
+    await api.put('/messages/assign', { messageUuid, adminUuid });
+    dispatch({ type: ASSIGN_MESSAGE_SUCCESS, payload: { messageUuid, adminUuid } });
+  } catch (error) {
+    dispatch({
+      type: ASSIGN_MESSAGE_FAIL,
+      payload: error.response?.data?.message || "Error al asignar el mensaje.",
+    });
   }
 };

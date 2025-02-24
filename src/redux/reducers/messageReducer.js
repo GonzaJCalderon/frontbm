@@ -62,19 +62,23 @@ const messageReducer = (state = initialState, action) => {
         ...state,
         list: { ...state.list, loading: true },
       };
+      case GET_MESSAGES_SUCCESS:
+        return {
+          ...state,
+          list: { 
+            ...state.list, 
+            loading: false, 
+            messages: Array.isArray(action.payload) ? action.payload : [] // ✅ Verifica si es un array, si no, lo convierte en []
+          },
+        };
+      
 
-    case GET_MESSAGES_SUCCESS:
-      return {
-        ...state,
-        list: { ...state.list, loading: false, messages: action.payload },
-      };
-
-    case GET_MESSAGES_FAIL:
-      return {
-        ...state,
-        list: { ...state.list, loading: false, error: action.payload },
-      };
-
+      case GET_MESSAGES_FAIL:
+        return {
+          ...state,
+          list: { ...state.list, loading: false, messages: [], error: action.payload }, // ✅ Asegura que messages siempre sea un array
+        };
+      
     case DELETE_CONVERSATION_REQUEST:
       return {
         ...state,
@@ -108,7 +112,6 @@ const messageReducer = (state = initialState, action) => {
         ...state,
         list: { ...state.list, loading: true },
       };
-
       case MARK_MESSAGES_AS_READ_SUCCESS:
         return {
           ...state,
@@ -116,7 +119,7 @@ const messageReducer = (state = initialState, action) => {
             ...state.list,
             loading: false,
             messages: state.list.messages.map((msg) =>
-              (msg.recipientUuid === action.payload || msg.senderUuid === action.payload)
+              (msg.senderUuid === action.payload.userUuid && msg.recipientUuid === action.payload.adminUuid)
                 ? { ...msg, isRead: true }
                 : msg
             ),

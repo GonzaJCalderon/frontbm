@@ -663,6 +663,17 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
 };
 
 
+// Acción para obtener un usuario por UUID
+export const getUserByUuid = (uuid) => async (dispatch) => {
+  try {
+    const response = await api.get(`/usuarios/${uuid}`);
+    return response.data; // ✅ Devuelve el usuario encontrado
+  } catch (error) {
+    console.error("❌ Error al obtener usuario:", error);
+    return null; // En caso de error, devuelve null
+  }
+};
+
   
   // Acción para obtener historial de cambios
 export const fetchHistorialCambios = async (uuid) => {

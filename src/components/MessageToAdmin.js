@@ -43,6 +43,12 @@ const MessageToAdmin = () => {
     setContent('');
   };
 
+  const handleSendMessage = () => {
+    if (!content.trim()) return;
+    dispatch(sendMessage({ content }));
+    setContent('');
+  };
+  
   // Cargar mensajes periódicamente
   useEffect(() => {
     dispatch(getMessages());

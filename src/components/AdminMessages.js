@@ -1,185 +1,145 @@
-// src/components/AdminMessages.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { getMessages, getMessagesByUser, sendMessage, deleteConversation, markMessagesAsRead } from '../redux/actions/messageActions';
-import { FaInbox, FaPaperPlane, FaSearch, FaTrash, FaEdit, FaHome, FaSignOutAlt, FaArrowLeft} from 'react-icons/fa';
+import { getMessagesByUser, sendMessage, markMessagesAsRead, getMessages } from '../redux/actions/messageActions';
+import { getUserByUuid } from '../redux/actions/usuarios'; // ✅ Importamos la nueva acción
+import { FaArrowLeft, FaPaperPlane } from 'react-icons/fa';
 
 const AdminMessages = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { userUuid } = useParams(); // UUID del usuario con el que se está chateando
-  const messageInputRef = useRef(null);
+  const { userUuid } = useParams();
+  const chatContainerRef = useRef(null);
 
-  // Estado global de mensajes en Redux
-  const { loading, messages, error } = useSelector((state) => state.messages.list);
-
-  // Obtener el usuario (administrador) autenticado desde localStorage
-  const adminData = JSON.parse(localStorage.getItem('userData'));
+  // Obtener el admin autenticado
+  const adminData = JSON.parse(localStorage.getItem('userData')) || {};
   const adminUuid = adminData?.uuid;
 
-  // Estado local para el input de mensaje a enviar
+  // Estado para almacenar el nombre del usuario y mensajes
+  const [userName, setUserName] = useState("Usuario");
+  const [localMessages, setLocalMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
 
+  // Obtener mensajes desde Redux
+  const { loading, messages, error } = useSelector((state) => state.messages.list);
+
   useEffect(() => {
-    if (!adminUuid || !userUuid) return;
-  
-    dispatch(getMessagesByUser(userUuid));
-  
-    // ✅ Llamamos a la acción para marcar como leídos
-    dispatch(markMessagesAsRead(userUuid));
-  
+    if (!userUuid || !adminUuid) return;
+
+    // ✅ 1. Obtener los mensajes del usuario
+    dispatch(getMessagesByUser(userUuid)).then((response) => {
+      if (response?.payload?.length > 0) {
+        setLocalMessages(response.payload);
+      }
+    });
+
+    // ✅ 2. Obtener el usuario por su UUID y actualizar el nombre en la barra
+    dispatch(getUserByUuid(userUuid)).then((user) => {
+      if (user) {
+        setUserName(`${user.nombre} ${user.apellido}`);
+      }
+    });
+
+    dispatch(markMessagesAsRead(userUuid, adminUuid));
   }, [dispatch, userUuid, adminUuid]);
 
-  // Filtrar mensajes según pestaña "inbox" (mensajes recibidos) o "sent" (enviados)
-  // En este componente, al tratarse de la conversación, se muestran todos.
-  const conversationMessages = messages.filter(
-    (msg) =>
-      (msg.senderUuid === adminUuid && msg.recipientUuid === userUuid) ||
-      (msg.senderUuid === userUuid && msg.recipientUuid === adminUuid)
-  ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  useEffect(() => {
+    if (messages?.length > 0) {
+      setLocalMessages((prevMessages) => {
+        const mergedMessages = [...prevMessages, ...messages];
+        return mergedMessages.filter((msg, index, self) =>
+          index === self.findIndex((m) => m.uuid === msg.uuid) // ✅ Evita duplicados
+        );
+      });
+    }
+  }, [messages]);
 
-  // Función para navegar a Home (dashboard del admin)
-  const handleHome = () => {
-    navigate('/admin/dashboard');
-  };
+  // Auto-scroll al final del chat
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [localMessages]);
 
-  // Función para cerrar sesión
-  const handleLogout = () => {
-    localStorage.removeItem('userData');
-    navigate('/login');
-  };
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !userUuid || !adminUuid) return;
 
-  // Función para enviar mensaje
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-    dispatch(sendMessage({
+    const tempMessage = {
+      uuid: `temp-${Date.now()}`,
+      senderUuid: adminUuid,
+      recipientUuid: userUuid,
+      content: newMessage.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    setLocalMessages((prevMessages) => [...prevMessages, tempMessage]);
+
+    await dispatch(sendMessage({
       senderUuid: adminUuid,
       recipientUuid: userUuid,
       content: newMessage.trim(),
     }));
+
+    dispatch(getMessagesByUser(userUuid));
+    dispatch(getMessages());
     setNewMessage('');
   };
 
-  // Función para eliminar la conversación con el usuario actual
-  const handleDeleteConversation = (e) => {
-    e.stopPropagation();
-    if (!userUuid) return;
-    dispatch(deleteConversation(userUuid))
-      .then(() => {
-        // Una vez eliminada la conversación, puedes redirigir al buzón de mensajes
-        navigate('/inbox');
-      });
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
   };
 
-  // Función para enfocar el input (acción de "responder")
-  const handleResponse = (e) => {
-    e.stopPropagation();
-    messageInputRef.current?.focus();
-  };
-  
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Encabezado con botones de Volver, Home y Cerrar Sesión */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex space-x-4">
-          {/* BOTÓN DE VOLVER */}
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center px-4 py-2 bg-blue-200 hover:bg-blue-300 rounded"
-          >
-            <FaArrowLeft className="mr-2" /> Volver
-          </button>
-  
-          {/* BOTÓN DE HOME */}
-          <button
-            onClick={handleHome}
-            className="flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
-          >
-            <FaHome className="mr-2" /> Home
-          </button>
-        </div>
-  
-        {/* BOTÓN DE CERRAR SESIÓN */}
-        <button
-          onClick={handleLogout}
-          className="flex items-center px-4 py-2 bg-red-200 hover:bg-red-300 rounded"
-        >
-          <FaSignOutAlt className="mr-2" /> Cerrar Sesión
+    <div className="max-w-4xl mx-auto p-6">
+      {/* 🔥 Barra superior con el nombre real del usuario */}
+      <div className="flex items-center justify-between bg-blue-500 text-white p-4 rounded-t-lg shadow-md">
+        <button onClick={() => navigate(-1)} className="flex items-center">
+          <FaArrowLeft className="mr-2" /> Volver
         </button>
+        <h1 className="text-xl font-bold">{userName}</h1> {/* ✅ Nombre del usuario correcto */}
+        <div></div>
       </div>
-  
-      <h1 className="text-3xl font-bold text-gray-800 mb-4">Conversación</h1>
-  
 
-      {/* Listado de mensajes */}
-      <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+      {/* 🔥 Lista de mensajes */}
+      <div ref={chatContainerRef} className="bg-gray-100 p-4 rounded-b-lg shadow-md h-96 overflow-y-auto">
         {loading ? (
           <p>Cargando mensajes...</p>
         ) : error ? (
           <p className="text-red-600">{error}</p>
-        ) : conversationMessages.length === 0 ? (
-          <p className="text-gray-600">No se encontraron mensajes en esta conversación.</p>
+        ) : localMessages.length === 0 ? (
+          <p className="text-gray-600">No hay mensajes en esta conversación.</p>
         ) : (
-          <ul className="divide-y divide-gray-200">
-          {conversationMessages.map((msg) => {
-            console.log("Mensaje:", msg); // 👈 Verifica qué datos trae cada mensaje
-        
-            return (
-              <li key={msg.uuid} className="py-4 flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex justify-between items-center">
-                    <p className="font-medium text-gray-800">
-                      {msg.senderUuid === adminUuid
-                        ? 'Yo'
-                        : `${msg.sender?.nombre || 'Desconocido'} ${msg.sender?.apellido || ''}`.trim()}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(msg.createdAt).toLocaleString()}
-                    </p>
+          <ul className="space-y-3">
+            {localMessages
+              .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)) // ✅ Ordena cronológicamente
+              .map((msg) => (
+                <li key={msg.uuid} className={`flex ${msg.senderUuid === adminUuid ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`p-3 max-w-xs rounded-lg shadow-md text-sm ${
+                    msg.senderUuid === adminUuid
+                      ? 'bg-blue-500 text-white'  // ✅ Mensaje del admin (azul)
+                      : 'bg-gray-300 text-gray-800'  // ✅ Mensaje del usuario (gris)
+                  }`}>
+                    <p className="font-medium">{msg.content}</p>
+                    <small className="block mt-1 text-xs text-gray-200">{formatDate(msg.createdAt)}</small>
                   </div>
-                  <p className="text-gray-600 mt-1">{msg.content}</p>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        
-        
+                </li>
+              ))}
+          </ul>
         )}
       </div>
 
-      {/* Botones de acción para la conversación */}
-      <div className="flex justify-end items-center space-x-4 mb-4">
-        <button
-          onClick={handleResponse}
-          className="flex items-center text-blue-500 hover:text-blue-700"
-        >
-          <FaEdit className="mr-1" /> Responder
-        </button>
-        <button
-          onClick={handleDeleteConversation}
-          className="flex items-center text-red-500 hover:text-red-700"
-        >
-          <FaTrash className="mr-1" /> Eliminar Conversación
-        </button>
-      </div>
-
-      {/* Área para enviar mensaje */}
-      <div className="flex items-center space-x-2">
+      {/* 🔥 Enviar mensaje */}
+      <div className="flex mt-4">
         <input
-          ref={messageInputRef}
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Escribe tu mensaje..."
-          className="flex-1 border border-gray-300 rounded px-3 py-2 focus:outline-none"
+          className="flex-1 border px-3 py-2 rounded-l-lg"
         />
-        <button
-          onClick={handleSendMessage}
-          className="flex items-center px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-        >
-          <FaPaperPlane className="mr-2" /> Enviar
+        <button onClick={handleSendMessage} className="bg-blue-500 text-white px-4 py-2 rounded-r-lg">
+          <FaPaperPlane />
         </button>
       </div>
     </div>
