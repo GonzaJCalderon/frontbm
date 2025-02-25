@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const baseURL = process.env.REACT_APP_ENV === 'local'
+
+
+const baseURL = process.env.REACT_APP_ENV === 'remote'
     ? process.env.REACT_APP_API_URL_LOCAL || 'http://localhost:5005'
     : process.env.REACT_APP_API_URL_REMOTE || 'http://10.100.1.80:5005';
 
@@ -8,7 +10,7 @@ console.log('Base URL configurada:', baseURL);
 
 
 const api = axios.create({
-    baseURL: process.env.REACT_APP_ENV === 'local'
+    baseURL: process.env.REACT_APP_ENV === 'remote'
         ? process.env.REACT_APP_API_URL_LOCAL || 'http://localhost:5005'
         : process.env.REACT_APP_API_URL_REMOTE || 'http://10.100.1.80:5005',
     withCredentials: true, // PERMITIR ENVIAR COOKIES Y CREDENCIALES

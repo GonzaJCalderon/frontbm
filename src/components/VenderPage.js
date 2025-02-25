@@ -490,44 +490,54 @@ const eliminarImei = (index) => {
   const confirmarVenta = async () => {
     console.log("🚀 Iniciando confirmación de venta...");
     setLoadingVenta(true);
-  
+
     try {
-      const formData = new FormData();
-      formData.append("vendedorUuid", vendedorId);
-      formData.append("compradorId", compradorId);
-      formData.append("ventaData", JSON.stringify(bienesAVender));
-  
-      // 📌 Agregar imágenes de IMEIs
-      bienesAVender.forEach((bien, bienIndex) => {
-        bien.imeis.forEach((imei, imeiIndex) => {
-          if (imei.foto) {
-            console.log(`📸 Enviando imagen de IMEI ${imei.imei}:`, imei.foto); // 🔥 DEBE MOSTRAR EL ARCHIVO
-            formData.append(`venta[${bienIndex}][imeis][${imeiIndex}][foto]`, imei.foto);
-          } else {
-            console.warn(`⚠️ IMEI ${imei.imei} NO tiene imagen asignada.`);
-          }
+        const formData = new FormData();
+        formData.append("vendedorUuid", vendedorId);
+        formData.append("compradorId", compradorId);
+        formData.append("ventaData", JSON.stringify(bienesAVender));
+
+        bienesAVender.forEach((bien, bienIndex) => {
+            // 📌 Agregar fotos generales de bienes nuevos
+            if (!bien.uuid && bien.fotos.length > 0) { // Solo para bienes nuevos
+                bien.fotos.forEach((foto, fotoIndex) => {
+                    if (foto.url) {
+                        console.log(`📸 Enviando foto del bien ${bienIndex}, imagen ${fotoIndex}:`, foto.url);
+                        formData.append(`venta[${bienIndex}][fotos][${fotoIndex}]`, foto.url);
+                    }
+                });
+            }
+
+            // 📌 Agregar imágenes de IMEIs
+            bien.imeis.forEach((imei, imeiIndex) => {
+                if (imei.foto) {
+                    console.log(`📸 Enviando imagen de IMEI ${imei.imei}:`, imei.foto);
+                    formData.append(`venta[${bienIndex}][imeis][${imeiIndex}][foto]`, imei.foto);
+                } else {
+                    console.warn(`⚠️ IMEI ${imei.imei} NO tiene imagen asignada.`);
+                }
+            });
         });
-      });
-  
-      console.log("📤 Enviando datos al backend...");
-      const response = await dispatch(registrarVenta(formData));
-  
-      console.log("📥 Respuesta del backend:", response);
-  
-      if (response?.message === "Venta registrada correctamente.") {
-        message.success("✅ Venta completada con éxito.");
-        navigate("/user/dashboard");
-      } else {
-        throw new Error(response?.message || "❌ Error al registrar la venta.");
-      }
+
+        console.log("📤 Enviando datos al backend...");
+        const response = await dispatch(registrarVenta(formData));
+
+        console.log("📥 Respuesta del backend:", response);
+
+        if (response?.message === "Venta registrada correctamente.") {
+            message.success("✅ Venta completada con éxito.");
+            navigate("/user/dashboard");
+        } else {
+            throw new Error(response?.message || "❌ Error al registrar la venta.");
+        }
     } catch (error) {
-      console.error("❌ Error en registrarVenta:", error);
-      message.error(error.message || "❌ Error al procesar la venta.");
+        console.error("❌ Error en registrarVenta:", error);
+        message.error(error.message || "❌ Error al procesar la venta.");
     } finally {
-      setLoadingVenta(false);
+        setLoadingVenta(false);
     }
-  };
-  
+};
+
   
   
   // --- Función para validar DNI con RENAPER ---
