@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaSignOutAlt, FaHome, FaSearch, FaUser, FaTimes, FaEnvelope } from 'react-icons/fa';
 import { useSelector, useDispatch } from 'react-redux';
+import { clearNotifications } from '../redux/actions/notificactions'; 
+
 import searchItems from '../redux/actions/search';
 import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
 import '../assets/styles/fontawesome.css';
@@ -14,6 +16,7 @@ const Dashboard = () => {
     const [searchCategory, setSearchCategory] = useState('nombre');
     const [showModal, setShowModal] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
+    const notifications = useSelector(state => state.notifications?.notifications || []);
     const [formData, setFormData] = useState({
         nombre: '',
         apellido: '',
@@ -135,6 +138,12 @@ const Dashboard = () => {
         }
     };
 
+    const handleInboxClick = () => {
+        dispatch(clearNotifications()); // Marca las notificaciones como leídas
+        navigate('/inbox'); // Redirige a la bandeja de mensajes
+    };
+
+    
     return (
         <div className="p-6 bg-gray-100 min-h-screen flex flex-col overflow-hidden">
            <header className="bg-blue-600 text-black p-4 flex justify-between items-center">
@@ -240,15 +249,22 @@ const Dashboard = () => {
                     </Link>
                     {/* NUEVO ENLACE A LA BANDEJA DE MENSAJES */}
                     <Link
-                        to="/inbox"
-                        className="group bg-indigo-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center"
-                    >
-                        <FaEnvelope className="text-indigo-500 text-5xl" />
-                        <p className="text-xl font-semibold text-gray-900">Bandeja de Mensajes</p>
-                        <p className="text-sm font-semibold text-gray-600 text-center">
-                            Accede a las conversaciones.
-                        </p>
-                    </Link>
+    to="/inbox"
+    onClick={handleInboxClick} // Llamamos a la función al hacer click
+    className="group bg-indigo-100 rounded-lg p-6 flex flex-col items-center justify-center gap-4 w-full text-center relative"
+>
+    <FaEnvelope className="text-indigo-500 text-5xl" />
+    <p className="text-xl font-semibold text-gray-900">Bandeja de Mensajes</p>
+    <p className="text-sm font-semibold text-gray-600 text-center">
+        Accede a las conversaciones.
+    </p>
+    
+    {notifications.length > 0 && (
+        <span className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+            {notifications.length}
+        </span>
+    )}
+</Link>
                 </div>
             </main>
 

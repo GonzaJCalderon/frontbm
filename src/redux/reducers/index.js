@@ -8,6 +8,7 @@ import salesReducer from './salesReducer';
 import stockReducers from './stockReducers';
 import renaperReducer from './renaperReducer';
 import messageReducer from './messageReducer';
+import notificationsReducer from './notificationsReducer';
 
 const rootReducer = combineReducers({
     bienes: bienesReducer,
@@ -18,6 +19,7 @@ const rootReducer = combineReducers({
     stock: stockReducers,
     renaperReducer: renaperReducer,
     messages: messageReducer,
+    notifications: notificationsReducer,
 });
 
 export default rootReducer;
