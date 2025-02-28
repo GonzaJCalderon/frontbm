@@ -54,14 +54,27 @@ const UsuarioList = () => {
   const handleSearch = (newFilters) => {
     setFilters((prevFilters) => {
       const updatedFilters = { ...prevFilters, ...newFilters };
+      
       const filtered = approvedUsers
-        .filter((usuario) => usuario && typeof usuario === 'object') // 🔹 Asegurar que usuario no sea undefined
+        .filter((usuario) => usuario && typeof usuario === 'object')
         .filter((usuario) => {
           const matchesNombre = updatedFilters.nombre
             ? usuario.nombre?.toLowerCase().includes(updatedFilters.nombre.toLowerCase())
             : true;
   
-          return matchesNombre;
+          const matchesApellido = updatedFilters.apellido
+            ? usuario.apellido?.toLowerCase().includes(updatedFilters.apellido.toLowerCase())
+            : true;
+  
+          const matchesDNI = updatedFilters.dni
+            ? usuario.dni?.toString().includes(updatedFilters.dni)
+            : true;
+  
+          const matchesEmail = updatedFilters.email
+            ? usuario.email?.toLowerCase().includes(updatedFilters.email.toLowerCase())
+            : true;
+  
+          return matchesNombre && matchesApellido && matchesDNI && matchesEmail;
         });
   
       setFilteredUsuarios(filtered);
