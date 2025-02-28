@@ -26,23 +26,24 @@ const MessageToAdmin = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!content.trim()) return;
-
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    const senderUuid = userData?.uuid;
-
-    if (!senderUuid) {
-      console.error("Error: No se encontró el UUID del usuario autenticado.");
+  
+    if (!userUuid) {
+      console.error("❌ Error: No se encontró el UUID del usuario.");
       return;
     }
-
+  
+    console.log("📩 Enviando mensaje sin asignar a un admin.");
+  
     dispatch(sendMessage({
-      recipientUuid: '1f5cf8cc-937e-4256-84cb-0aac97ae254e', // UUID del administrador
+      senderUuid: userUuid,
+      recipientUuid: null, // 🔥 No asignado aún
+      isForAdmins: true, // ✅ Indica que el mensaje es para los admins
       content,
     }));
-
+  
     setContent('');
   };
-
+  
   const handleSendMessage = () => {
     if (!content.trim()) return;
     dispatch(sendMessage({ content }));
@@ -51,13 +52,19 @@ const MessageToAdmin = () => {
   
   // Cargar mensajes periódicamente
   useEffect(() => {
-    dispatch(getMessages());
+    if (!userUuid) return;
+  
+    console.log("📩 Cargando mensajes para usuario:", userUuid);
+  
+    dispatch(getMessages(userUuid)); // ✅ Pasa userUuid para obtener solo los mensajes del usuario
+  
     const interval = setInterval(() => {
-      dispatch(getMessages());
+      dispatch(getMessages(userUuid));
     }, 5000);
-
+  
     return () => clearInterval(interval);
-  }, [dispatch]);
+  }, [dispatch, userUuid]);
+  
 
   // Auto-scroll en la lista de mensajes
   useEffect(() => {

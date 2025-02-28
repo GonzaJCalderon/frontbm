@@ -1,9 +1,4 @@
-// src/redux/actions/messageActions.js
 import api from '../axiosConfig';
-import axios from '../axiosConfig';
-import { message, notification } from 'antd';
-import prepareFormData from '../../utils/prepareFormData'; // Ajusta la ruta si es necesario
-
 import {
   SEND_MESSAGE_REQUEST,
   SEND_MESSAGE_SUCCESS,
@@ -16,31 +11,30 @@ import {
   DELETE_CONVERSATION_FAIL,
   MARK_MESSAGES_AS_READ_REQUEST,
   MARK_MESSAGES_AS_READ_SUCCESS,
-  MARK_MESSAGES_AS_READ_FAIL, 
-  MARK_MESSAGES_AS_READ,
+  MARK_MESSAGES_AS_READ_FAIL,
   ASSIGN_MESSAGE_REQUEST,
   ASSIGN_MESSAGE_SUCCESS,
-  ASSIGN_MESSAGE_FAIL
+  ASSIGN_MESSAGE_FAIL,
+  GET_UNREAD_MESSAGES,
 } from './actionTypes';
-
-
 
 // Función para manejar errores en las solicitudes
 const handleRequestError = (error) => {
   if (error.response) {
-    console.error('Error del servidor:', error.response.data);
-    return error.response.data.message || 'Error al procesar la solicitud en el servidor.';
+    console.error("❌ Error del servidor:", error.response.data);
+    return error.response.data?.message || "Error en la solicitud al servidor.";
   } else if (error.request) {
-    console.error('Error de red:', error.request);
-    return 'No se recibió respuesta del servidor.';
+    console.error("❌ Error de red: No se recibió respuesta del servidor.");
+    return "No se pudo conectar con el servidor.";
   } else {
-    console.error('Error en configuración:', error.message);
-    return `Error en la solicitud: ${error.message}`;
+    console.error("❌ Error en configuración:", error.message);
+    return "Error en la configuración de la solicitud.";
   }
 };
 
-// Acción para enviar un mensaje
-export const sendMessage = ({ recipientUuid, content }) => async (dispatch, getState) => {
+
+// ✅ Enviar un mensaje
+export const sendMessage = ({ recipientUuid, content }) => async (dispatch) => {
   dispatch({ type: SEND_MESSAGE_REQUEST });
 
   try {
@@ -55,84 +49,49 @@ export const sendMessage = ({ recipientUuid, content }) => async (dispatch, getS
 
     dispatch({ type: SEND_MESSAGE_SUCCESS, payload: response.data });
 
-    // Obtener el UUID del usuario autenticado y actualizar la cantidad de mensajes no leídos
-    dispatch(fetchUnreadMessages(senderUuid));
+    dispatch(getUnreadMessages(senderUuid)); // 🔥 Actualizar mensajes no leídos
 
     return response.data;
   } catch (error) {
-    dispatch({ type: SEND_MESSAGE_FAIL, payload: "Error al enviar mensaje." });
+    dispatch({ type: SEND_MESSAGE_FAIL, payload: handleRequestError(error) });
   }
 };
 
-
-
-
-
-// Acción para obtener la lista de mensajes
-export const getMessages = () => async (dispatch) => {
+// ✅ Obtener todos los mensajes
+export const getMessages = () => async (dispatch) => {  
   dispatch({ type: GET_MESSAGES_REQUEST });
 
   try {
-    const response = await api.get('/messages');
+    // 🔥 Trae TODOS los mensajes (sin asignar y asignados)
+    const response = await api.get(`/messages`);
 
-    console.log("Mensajes globales recibidos:", response.data); // Debugging
+    console.log("📩 Todos los mensajes obtenidos:", response.data);
 
     dispatch({ type: GET_MESSAGES_SUCCESS, payload: response.data });
-
-    return response.data;
   } catch (error) {
-    const errorMessage = handleRequestError(error);
-    dispatch({ type: GET_MESSAGES_FAIL, payload: errorMessage });
-
-    console.error("Error al obtener mensajes:", errorMessage); // Debugging
+    console.error("❌ Error al obtener mensajes:", error.response?.data || error.message);
+    dispatch({ type: GET_MESSAGES_FAIL, payload: error.message });
   }
 };
 
 
-// Función auxiliar para obtener datos de un usuario por UUID
-const fetchUserData = async (userUuid) => {
-  try {
-    const response = await api.get(`/usuarios/${userUuid}`);
-    return response.data; // Devuelve el objeto del usuario
-  } catch (error) {
-    console.error("Error obteniendo datos del usuario:", error);
-    return null; // Si falla, retorna null
-  }
-};
 
-// Acción para obtener los mensajes de un usuario específico
+
+// ✅ Obtener mensajes por usuario
 export const getMessagesByUser = (userUuid) => async (dispatch) => {
   dispatch({ type: GET_MESSAGES_REQUEST });
 
   try {
-    if (!userUuid || userUuid === "undefined") {
-      throw new Error("Error: UUID del usuario a consultar no es válido.");
-    }
-
-    console.log(`Obteniendo mensajes del usuario seleccionado: ${userUuid}`);
+    if (!userUuid) throw new Error("UUID del usuario no válido.");
 
     const response = await api.get(`/messages/user/${userUuid}`);
-    let messages = response.data;
-
-    // Verificar si los mensajes incluyen datos del remitente
-    for (let msg of messages) {
-      if (!msg.sender || !msg.sender.nombre || !msg.sender.apellido) {
-        const userData = await fetchUserData(msg.senderUuid);
-        if (userData) {
-          msg.sender = userData; // Asignar el usuario al mensaje
-        } else {
-          msg.sender = { nombre: "Desconocido", apellido: "" };
-        }
-      }
-    }
-
-    dispatch({ type: GET_MESSAGES_SUCCESS, payload: messages });
+    dispatch({ type: GET_MESSAGES_SUCCESS, payload: response.data });
   } catch (error) {
-    console.error("Error al obtener mensajes:", error);
-    dispatch({ type: GET_MESSAGES_FAIL, payload: "Error al obtener mensajes del usuario." });
+    dispatch({ type: GET_MESSAGES_FAIL, payload: handleRequestError(error) });
   }
 };
 
+// ✅ Eliminar una conversación
 export const deleteConversation = (userUuid) => async (dispatch) => {
   dispatch({ type: DELETE_CONVERSATION_REQUEST });
   try {
@@ -140,83 +99,110 @@ export const deleteConversation = (userUuid) => async (dispatch) => {
     const adminId = userData?.uuid;
     if (!adminId) throw new Error("No se encontró el adminId.");
 
-    const response = await api.delete(`/messages/conversation/${userUuid}`, {
-      headers: { 'Content-Type': 'application/json' },
-      data: { adminId }
-    });
-    
+    await api.delete(`/messages/conversation/${userUuid}`, { data: { adminId } });
 
-    dispatch({
-      type: DELETE_CONVERSATION_SUCCESS,
-      payload: { userUuid, data: response.data }
-    });
+    dispatch({ type: DELETE_CONVERSATION_SUCCESS, payload: { userUuid } });
   } catch (error) {
-    const errorMessage = handleRequestError(error);
-    dispatch({ type: DELETE_CONVERSATION_FAIL, payload: errorMessage });
+    dispatch({ type: DELETE_CONVERSATION_FAIL, payload: handleRequestError(error) });
   }
 };
 
-// src/redux/actions/messageActions.js
-// src/redux/actions/messageActions.js
-export const markMessagesAsRead = (userUuid, adminUuid) => async (dispatch) => {
+// ✅ Marcar mensajes como leídos
+export const markMessagesAsRead = (userUuid) => async (dispatch) => {
   dispatch({ type: MARK_MESSAGES_AS_READ_REQUEST });
 
   try {
-    await api.put(`/messages/mark-as-read/${userUuid}`, { adminUuid }); // 🔥 Asegura que adminUuid se envía en el body
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    const adminUuid = userData?.uuid;
+    const token = localStorage.getItem("token");
 
-    dispatch({
-      type: MARK_MESSAGES_AS_READ_SUCCESS,
-      payload: { userUuid, adminUuid },
-    });
+    if (!userUuid || !adminUuid) {
+      console.warn("⚠️ No se puede marcar mensajes como leídos. userUuid o adminUuid faltan.");
+      return;
+    }
 
+    if (!token) {
+      console.warn("⚠️ No se encontró token de autenticación.");
+      return;
+    }
+
+    const response = await api.put(
+      `/messages/mark-as-read/${userUuid}`,
+      { adminUuid },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    console.log("✅ Respuesta de marcar mensajes como leídos:", response.data);
+
+    dispatch({ type: MARK_MESSAGES_AS_READ_SUCCESS, payload: { userUuid, adminUuid } });
+
+    setTimeout(() => {
+      dispatch(getUnreadMessages(userUuid));
+    }, 500);
   } catch (error) {
-    dispatch({
-      type: MARK_MESSAGES_AS_READ_FAIL,
-      payload: error.response?.data?.message || "Error al marcar mensajes como leídos",
-    });
+    console.error("❌ Error al marcar mensajes como leídos:", error.response?.data || error.message);
+    dispatch({ type: MARK_MESSAGES_AS_READ_FAIL, payload: error.message });
   }
 };
 
 
-// Acción para obtener mensajes no leídos
-export const fetchUnreadMessages = (userUuid) => async (dispatch) => {
+
+
+// ✅ Obtener mensajes no leídos
+export const getUnreadMessages = () => async (dispatch) => {
   try {
-    if (!userUuid) return;
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    const userUuid = userData?.uuid;
+
+    if (!userUuid) {
+      console.error("❌ No se encontró userUuid en localStorage.");
+      return;
+    }
+
+    console.log("📩 Solicitando mensajes no leídos para:", userUuid);
 
     const response = await api.get(`/messages/unread/${userUuid}`);
-    dispatch({ type: GET_MESSAGES_SUCCESS, payload: response.data.count });
 
-  } catch (error) {
-    dispatch({ type: GET_MESSAGES_FAIL, payload: "Error al obtener mensajes no leídos." });
-  }
-};
+    console.log("✅ Mensajes no leídos obtenidos desde el backend:", response.data);
 
-// 🔹 Obtener solo los mensajes sin asignar (para admins)
-export const getMessagesForAdmins = () => async (dispatch) => {
-  dispatch({ type: GET_MESSAGES_REQUEST });
-
-  try {
-    const response = await api.get('/messages/unassigned'); // Asegúrate de que el endpoint sea correcto
-    dispatch({ type: GET_MESSAGES_SUCCESS, payload: response.data });
-  } catch (error) {
     dispatch({
-      type: GET_MESSAGES_FAIL,
-      payload: error.response?.data?.message || "Error al obtener mensajes.",
+      type: GET_UNREAD_MESSAGES,
+      payload: response.data.unreadMessages || [], // 🔥 Asegurar que siempre sea un array
     });
+
+  } catch (error) {
+    console.error("❌ Error al obtener mensajes no leídos:", error.response?.data || error.message);
   }
 };
 
-// 🔹 Asignar un mensaje a un admin cuando lo abre
+
+// ✅ Asignar un mensaje a un admin
 export const assignMessageToAdmin = ({ messageUuid, adminUuid }) => async (dispatch) => {
   dispatch({ type: ASSIGN_MESSAGE_REQUEST });
 
   try {
     await api.put('/messages/assign', { messageUuid, adminUuid });
+
     dispatch({ type: ASSIGN_MESSAGE_SUCCESS, payload: { messageUuid, adminUuid } });
+
+    dispatch(getMessages()); // 🔄 Actualizar mensajes en Redux
+
   } catch (error) {
-    dispatch({
-      type: ASSIGN_MESSAGE_FAIL,
-      payload: error.response?.data?.message || "Error al asignar el mensaje.",
-    });
+    dispatch({ type: ASSIGN_MESSAGE_FAIL, payload: error.message });
+  }
+};
+
+
+// ✅ Marcar mensajes de usuario como leídos (cuando el admin responde)
+export const markUserMessagesAsRead = (userUuid, adminUuid) => async (dispatch) => {
+  dispatch({ type: MARK_MESSAGES_AS_READ_REQUEST });
+
+  try {
+    await api.put(`/messages/mark-user-read/${userUuid}`, { adminUuid });
+
+    dispatch({ type: MARK_MESSAGES_AS_READ_SUCCESS, payload: { userUuid, adminUuid } });
+
+  } catch (error) {
+    dispatch({ type: MARK_MESSAGES_AS_READ_FAIL, payload: handleRequestError(error) });
   }
 };

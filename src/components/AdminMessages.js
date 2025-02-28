@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { getMessagesByUser, sendMessage, markMessagesAsRead, getMessages } from '../redux/actions/messageActions';
+import { getMessagesByUser, sendMessage, markMessagesAsRead, getMessages, assignMessageToAdmin } from '../redux/actions/messageActions';
 import { getUserByUuid } from '../redux/actions/usuarios'; // ✅ Importamos la nueva acción
 import { FaArrowLeft, FaPaperPlane } from 'react-icons/fa';
 
@@ -63,7 +63,7 @@ const AdminMessages = () => {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !userUuid || !adminUuid) return;
-
+  
     const tempMessage = {
       uuid: `temp-${Date.now()}`,
       senderUuid: adminUuid,
@@ -71,19 +71,34 @@ const AdminMessages = () => {
       content: newMessage.trim(),
       createdAt: new Date().toISOString(),
     };
-
+  
+    // 🔥 Agregar el mensaje temporalmente para mejorar la experiencia de usuario
     setLocalMessages((prevMessages) => [...prevMessages, tempMessage]);
-
-    await dispatch(sendMessage({
-      senderUuid: adminUuid,
-      recipientUuid: userUuid,
-      content: newMessage.trim(),
-    }));
-
-    dispatch(getMessagesByUser(userUuid));
-    dispatch(getMessages());
+  
+    try {
+      // 🔥 Asignar el mensaje al admin actual (si otro admin lo tenía asignado)
+      await dispatch(assignMessageToAdmin({ messageUuid: userUuid, adminUuid }));
+  
+      // 🔥 Enviar el mensaje
+      await dispatch(sendMessage({
+        senderUuid: adminUuid,
+        recipientUuid: userUuid,
+        content: newMessage.trim(),
+      }));
+  
+      // 🔄 Recargar la conversación después de enviar el mensaje
+      await dispatch(getMessagesByUser(userUuid));
+      await dispatch(getMessages()); // 🔥 También actualizar la bandeja de mensajes
+  
+    } catch (error) {
+      console.error("❌ Error enviando mensaje:", error);
+    }
+  
     setNewMessage('');
   };
+
+  
+
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);

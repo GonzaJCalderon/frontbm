@@ -6,16 +6,17 @@ export const searchItems = (term, category) => async (dispatch) => {
     dispatch({ type: SEARCH_REQUEST });
 
     try {
-        const params = { [category]: term }; // Enviar solo el campo que se busca
-        console.log("🔍 Enviando búsqueda con params:", params);
+        const params = { [category]: term }; // ✅ Asegura que solo envía un campo relevante
+        console.log("🔍 Enviando búsqueda con params:", params); // 🔥 Verifica qué se envía al backend
 
         const response = await api.get('/search', { params });
-        console.log("✅ Respuesta de la API:", response.data);
+
+        console.log("✅ Respuesta de la API:", response.data); // 🔥 Muestra qué devuelve el backend
 
         dispatch({
             type: SEARCH_SUCCESS,
             payload: {
-                usuarios: response.data.usuarios.results || [],
+                usuarios: response.data.usuarios.results || [], 
                 bienes: response.data.bienes.results || [],
             },
         });
@@ -29,6 +30,6 @@ export const searchItems = (term, category) => async (dispatch) => {
     }
 };
 
-
+ 
 
 export default searchItems;
