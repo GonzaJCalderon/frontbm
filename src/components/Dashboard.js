@@ -4,8 +4,9 @@ import { FaSignOutAlt, FaHome, FaSearch, FaUser, FaTimes, FaEnvelope } from 'rea
 import { useSelector, useDispatch } from 'react-redux';
 import searchItems from '../redux/actions/search';
 import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
-import { getUnreadMessages, markMessagesAsRead, markUserMessagesAsRead } from '../redux/actions/messageActions';
-import { GET_UNREAD_MESSAGES } from '../redux/actions/actionTypes';
+import { getUnreadMessages, markMessagesAsRead, markUserMessagesAsRead} from '../redux/actions/messageActions';
+
+
 
 import '../assets/styles/fontawesome.css';
 

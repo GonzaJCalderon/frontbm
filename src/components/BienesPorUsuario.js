@@ -1,37 +1,41 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Table, Spin, Alert, Button, Space, Input, Modal, Carousel, Typography } from 'antd';
-import { LeftOutlined, LogoutOutlined } from '@ant-design/icons';
+import { Table, Spin, Alert, Button, Space, Input, Modal, Form, InputNumber, message, Typography } from 'antd';
+import { LeftOutlined, LogoutOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchBienesPorUsuario } from '../redux/actions/bienes';
+import { fetchBienesPorUsuario, updateBien, deleteBien } from '../redux/actions/bienes';
 
 const { Search } = Input;
 const { Title } = Typography;
+const { confirm } = Modal;
 
 const BienesPorUsuario = () => {
-  const { uuid } = useParams(); // Obtener UUID de la URL
+  const { uuid } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const [filteredItems, setFilteredItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentFotos, setCurrentFotos] = useState([]);
-  const [currentIdentifiers, setCurrentIdentifiers] = useState([]);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [userName, setUserName] = useState('');
+  const [form] = Form.useForm();
 
   const { items = [], loading, error } = useSelector((state) => state.bienes || {});
-  const usuarios = useSelector((state) => state.usuarios.approvedUsers || []); // Obtener lista de usuarios aprobados
+  const usuarios = useSelector((state) => state.usuarios.approvedUsers || []);
 
-  // Obtener los bienes del usuario al cargar el componente
   useEffect(() => {
     if (uuid) {
-      dispatch(fetchBienesPorUsuario(uuid)); // Usamos fetchBienes con el UUID
+      dispatch(fetchBienesPorUsuario(uuid));
     }
   }, [uuid, dispatch]);
 
-  // Obtener información del usuario
+  useEffect(() => {
+    if (Array.isArray(items)) {
+      setFilteredItems(items);
+    }
+  }, [items]);
+
   useEffect(() => {
     const usuario = usuarios.find((user) => user.uuid === uuid);
     if (usuario) {
@@ -39,137 +43,73 @@ const BienesPorUsuario = () => {
     }
   }, [usuarios, uuid]);
 
-  // Actualizar elementos filtrados cuando se cargan bienes
-  useEffect(() => {
-    console.log('Items recibidos:', items);
-    if (Array.isArray(items)) {
-      const sortedItems = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setFilteredItems(sortedItems);
-    } else {
-      setFilteredItems([]);
-    }
-  }, [items]);
-
-  // Manejo de búsqueda
-  const handleSearch = (value) => {
-    setSearchTerm(value);
-    if (!value.trim()) {
-      setFilteredItems(items);
-    } else {
-      const filtered = items.filter((item) => {
-        const matchGeneral =
-          (item.tipo || '').toLowerCase().includes(value.toLowerCase()) ||
-          (item.marca || '').toLowerCase().includes(value.toLowerCase()) ||
-          (item.modelo || '').toLowerCase().includes(value.toLowerCase()) ||
-          (item.descripcion || '').toLowerCase().includes(value.toLowerCase());
-
-        const matchIdentificadores = (item.identificadores || []).some((imei) =>
-          imei.estado.toLowerCase().includes(value.toLowerCase())
-        );
-
-        return matchGeneral || matchIdentificadores;
-      });
-      setFilteredItems(filtered);
-    }
+  // 🔹 Abrir modal de edición
+  const handleEdit = (bien) => {
+    setCurrentItem(bien);
+    form.setFieldsValue({ ...bien });
+    setIsEditModalVisible(true);
   };
 
-  // Modal para mostrar detalles de IMEIs
-  const handleOpenIdentifiersModal = (identificadores, item) => {
-    setCurrentIdentifiers(identificadores);
-    setCurrentItem(item);
-    setIsModalVisible(true);
-  };
-
-  const handleCloseModal = () => {
-    setCurrentIdentifiers([]);
+  // 🔹 Cerrar modal de edición
+  const handleCancelEdit = () => {
     setCurrentItem(null);
-    setIsModalVisible(false);
+    setIsEditModalVisible(false);
+    form.resetFields();
   };
 
-  // Mostrar imágenes en un modal
-  const handleOpenFotosModal = (fotos) => {
-    setCurrentFotos(fotos.filter((url) => url)); // Asegurar que las fotos no sean nulas o indefinidas
-    setIsModalVisible(true);
+  // 🔹 Guardar cambios
+  const handleSaveEdit = async () => {
+    try {
+      const updatedValues = await form.validateFields();
+      dispatch(updateBien(currentItem.uuid, updatedValues));
+      message.success('Bien actualizado correctamente.');
+      handleCancelEdit();
+    } catch (error) {
+      console.error('Error al actualizar:', error);
+    }
   };
 
-  const handleCloseFotosModal = () => {
-    setCurrentFotos([]);
-    setIsModalVisible(false);
+  // 🔹 Confirmar eliminación
+  const handleDelete = (uuid) => {
+    confirm({
+      title: '¿Estás seguro de eliminar este bien?',
+      icon: <ExclamationCircleOutlined />,
+      content: 'Esta acción no se puede deshacer.',
+      okText: 'Sí, eliminar',
+      okType: 'danger',
+      cancelText: 'Cancelar',
+      onOk() {
+        dispatch(deleteBien(uuid));
+        message.success('Bien eliminado correctamente.');
+      },
+    });
   };
 
-  // Manejo de cierre de sesión
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/home');
-  };
-
-  // Configuración de las columnas
+  // 🔹 Columnas de la tabla
   const columns = [
-    {
-      title: 'Tipo',
-      dataIndex: 'tipo',
-      key: 'tipo',
-      render: (text) => <span className="font-medium">{text || 'No disponible'}</span>,
+    { title: 'Tipo', dataIndex: 'tipo', key: 'tipo' },
+    { title: 'Marca', dataIndex: 'marca', key: 'marca' },
+    { title: 'Modelo', dataIndex: 'modelo', key: 'modelo' },
+    { title: 'Descripción', dataIndex: 'descripcion', key: 'descripcion' },
+    { 
+      title: 'Precio', 
+      dataIndex: 'precio', 
+      key: 'precio', 
+      render: (precio) => precio ? `$${Number(precio).toFixed(2)}` : 'No disponible' 
     },
-    {
-      title: 'Marca',
-      dataIndex: 'marca',
-      key: 'marca',
-      render: (text) => <span>{text || 'No disponible'}</span>,
-    },
-    {
-      title: 'Modelo',
-      dataIndex: 'modelo',
-      key: 'modelo',
-      render: (text) => <span>{text || 'No disponible'}</span>,
-    },
-    {
-      title: 'Descripción',
-      dataIndex: 'descripcion',
-      key: 'descripcion',
-      render: (text) => <span>{text || 'No disponible'}</span>,
-    },
-    {
-      title: 'Precio',
-      dataIndex: 'precio',
-      key: 'precio',
-      render: (precio) => precio ? `$${precio.toFixed(2)}` : 'No disponible',
-    },
-    
-    {
-      title: 'Stock',
-      dataIndex: 'stock',
-      key: 'stock',
-      render: (stock) => <span>{stock || 0}</span>,
-    },
+    { title: 'Stock', dataIndex: 'stock', key: 'stock' },
     {
       title: 'IMEIs y Estado',
       dataIndex: 'identificadores',
       key: 'identificadores',
-      render: (identificadores, record) => {
+      render: (identificadores) => {
         if (!identificadores || identificadores.length === 0) {
           return <span style={{ color: 'gray' }}>Sin identificadores disponibles</span>;
         }
-
-        return (
-          <>
-            <span>{`${identificadores.length} identificadores`}</span>
-            <Button
-              type="link"
-              onClick={() => handleOpenIdentifiersModal(identificadores, record)}
-              style={{ marginLeft: 8 }}
-            >
-              Ver detalles
-            </Button>
-          </>
-        );
+        return identificadores.map((imei, index) => (
+          <p key={index}>{imei.identificador_unico} - {imei.estado || 'Disponible'}</p>
+        ));
       },
-    },
-    {
-      title: 'Fecha de Creación',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (date) => <span>{date ? new Date(date).toLocaleDateString() : 'No disponible'}</span>,
     },
     {
       title: 'Fotos',
@@ -179,10 +119,9 @@ const BienesPorUsuario = () => {
         const validFotos = (fotos || []).filter((url) => url);
         return validFotos.length > 0 ? (
           <img
-            src={validFotos[0]} // Mostrar la primera imagen
+            src={validFotos[0]}
             alt="Foto"
             style={{ width: '80px', height: 'auto', cursor: 'pointer', borderRadius: '8px' }}
-            onClick={() => handleOpenFotosModal(validFotos)} // Abre el modal al hacer clic
           />
         ) : (
           <span style={{ color: 'gray' }}>Sin imagen</span>
@@ -193,72 +132,49 @@ const BienesPorUsuario = () => {
       title: 'Acciones',
       key: 'acciones',
       render: (_, bien) => (
-        <Button type="primary" onClick={() => navigate(`/bienes/trazabilidad/${bien.uuid}`)}>
-          Ver Trazabilidad
-        </Button>
+        <Space>
+          <Button type="primary" onClick={() => navigate(`/bienes/trazabilidad/${bien.uuid}`)}>
+            Ver Trazabilidad
+          </Button>
+          <Button icon={<EditOutlined />} onClick={() => handleEdit(bien)}>
+            Editar
+          </Button>
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(bien.uuid)}>
+            Eliminar
+          </Button>
+        </Space>
       ),
     },
   ];
 
-  // Renderización del componente
-  if (loading) return <Spin tip="Cargando bienes..." />;
-  if (error) return <Alert message="Error" description={error} type="error" />;
-
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <Space style={{ marginBottom: 16 }}>
-        <Button icon={<LeftOutlined />} onClick={() => navigate(-1)}>
-          Volver
-        </Button>
-        <Button icon={<LogoutOutlined />} onClick={handleLogout} danger>
-          Cerrar sesión
-        </Button>
-        <Search
-          placeholder="Buscar bienes"
-          value={searchTerm}
-          onSearch={handleSearch}
-          onChange={(e) => handleSearch(e.target.value)}
-          style={{ width: 300 }}
-          enterButton
-        />
+        <Button icon={<LeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
+        <Button icon={<LogoutOutlined />} onClick={() => { localStorage.clear(); navigate('/home'); }} danger>Cerrar sesión</Button>
+        <Search placeholder="Buscar bienes" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: 300 }} enterButton />
       </Space>
-      <Title level={3} className="mb-4">{`Bienes de ${userName || 'Usuario desconocido'}`}</Title>
-      {filteredItems.length > 0 ? (
-        <Table
-          dataSource={filteredItems}
-          columns={columns}
-          rowKey="uuid"
-          pagination={{ pageSize: 10, position: ['bottomCenter'] }}
-          bordered
-        />
-      ) : (
-        <Alert
-          message="Sin bienes"
-          description="No se encontraron bienes para este usuario."
-          type="info"
-          showIcon
-        />
-      )}
 
-      <Modal
-        title={`IMEIs y Estado - ${currentItem?.tipo || ''}`}
-        visible={isModalVisible}
-        footer={null}
-        onCancel={handleCloseModal}
-        width={800}
-      >
-        <Table
-          dataSource={currentIdentifiers.map((detalle, index) => ({
-            key: index,
-            identificador: detalle.identificador_unico,
-            estado: detalle.estado || 'Disponible',
-          }))}
-          columns={[
-            { title: 'Identificador Único', dataIndex: 'identificador', key: 'identificador' },
-            { title: 'Estado', dataIndex: 'estado', key: 'estado' },
-          ]}
-          pagination={{ pageSize: 10 }}
-        />
+      <Title level={3} className="mb-4">Bienes de {userName || 'Usuario desconocido'}</Title>
+
+      {loading ? <Spin tip="Cargando bienes..." /> :
+        error ? <Alert message="Error" description={error} type="error" /> :
+        <Table dataSource={filteredItems} columns={columns} rowKey="uuid" pagination={{ pageSize: 10, position: ['bottomCenter'] }} bordered />
+      }
+
+      {/* 🛠 MODAL PARA EDITAR */}
+      <Modal title="Editar Bien" visible={isEditModalVisible} onOk={handleSaveEdit} onCancel={handleCancelEdit} okText="Guardar cambios">
+        <Form form={form} layout="vertical">
+          <Form.Item name="descripcion" label="Descripción" rules={[{ required: true, message: 'Ingrese la descripción' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="precio" label="Precio" rules={[{ required: true, message: 'Ingrese el precio' }]}>
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="stock" label="Stock" rules={[{ required: true, message: 'Ingrese la cantidad de stock' }]}>
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

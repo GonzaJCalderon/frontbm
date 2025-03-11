@@ -32,24 +32,26 @@ const UserProfile = () => {
   });
 
   const dispatch = useDispatch();
+
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem('userData')) || {};
+    console.log("🔍 Datos cargados desde localStorage:", storedUser);
+
     setFormData({
       id: storedUser.uuid || '',
       nombre: storedUser.nombre || '',
       apellido: storedUser.apellido || '',
-      dni: storedUser.dni || '',
+      dni: storedUser.dni || 'Sin DNI',
       email: storedUser.email || '',
+      contraseña: storedUser.contraseña || '',  // ✅ Ahora muestra la contraseña real
       direccion: {
-        calle: storedUser.direccion?.calle || '',
-        altura: storedUser.direccion?.altura || '',
-        barrio: storedUser.direccion?.barrio || '',
+        calle: storedUser.direccion?.calle || 'Sin calle',
+        altura: storedUser.direccion?.altura || 'Sin altura',
+        barrio: storedUser.direccion?.barrio || 'Sin barrio',
         departamento: storedUser.direccion?.departamento || '',
       },
     });
   }, []);
-  
-  
 
   const handleEdit = () => {
     setEditing(true);
@@ -84,7 +86,7 @@ const UserProfile = () => {
     // Enviar solo los campos modificados
     const updatedData = {
       email: formData.email,
-      contraseña: formData.contraseña,
+      contraseña: formData.contraseña !== '********' ? formData.contraseña : undefined, // ✅ Se envía la nueva contraseña solo si fue cambiada
       direccion: formData.direccion,
     };
 
@@ -113,10 +115,7 @@ const UserProfile = () => {
   };
 
   return (
-    <div
-      className="user-profile"
-      style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-    >
+    <div className="user-profile" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Card
         style={{ width: '100%', maxWidth: '600px', textAlign: 'center' }}
         actions={[
@@ -138,7 +137,7 @@ const UserProfile = () => {
             <Input name="apellido" value={formData.apellido} disabled />
           </Form.Item>
           <Form.Item label="DNI">
-            <Input name="dni" value={formData.dni} disabled />
+            <Input name="dni" value={formData.dni} disabled /> {/* ✅ Ahora se asegura de que el DNI se muestre */}
           </Form.Item>
           <Form.Item label="Email">
             <Input name="email" value={formData.email} onChange={handleChange} disabled={!editing} />
@@ -152,27 +151,9 @@ const UserProfile = () => {
             />
           </Form.Item>
           <Form.Item label="Dirección">
-            <Input
-              name="calle"
-              placeholder="Calle"
-              value={formData.direccion.calle}
-              onChange={handleChange}
-              disabled={!editing}
-            />
-            <Input
-              name="altura"
-              placeholder="Altura"
-              value={formData.direccion.altura}
-              onChange={handleChange}
-              disabled={!editing}
-            />
-            <Input
-              name="barrio"
-              placeholder="Barrio"
-              value={formData.direccion.barrio}
-              onChange={handleChange}
-              disabled={!editing}
-            />
+            <Input name="calle" placeholder="Calle" value={formData.direccion.calle} onChange={handleChange} disabled={!editing} />
+            <Input name="altura" placeholder="Altura" value={formData.direccion.altura} onChange={handleChange} disabled={!editing} />
+            <Input name="barrio" placeholder="Barrio" value={formData.direccion.barrio} onChange={handleChange} disabled={!editing} />
           </Form.Item>
           <Form.Item label="Departamento">
             <Select

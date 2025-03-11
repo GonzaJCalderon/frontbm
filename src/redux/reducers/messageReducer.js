@@ -11,7 +11,7 @@ import {
   MARK_MESSAGES_AS_READ_REQUEST,
   MARK_MESSAGES_AS_READ_SUCCESS,
   MARK_MESSAGES_AS_READ_FAIL,
-  GET_UNREAD_MESSAGES, // ✅ Importamos la acción correctamente
+  GET_UNREAD_MESSAGES // ✅ Importamos la acción correctamente
 } from '../actions/actionTypes';
 
 const initialState = {

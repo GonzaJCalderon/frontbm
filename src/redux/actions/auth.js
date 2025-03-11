@@ -1,5 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../axiosConfig';
+import { notification } from 'antd';
 
 // Acción de registro de usuario
 export const register = createAsyncThunk(
@@ -66,3 +67,36 @@ export const logout = createAsyncThunk(
         }
     }
 );
+
+
+
+
+export const solicitarResetPassword = (email) => async (dispatch) => {
+  try {
+    await api.post('/usuarios/forgot-password', { email });
+    notification.success({
+      message: 'Correo enviado',
+      description: 'Revisa tu email para restablecer la contraseña.',
+    });
+  } catch (error) {
+    notification.error({
+      message: 'Error',
+      description: error.response?.data?.message || 'No se pudo enviar el correo.',
+    });
+  }
+};
+
+export const resetPassword = (token, newPassword) => async (dispatch) => {
+  try {
+    await api.post(`/usuarios/reset-password/${token}`, { newPassword });
+    notification.success({
+      message: 'Contraseña actualizada',
+      description: 'Tu contraseña ha sido restablecida con éxito.',
+    });
+  } catch (error) {
+    notification.error({
+      message: 'Error',
+      description: error.response?.data?.message || 'No se pudo cambiar la contraseña.',
+    });
+  }
+};

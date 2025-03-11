@@ -28,6 +28,8 @@ import ReintentarRegistro from './components/ReintentarRegistro';
 import MessageToAdmin from './components/MessageToAdmin';
 import MessageAdmin from './components/AdminMessages';
 import AdminInbox from './components/AdminInbox';
+import ResetPassword from './components/ResetPassword';
+import ForgotPassword from './components/ForgotPassword'
 
 const App = () => {
   return (
@@ -62,9 +64,14 @@ const App = () => {
         <Route path="/inbox" element={<AdminInbox />} />
         <Route path="/admin/chat/:userUuid" element={<MessageAdmin />} />
         <Route path="/mensaje-admin" element={<MessageToAdmin />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/usuarios/reset-password/:token" element={<ResetPassword />} />
+
       </Routes>
     </div>
   );
 };
+
+
 
 export default App;

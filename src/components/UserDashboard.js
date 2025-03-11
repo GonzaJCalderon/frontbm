@@ -12,9 +12,7 @@ import {
   FaTags,
   FaPaperPlane
 } from 'react-icons/fa';
-import { useDispatch, useSelector } from 'react-redux';
-import { GET_UNREAD_MESSAGES } from '../redux/actions/actionTypes';
-
+import { useDispatch, useSelector } from 'react-redux'
 import { 
   getUnreadMessages, 
   markMessagesAsRead, 

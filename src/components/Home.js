@@ -2,12 +2,13 @@
 import React, { useState } from 'react';
 import Register from './RegisterForm'; 
 import Login from './Login';
+import ForgotPassword from './ForgotPassword';  // 👈 Importar el nuevo componente
 import logo from '../assets/logo-png-sin-fondo.png'; 
 
-const IngresoComponent = ({ onRegisterClick }) => (
+const IngresoComponent = ({ onRegisterClick, onForgotPasswordClick }) => (
   <div className="bg-gray-100 p-6 rounded-lg shadow-md flex items-center h-full">
     <div className="ml-auto"> 
-      <Login onRegisterClick={onRegisterClick} />
+      <Login onRegisterClick={onRegisterClick} onForgotPasswordClick={onForgotPasswordClick} /> 
     </div>
   </div>
 );
@@ -23,15 +24,24 @@ const RegistroComponent = () => (
 const Home = () => {
   const [mostrarIngreso, setMostrarIngreso] = useState(false);
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
+  const [mostrarRecuperacion, setMostrarRecuperacion] = useState(false);  // 👈 Nuevo estado
 
   const handleMostrarIngreso = () => {
     setMostrarIngreso(true);
     setMostrarRegistro(false);
+    setMostrarRecuperacion(false);
   };
 
   const handleMostrarRegistro = () => {
     setMostrarRegistro(true);
     setMostrarIngreso(false);
+    setMostrarRecuperacion(false);
+  };
+
+  const handleMostrarRecuperacion = () => {  // 👈 Función para mostrar recuperación
+    setMostrarRecuperacion(true);
+    setMostrarIngreso(false);
+    setMostrarRegistro(false);
   };
 
   return (
@@ -42,15 +52,12 @@ const Home = () => {
             <img src={logo} alt="Premium Benefits" className="object-contain w-full h-auto max-h-96" />
           </div>
           <div className="flex flex-col items-center justify-center md:items-start">
-          <h2 className="text-4xl md:text-5xl font-extrabold mb-6 md:!leading-[55px] text-blue-100 text-center">
-  Sistema Provincial Preventivo Bienes Muebles Usados{' '}
-  <span className="inline-flex items-center">
-    Ley N° 9556
-  </span>
-</h2>
-
-         
-
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-6 md:!leading-[55px] text-blue-100 text-center">
+              Sistema Provincial Preventivo Bienes Muebles Usados{' '}
+              <span className="inline-flex items-center">
+                Ley N° 9556
+              </span>
+            </h2>
             <p className="text-base text-blue-200 mb-10">
               ¡Bienvenido! Aquí podrá registrar la compra y venta de Bienes Muebles Usados
             </p>
@@ -70,8 +77,10 @@ const Home = () => {
             </div>
           </div>
         </div>
-        {mostrarIngreso && <IngresoComponent onRegisterClick={handleMostrarRegistro} />}
+        
+        {mostrarIngreso && <IngresoComponent onRegisterClick={handleMostrarRegistro} onForgotPasswordClick={handleMostrarRecuperacion} />}
         {mostrarRegistro && <RegistroComponent />}
+        {mostrarRecuperacion && <ForgotPassword onBackClick={handleMostrarIngreso} />}  {/* 👈 Agregar la pantalla de recuperación */}
       </div>
     </div>
   );

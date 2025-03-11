@@ -149,31 +149,22 @@ export const markMessagesAsRead = (userUuid) => async (dispatch) => {
 
 
 // ✅ Obtener mensajes no leídos
-export const getUnreadMessages = () => async (dispatch) => {
+export const getUnreadMessages = (userUuid) => async (dispatch) => {
   try {
-    const userData = JSON.parse(localStorage.getItem('userData'));
-    const userUuid = userData?.uuid;
-
-    if (!userUuid) {
-      console.error("❌ No se encontró userUuid en localStorage.");
-      return;
-    }
-
-    console.log("📩 Solicitando mensajes no leídos para:", userUuid);
+    if (!userUuid) return;
 
     const response = await api.get(`/messages/unread/${userUuid}`);
-
-    console.log("✅ Mensajes no leídos obtenidos desde el backend:", response.data);
-
+    
     dispatch({
-      type: GET_UNREAD_MESSAGES,
-      payload: response.data.unreadMessages || [], // 🔥 Asegurar que siempre sea un array
+      type: GET_UNREAD_MESSAGES, // ✅ Debe estar definido en actionTypes.js
+      payload: response.data.unreadMessages || [],
     });
 
   } catch (error) {
-    console.error("❌ Error al obtener mensajes no leídos:", error.response?.data || error.message);
+    console.error("Error al obtener mensajes no leídos:", error);
   }
 };
+
 
 
 // ✅ Asignar un mensaje a un admin
@@ -206,3 +197,4 @@ export const markUserMessagesAsRead = (userUuid, adminUuid) => async (dispatch) 
     dispatch({ type: MARK_MESSAGES_AS_READ_FAIL, payload: handleRequestError(error) });
   }
 };
+

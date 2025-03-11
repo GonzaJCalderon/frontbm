@@ -5,7 +5,7 @@ import { login } from '../redux/actions/auth';
 import { toast } from 'react-toastify';
 import loginImage from '../assets/loginimg.png';
 
-const Login = ({ onRegisterClick }) => {
+const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -67,10 +67,6 @@ const Login = ({ onRegisterClick }) => {
             toast.error('Ocurrió un error inesperado. Intenta nuevamente.');
         }
     };
-    
-    
-    
-    
 
     return (
         <div className="font-sans">
@@ -125,6 +121,18 @@ const Login = ({ onRegisterClick }) => {
                                 />
                             </div>
                         </div>
+
+                        {/* ✅ Botón "¿Olvidaste tu contraseña?" */}
+                        <div className="mt-3 text-sm text-center">
+                            <button
+                                type="button"
+                                onClick={onForgotPasswordClick}
+                                className="text-blue-600 hover:underline"
+                            >
+                                ¿Olvidaste tu contraseña?
+                            </button>
+                        </div>
+
                         <div className="mt-8">
                             <button type="submit" className="w-full py-3 px-6 text-sm tracking-wide rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none">
                                 Ingresar
