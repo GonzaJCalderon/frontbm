@@ -33,22 +33,32 @@ const Inventario = () => {
   // 3) Cuando items cambia, creamos filteredItems (ordenado, etc.)
   useEffect(() => {
     if (!loading && Array.isArray(items)) {
-      // Ordenar por fecha descendente
-      const sorted = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      console.log("📌 Bienes en Redux antes de procesar:", JSON.stringify(items, null, 2));
+  
+      const bienesConStock = items.filter(bien => bien.stock !== undefined && bien.stock !== null);
+      const sorted = bienesConStock.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+      console.log("✅ Bienes listos para renderizar:", JSON.stringify(sorted, null, 2));
+  
       setFilteredItems(sorted);
     }
   }, [items, loading]);
+  
 
+  
   // 4) Manejo de búsqueda
   const handleSearch = (value) => {
     setSearchTerm(value);
     if (!value.trim()) {
-      // Restaurar la lista si no hay búsqueda
-      const resetList = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // Restaurar la lista si no hay búsqueda y ordenar por fecha de creación
+      const resetList = [...items]
+        .filter(bien => bien.stock !== undefined && bien.stock !== null)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
       setFilteredItems(resetList);
       return;
     }
-
+  
     const lowerValue = value.toLowerCase();
     const filtered = items.filter((bien) => {
       const matchTipo = bien.tipo?.toLowerCase().includes(lowerValue);
@@ -59,8 +69,13 @@ const Inventario = () => {
       );
       return matchTipo || matchMarca || matchModelo || matchImei;
     });
-    setFilteredItems(filtered);
+  
+    // 🔥 Aplicamos el ordenamiento por fecha de creación a los resultados filtrados
+    const sortedFiltered = filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+    setFilteredItems(sortedFiltered);
   };
+  
 
   // 5) Logout
   const handleLogout = () => {
@@ -135,11 +150,14 @@ const Inventario = () => {
     },
     {
       title: 'Fotos',
-      dataIndex: 'todasLasFotos',
+      dataIndex: 'fotos',
       render: (fotos) => {
+        console.log("📸 Fotos en la tabla para:", fotos);
+        
         if (!fotos || fotos.length === 0) {
           return 'Sin fotos';
         }
+    
         return (
           <Space>
             {fotos.map((foto, index) => (
@@ -148,13 +166,14 @@ const Inventario = () => {
                 width={80}
                 src={foto}
                 alt={`Foto ${index + 1}`}
-                onError={(e) => { e.target.src = '/images/placeholder.png'; }}
+                onError={(e) => { e.target.src = '/images/placeholder.png'; }} // ✅ Evita imágenes rotas
               />
             ))}
           </Space>
         );
       },
     },
+    
   ];
   
   
@@ -188,10 +207,8 @@ const Inventario = () => {
 
       <Title level={2}>Inventario</Title>
 
-      <p class="mb-4">Aquí podrás Gestionar tú inventario y stock de Bienes Muebles</p>
+      <p class="mb-4">Aquí podrás consultar tu stock de Bienes Muebles Registrados</p>
 
-
-  
 
       <Table
         dataSource={filteredItems}

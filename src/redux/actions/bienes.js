@@ -82,57 +82,80 @@ export const fetchAllBienes = () => async (dispatch) => {
 
 
 // Acción para obtener los bienes del usuario 
-// Acción para obtener los bienes del usuario 
+// Acción para obtener los bienes del usuario
 export const fetchBienes = (userUuid) => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_REQUEST });
+
   try {
-    const response = await api.get(`/bienes/usuario/${userUuid}`);
+    if (!userUuid) {
+      console.error("❌ Error en fetchBienes: userUuid es inválido.");
+      dispatch({ type: FETCH_BIENES_ERROR, payload: "No se encontró el usuario." });
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.error("❌ Error en fetchBienes: No hay token en localStorage.");
+      dispatch({ type: FETCH_BIENES_ERROR, payload: "No se encontró el token de autenticación." });
+      return;
+    }
+
+    const response = await api.get(`/bienes/usuario/${userUuid}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response || !response.data) {
+      console.error("❌ Respuesta de API inválida en fetchBienes.");
+      dispatch({ type: FETCH_BIENES_ERROR, payload: "Error al obtener bienes. Respuesta inválida." });
+      return;
+    }
 
     console.log("📌 Datos recibidos desde API:", JSON.stringify(response.data, null, 2));
 
-    const bienesNormalizados = response.data
-      .map((bien) => {
-        // 🔍 Calcular stock desde los IMEIS si es un teléfono móvil
-        const stockCalculado =
-        (bien.tipo.toLowerCase().includes("teléfono movil") && bien.detalles && bien.detalles.length > 0)
-          ? bien.detalles.filter(det => det.estado.toLowerCase() === "disponible").length
-          : (typeof bien.stock === "number" ? bien.stock : (bien.stock?.cantidad || 0));
-      
+    const bienesNormalizados = response.data.map((bien) => {
+      const fotosCombinadas = [
+        ...(bien.fotos || []),
+        ...(bien.identificadores?.map(det => det.foto).filter(Boolean) || [])
+      ];
 
-  
-        return {
-          uuid: bien.uuid,
-          tipo: bien.tipo,
-          marca: bien.marca,
-          modelo: bien.modelo,
-          descripcion: bien.descripcion,
-          stock: stockCalculado,
-          identificadores: bien.detalles || [],
-          todasLasFotos: [...(bien.fotos || []), ...(bien.detalles?.map((det) => det.foto).filter(Boolean) || [])],
-          createdAt: new Date(bien.createdAt), // ✅ Convertir la fecha a objeto Date
-        };
-      })
-      .sort((a, b) => b.createdAt - a.createdAt); // 🔥 Ordenar del más nuevo al más viejo
-  
-    console.log("📌 Bienes ordenados antes de renderizar:", JSON.stringify(bienesNormalizados, null, 2));
-  
-    dispatch({
-      type: FETCH_BIENES_SUCCESS,
-      payload: bienesNormalizados,
+      let stockReal = bien.stock || 0;
+      if (bien.tipo.toLowerCase().includes("teléfono movil")) {
+        stockReal = bien.identificadores?.filter(det => det.estado === "disponible").length || 0;
+      }
+
+      return {
+        uuid: bien.uuid,
+        tipo: bien.tipo,
+        marca: bien.marca,
+        modelo: bien.modelo,
+        descripcion: bien.descripcion,
+        stock: stockReal,
+        fotos: fotosCombinadas.length > 0 ? fotosCombinadas : ['/images/placeholder.png'],
+        identificadores: bien.identificadores || [],
+        createdAt: bien.createdAt ? new Date(bien.createdAt) : new Date(),
+      };
     });
-    
-    // Retornamos la respuesta para poder usarla en el componente
+
+    console.log("📌 Bienes normalizados antes de enviar a Redux:", JSON.stringify(bienesNormalizados, null, 2));
+
+    dispatch({ type: FETCH_BIENES_SUCCESS, payload: bienesNormalizados });
+
     return { success: true, data: bienesNormalizados };
 
   } catch (error) {
-    const errorMsg = error.response?.data?.message || 'Error al obtener bienes.';
+    console.error("❌ Error en fetchBienes:", error);
     dispatch({
       type: FETCH_BIENES_ERROR,
-      payload: errorMsg,
+      payload: error.response?.data?.message || "Error al obtener bienes.",
     });
-    return { success: false, message: errorMsg };
+
+    return { success: false, message: error.message || "Error desconocido" };
   }
 };
+
+
+
+
 
 
 
@@ -144,7 +167,7 @@ export const addBien = (formData) => async (dispatch) => {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.post('/bienes/add', formData, {
+    const response = await api.post('/bienes/add', formData, {
       headers: { 'Content-Type': 'multipart/form-data',
         Authorization: `Bearer ${token}`,
       },

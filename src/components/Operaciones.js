@@ -66,26 +66,30 @@ const esTelefonoMovil = (tipo) => {
 };
 
 // Función auxiliar para renderizar las imágenes
+// Función segura para renderizar imágenes
+// CORRECCIÓN DEFINITIVA
 const renderImagen = (text, record) => {
-    let fotos = record.bienTransaccion?.fotos || [];
-    
-    if (esTelefonoMovil(record.bienTransaccion?.tipo) && record.bienTransaccion?.detalles) {
-        const fotosIMEIs = record.bienTransaccion.detalles
-            .map((det) => det.foto)
-            .filter((url) => url);
-        fotos = [...fotos, ...fotosIMEIs]; 
-    }
+    // Ajustamos el acceso a fotos según la estructura correcta
+    const fotosBien = Array.isArray(record.bienTransaccion?.fotos) 
+                      ? record.bienTransaccion.fotos 
+                      : [];
 
-    return fotos.length > 0 ? (
+    const fotosIMEIs = Array.isArray(record.imeis)
+                      ? record.imeis.map((imei) => imei.foto).filter(Boolean)
+                      : [];
+
+    const todasLasFotos = [...fotosBien, ...fotosIMEIs];
+
+    return todasLasFotos.length > 0 ? (
         <Space>
-            {fotos.map((foto, index) => (
+            {todasLasFotos.map((foto, index) => (
                 <Image
                     key={index}
                     width={80}
-                    src={foto} 
+                    src={foto}
                     alt={`Imagen ${index + 1}`}
                     onError={(e) => {
-                        e.target.src = '/images/placeholder.png'; 
+                        e.target.src = '/images/placeholder.png';
                     }}
                 />
             ))}
@@ -94,6 +98,8 @@ const renderImagen = (text, record) => {
         <span>Sin imagen</span>
     );
 };
+
+
 
 
 

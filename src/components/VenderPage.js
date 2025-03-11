@@ -18,12 +18,14 @@ import {
   LogoutOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
+import imagenPredeterminada from '../assets/27002.jpg'; // Ajusta la ruta si es necesario
+import { v4 as uuidv4 } from 'uuid'; 
 
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 
 // Acciones de Redux
-import { fetchBienes, registrarVenta, fetchAllBienes } from '../redux/actions/bienes';
+import { fetchBienes, registrarVenta, fetchAllBienes,addBien } from '../redux/actions/bienes';
 import { checkExistingUser, registerUsuarioPorTercero } from '../redux/actions/usuarios';
 import api from '../redux/axiosConfig';
 
@@ -98,12 +100,18 @@ const VenderPage = () => {
   // Usuario vendedor obtenido del localStorage
   const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
   const vendedorId = usuario?.uuid;
+  
+  if (!vendedorId) {
+    message.error('Debe iniciar sesión como vendedor.');
+    navigate('/login');
+  }
+  
 
 
   useEffect(() => {
     if (selectedGood) {
       console.log("🛠 Cargando datos en el formulario:", selectedGood);
-      
+  
       formGood.setFieldsValue({
         tipo: selectedGood.tipo,
         marca: selectedGood.marca,
@@ -112,6 +120,13 @@ const VenderPage = () => {
         precio: selectedGood.precio,
         cantidad: 1, // Default: 1 unidad
       });
+  
+      console.log("📸 Fotos del bien seleccionado:", selectedGood.fotos);
+  
+      // Asegurar que `fotos` es un array válido
+      if (!selectedGood.fotos || !Array.isArray(selectedGood.fotos)) {
+        selectedGood.fotos = [];
+      }
   
       // Si es un teléfono móvil, carga los IMEIs existentes
       if (selectedGood.tipo.toLowerCase() === "teléfono movil") {
@@ -123,7 +138,8 @@ const VenderPage = () => {
         setImeisNuevo(imeisCargados);
       }
     }
-  }, [selectedGood, formGood]); 
+  }, [selectedGood, formGood]);
+  
 
   useEffect(() => {
     if (!vendedorId) {
@@ -197,27 +213,47 @@ const VenderPage = () => {
       const cargarBienes = async () => {
         setLoadingBienes(true);
         try {
-          const response = await dispatch(fetchBienes(vendedorId, page, pageSize));
+          console.log("📌 Llamando a fetchBienes con vendedorId:", vendedorId);
+          if (!vendedorId) {
+            message.error("❌ No se encontró el vendedor.");
+            return;
+          }
   
-          if (response.success) {
-            const bienesDisponibles = response.data.filter(bien => bien.stock > 0); // 🔥 Solo los bienes con stock
+          const response = await dispatch(fetchBienes(vendedorId));
   
-            if (page === 1) {
-              setBienes(bienesDisponibles);
-              setBienesFiltrados(bienesDisponibles);
-            } else {
-              setBienes(prev => [...prev, ...bienesDisponibles]);
-              setBienesFiltrados(prev => [...prev, ...bienesDisponibles]);
-            }
+          if (!response || typeof response !== 'object') {
+            throw new Error("Respuesta de fetchBienes es inválida.");
+          }
   
-            if (bienesDisponibles.length < pageSize) {
-              setHasMore(false);
-            }
+          if (!response.success) {
+            throw new Error(response.message || "No se pudieron cargar bienes.");
+          }
+  
+          const bienesDisponibles = response.data.filter(bien => bien.stock > 0);
+          
+          console.log("✅ Bienes disponibles después del filtro:", bienesDisponibles);
+  
+          if (bienesDisponibles.length === 0) {
+            console.warn("⚠️ No hay bienes con stock disponible.");
+            message.warning("No hay bienes disponibles para vender.");
+          }
+  
+          if (page === 1) {
+            setBienes(bienesDisponibles);
+            setBienesFiltrados(bienesDisponibles);
           } else {
-            message.error("No se pudieron cargar bienes.");
+            setBienes(prev => [...prev, ...bienesDisponibles]);
+            setBienesFiltrados(prev => [...prev, ...bienesDisponibles]);
+          }
+  
+          console.log("📌 Estado de bienes actualizado:", bienesDisponibles);
+  
+          if (bienesDisponibles.length < pageSize) {
+            setHasMore(false);
           }
         } catch (error) {
-          message.error("Error al cargar bienes.");
+          console.error("❌ Error al cargar bienes:", error);
+          message.error(error.message || "Error al cargar bienes.");
         } finally {
           setLoadingBienes(false);
         }
@@ -226,6 +262,9 @@ const VenderPage = () => {
       cargarBienes();
     }
   }, [step, subStep2, vendedorId, dispatch, page, pageSize]);
+  
+  
+  
   
   // Función para búsqueda de bienes
   const handleSearchBienes = (val) => {
@@ -238,9 +277,15 @@ const VenderPage = () => {
         (b.marca || '').toLowerCase().includes(val.toLowerCase()) ||
         (b.modelo || '').toLowerCase().includes(val.toLowerCase())
       );
+  
+      if (filtered.length === 0) {
+        console.warn("⚠️ No hay bienes que coincidan con la búsqueda:", val);
+      }
+  
       setBienesFiltrados(filtered);
     }
   };
+  
 
   // Paginación infinita
   const loadMoreBienes = () => {
@@ -374,28 +419,29 @@ const actualizarFotoImei = (index, file) => {
     return;
   }
 
-  setImeisNuevo(prevImeis => {
-    const nuevosImeis = [...prevImeis];
-    nuevosImeis[index] = { ...nuevosImeis[index], foto: file.originFileObj || file };
-
-    // 🔥 ACTUALIZAMOS `bienesAVender` DESDE AQUÍ
-    setBienesAVender(prevBienes => {
-      return prevBienes.map(bien => {
-        if (bien.tipo.toLowerCase() === "teléfono movil") {
-          return {
-            ...bien,
-            imeis: nuevosImeis, // 🔥 Ahora `imeis` realmente se actualiza
-          };
-        }
-        return bien;
-      });
-    });
-
-    return nuevosImeis;
+  const updatedImeis = imeisNuevo.map((imei, i) => {
+    if (i === index) {
+      return { ...imei, foto: file.originFileObj || file };
+    }
+    return imei;
   });
+
+  setImeisNuevo(updatedImeis);
+
+  // 🔥 Actualiza correctamente bienesAVender desde aquí
+  setBienesAVender(prevBienes => prevBienes.map(bien => {
+    if (bien.tipo.toLowerCase() === "teléfono movil") {
+      return {
+        ...bien,
+        imeis: updatedImeis, // 🟢 Ahora sí actualiza correctamente
+      };
+    }
+    return bien;
+  }));
 
   console.log("✅ IMEI actualizado correctamente:", index, file.originFileObj || file);
 };
+
 
 
 // Función para eliminar un teléfono
@@ -408,74 +454,84 @@ const eliminarImei = (index) => {
 };
 
   // --- Función para agregar el bien a la venta ---
-  const agregarBienAVenta = (values) => {
-    let bienesParaAgregar = [];
-  
-    // 📌 SI EL BIEN ES NUEVO
-    if (subStep2 === "nuevo") {
-      const bienNuevo = {
-        uuid: null, // ⚠️ Importante: `null` porque es un bien nuevo
-        tipo: values.tipo,
-        marca: values.marca,
-        modelo: values.modelo,
-        descripcion: values.descripcion,
-        cantidad: values.cantidad,
-        metodoPago: values.metodoPago || "efectivo",
-        imeis: [],
-        fotos: [],
-      };
-  
-      if (values.tipo.toLowerCase() === "teléfono movil") {
-        bienNuevo.imeis = imeisNuevo.map((imeiObj) => ({
-          imei: imeiObj.imei,
-          precio: imeiObj.precio,
-          foto: imeiObj.foto ? (imeiObj.foto.originFileObj || imeiObj.foto) : null
-        }));
-      } else {
-        bienNuevo.precio = values.precio;
-        bienNuevo.fotos = fileList.map(file => ({
-          url: file.originFileObj
-        }));
-      }
-  
-      bienesParaAgregar.push(bienNuevo);
+// --- Función para agregar el bien a la venta ---
+const agregarBienAVenta = (values) => {
+  const bienesParaAgregar = [];
+
+  // 📌 SI EL BIEN ES NUEVO
+  if (subStep2 === "nuevo") {
+    const imeisFiltrados = imeisNuevo.filter(imei => imei.imei && imei.imei.trim());
+
+    const bienNuevo = {
+      uuid: null, // nuevo bien
+      tipo: values.tipo,
+      marca: values.marca,
+      modelo: values.modelo,
+      descripcion: values.descripcion,
+      cantidad: values.tipo.toLowerCase() === "teléfono movil" ? imeisFiltrados.length : values.cantidad,
+      metodoPago: values.metodoPago || "efectivo",
+      imeis: [],
+      fotos: [],
+    };
+
+    if (values.tipo.toLowerCase() === "teléfono movil") {
+      bienNuevo.imeis = imeisFiltrados.map((imeiObj) => ({
+        imei: imeiObj.imei,
+        precio: imeiObj.precio,
+        foto: imeiObj.foto ? imeiObj.foto.originFileObj || imeiObj.foto : null,
+      }));
+    } else {
+      bienNuevo.precio = values.precio;
+      bienNuevo.identificadores_unicos = values.identificadores || [];
+      bienNuevo.fotos = fileList.map(file => file.originFileObj);
     }
-  
-    // 📌 SI EL BIEN YA ESTÁ REGISTRADO
-    if (subStep2 === "existente") {
-      if (!selectedGood) {
-        message.warning("⚠️ No has seleccionado un bien existente.");
-        return;
-      }
-  
-      const bienExistente = {
-        uuid: selectedGood.uuid,
-        tipo: selectedGood.tipo,
-        marca: selectedGood.marca,
-        modelo: selectedGood.modelo,
-        descripcion: selectedGood.descripcion,
+
+    bienesParaAgregar.push(bienNuevo);
+  }
+
+  // --- SI EL BIEN YA ESTÁ REGISTRADO ---
+  if (subStep2 === "existente") {
+    if (!selectedGood) {
+      message.warning("⚠️ No has seleccionado un bien existente.");
+      return;
+    }
+
+    const bienExistente = {
+      uuid: selectedGood.uuid,
+      tipo: selectedGood.tipo,
+      marca: selectedGood.marca,
+      modelo: selectedGood.modelo,
+      descripcion: selectedGood.descripcion,
+      cantidad: values.cantidad,
+      metodoPago: values.metodoPago || "efectivo",
+      precio: selectedGood.precio,
+      imeis: (selectedGood.identificadores || []).map((identificador) => ({
+        imei: identificador.identificador_unico,
         precio: selectedGood.precio,
-        cantidad: values.cantidad,
-        metodoPago: values.metodoPago || "efectivo",
-        imeis: selectedGood.identificadores || [],
-        fotos: selectedGood.todasLasFotos || [],
-      };
-  
-      bienesParaAgregar.push(bienExistente);
-    }
-  
-    // 📌 AGREGAR TODOS LOS BIENES (NUEVOS Y REGISTRADOS) AL ARRAY FINAL
-    setBienesAVender(prev => [...prev, ...bienesParaAgregar]);
-    message.success("✅ Bien agregado a la venta.");
-  
-    // 🔄 Resetear formularios y estados
-    formGood.resetFields();
-    setFileList([]);
-    setImeisNuevo([]);
-    setSelectedGoods([]);
-    setSelectedGood(null);
-  };
-  
+        foto: null, // inicialmente sin foto, o puedes agregar lógica aquí si la tienes disponible
+      })),
+      fotos: selectedGood.fotos || [],
+    };
+
+    bienesParaAgregar.push(bienExistente);
+  }
+
+  // 📌 Actualizar el estado principal con todos los bienes
+  setBienesAVender(prev => [...prev, ...bienesParaAgregar]);
+
+  message.success("✅ Bien agregado a la venta.");
+
+  // 🔄 Resetear formularios y estados
+  formGood.resetFields();
+  setFileList([]);
+  setImeisNuevo([]);
+  setSelectedGoods([]);
+  setSelectedGood(null);
+
+  console.log("✅ Estado actualizado de bienesAVender:", bienesAVender);
+};
+
+
   
   const eliminarBienAVenta = (index) => {
     setBienesAVender(prev => prev.filter((_, i) => i !== index));
@@ -488,55 +544,77 @@ const eliminarImei = (index) => {
 
   // --- Función para confirmar la venta ---
   const confirmarVenta = async () => {
-    console.log("🚀 Iniciando confirmación de venta...");
     setLoadingVenta(true);
-
+  
     try {
-        const formData = new FormData();
-        formData.append("vendedorUuid", vendedorId);
-        formData.append("compradorId", compradorId);
-        formData.append("ventaData", JSON.stringify(bienesAVender));
-
-        bienesAVender.forEach((bien, bienIndex) => {
-            // 📌 Agregar fotos generales de bienes nuevos
-            if (!bien.uuid && bien.fotos.length > 0) { // Solo para bienes nuevos
-                bien.fotos.forEach((foto, fotoIndex) => {
-                    if (foto.url) {
-                        console.log(`📸 Enviando foto del bien ${bienIndex}, imagen ${fotoIndex}:`, foto.url);
-                        formData.append(`venta[${bienIndex}][fotos][${fotoIndex}]`, foto.url);
-                    }
-                });
-            }
-
-            // 📌 Agregar imágenes de IMEIs
-            bien.imeis.forEach((imei, imeiIndex) => {
-                if (imei.foto) {
-                    console.log(`📸 Enviando imagen de IMEI ${imei.imei}:`, imei.foto);
-                    formData.append(`venta[${bienIndex}][imeis][${imeiIndex}][foto]`, imei.foto);
-                } else {
-                    console.warn(`⚠️ IMEI ${imei.imei} NO tiene imagen asignada.`);
-                }
-            });
+      const bienesProcesados = bienesAVender.map((bien) => ({
+        ...bien,
+        uuid: bien.uuid || null,
+        propietario_uuid: vendedorId,
+        imeis: bien.imeis?.map((imei) => ({
+          imei: imei.imei,
+          precio: imei.precio,
+          foto: imei.foto?.originFileObj || imei.foto || null, // 🔥 Verificamos `originFileObj`
+        })) || [],
+      }));
+  
+      console.log("📦 Bienes procesados antes de enviar:", bienesProcesados);
+  
+      const formData = new FormData();
+      formData.append("vendedorUuid", vendedorId);
+      formData.append("compradorId", compradorId);
+      formData.append("ventaData", JSON.stringify(bienesProcesados));
+  
+      // 🔄 **Adjuntar imágenes reales a FormData**
+      bienesAVender.forEach((bien, bienIndex) => {
+        bien.fotos?.forEach((foto, fotoIndex) => {
+          const archivo = foto.originFileObj || foto; // ✅ Obtener archivo real
+          if (archivo instanceof File) {
+            formData.append(`venta[${bienIndex}][fotos][${fotoIndex}]`, archivo);
+            console.log(`🖼️ Foto añadida: venta[${bienIndex}][fotos][${fotoIndex}]`, archivo);
+          } else {
+            console.warn(`⚠️ La foto ${fotoIndex} del bien ${bienIndex} NO es un archivo válido.`);
+          }
         });
-
-        console.log("📤 Enviando datos al backend...");
-        const response = await dispatch(registrarVenta(formData));
-
-        console.log("📥 Respuesta del backend:", response);
-
-        if (response?.message === "Venta registrada correctamente.") {
-            message.success("✅ Venta completada con éxito.");
-            navigate("/user/dashboard");
-        } else {
-            throw new Error(response?.message || "❌ Error al registrar la venta.");
+  
+        if (bien.tipo.toLowerCase() === "teléfono movil" && bien.imeis) {
+          bien.imeis.forEach((imei, imeiIndex) => {
+            const imeiFoto = imei.foto?.originFileObj || imei.foto;
+            if (imeiFoto instanceof File) {
+              formData.append(`venta[${bienIndex}][imeis][${imeiIndex}][foto]`, imeiFoto);
+              console.log(`📱 Foto IMEI añadida: venta[${bienIndex}][imeis][${imeiIndex}][foto]`, imeiFoto);
+            } else {
+              console.warn(`⚠️ La foto del IMEI ${imeiIndex} en el bien ${bienIndex} NO es un archivo válido.`);
+            }
+          });
         }
+      });
+  
+      // 📌 **Verificar `FormData` antes de enviarlo**
+      for (let pair of formData.entries()) {
+        console.log("🔍 FormData Entry:", pair[0], pair[1]);
+      }
+  
+      const response = await dispatch(registrarVenta(formData));
+  
+      console.log("✅ Respuesta del backend:", response);
+  
+      if (response?.success) {
+        message.success(`✅ ${response.message}`);
+        navigate("/user/dashboard");
+      } else {
+        throw new Error(response?.message || "❌ Error al registrar la venta.");
+      }
     } catch (error) {
-        console.error("❌ Error en registrarVenta:", error);
-        message.error(error.message || "❌ Error al procesar la venta.");
+      console.error("❌ Error en confirmarVenta:", error);
+      message.error(error.message || "Error al procesar la venta.");
     } finally {
-        setLoadingVenta(false);
+      setLoadingVenta(false);
     }
-};
+  };
+  
+  
+
 
   
   
@@ -681,33 +759,32 @@ const eliminarImei = (index) => {
                 enterButton={<SearchOutlined />}
                 style={{ marginBottom: 16, maxWidth: 300 }}
               />
-              <div id="scrollableDiv" style={{ overflow: 'auto', height: '60vh' }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '16px',
-                  marginBottom: '16px'
-                }}>
-                 {bienesFiltrados.map((bien, i) => {
-  // Se define la imagen principal usando "todasLasFotos"
-  const fotoPrincipal =
-    Array.isArray(bien.todasLasFotos) && bien.todasLasFotos.length > 0 && bien.todasLasFotos[0]
-      ? bien.todasLasFotos[0]
-      : '/placeholder.png';
+             <div id="scrollableDiv" style={{ overflow: 'auto', height: '60vh' }}>
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '16px',
+    marginBottom: '16px'
+  }}>
+{bienesFiltrados.map((bien, i) => {
+  // 🔥 Definir la imagen principal usando `fotos` correctamente
+  const fotoPrincipal = bien.fotos && bien.fotos.length > 0
+    ? bien.fotos[0] // Tomar la primera foto del array
+    : imagenPredeterminada; // Usar la imagen importada en vez del placeholder
 
   return (
     <Card
-    key={bien.uuid}
-    hoverable
-    onClick={() => {
-      if (bien.stock > 0) {
-        setSelectedGood(bien);
-        setSelectedGoods(prev => [...prev, bien]);
-        message.info(`Seleccionaste: ${bien.marca} ${bien.modelo}`);
-      } else {
-        message.warning("❌ Este bien no tiene stock disponible.");
-      }
-    }}
+      key={bien.uuid}
+      hoverable
+      onClick={() => {
+        if (bien.stock > 0) {
+          setSelectedGood(bien);
+          setSelectedGoods(prev => [...prev, bien]);
+          message.info(`Seleccionaste: ${bien.marca} ${bien.modelo}`);
+        } else {
+          message.warning("❌ Este bien no tiene stock disponible.");
+        }
+      }}
       style={{ cursor: 'pointer' }}
       ref={i === bienesFiltrados.length - 1 ? lastBienElementRef : null}
     >
@@ -716,7 +793,8 @@ const eliminarImei = (index) => {
         src={fotoPrincipal}
         style={{ width: '100%', height: 150, objectFit: 'cover' }}
         onError={(e) => {
-          e.target.src = '/placeholder.png';
+          e.target.onerror = null; // Evita bucles infinitos
+          e.target.src = imagenPredeterminada; // Usa la imagen predeterminada en caso de error
         }}
       />
       <Card.Meta
@@ -734,10 +812,11 @@ const eliminarImei = (index) => {
   );
 })}
 
-                </div>
-                {loadingBienes && <p>Espere mientras se cargan los bienes...</p>}
-                {!hasMore && <p style={{ textAlign: 'center' }}>No hay más bienes.</p>}
-              </div>
+  </div>
+  {loadingBienes && <p>Espere mientras se cargan los bienes...</p>}
+  {!hasMore && <p style={{ textAlign: 'center' }}>No hay más bienes.</p>}
+</div>
+
               {selectedGood && (
                 <div id="formCompletarDatos" style={{ marginTop: 10 }}>
                   <p>Completa los datos para el bien seleccionado: {selectedGood.marca} {selectedGood.modelo}</p>
