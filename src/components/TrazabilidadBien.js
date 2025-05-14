@@ -1,95 +1,143 @@
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Table, Button, Spin, Alert, Space, Image } from 'antd';
+import {
+  Table,
+  Button,
+  Spin,
+  Alert,
+  Space,
+  Image,
+  Tag,
+  Typography,
+} from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTrazabilidadBien } from '../redux/actions/bienes';
+import {
+  fetchTrazabilidadBien,
+  fetchTrazabilidadPorBien,
+} from '../redux/actions/bienes';
 
 const TrazabilidadBien = () => {
-  const { uuid } = useParams();
+  const { uuid, identificador } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { transacciones, loading, mensaje, error } = useSelector(state => state.bienes);
+  const { transacciones, loading, error } = useSelector((state) => state.bienes);
+  const { Text } = Typography;
 
   useEffect(() => {
-    dispatch(fetchTrazabilidadBien(uuid));
-  }, [dispatch, uuid]);
-
-  const renderFotos = (bien) => {
-    // Obtener fotos de bienTransaccion y detalles
-    let fotos = bien?.fotos || [];
-  
-    if (bien?.detalles) {
-      const fotosDetalles = bien.detalles
-        .map(det => det.foto)
-        .filter(foto => foto); // Filtra nulls o undefined
-      fotos = [...fotos, ...fotosDetalles];
+    if (identificador) {
+      dispatch(fetchTrazabilidadBien(identificador));
+    } else if (uuid) {
+      dispatch(fetchTrazabilidadPorBien(uuid));
     }
-  
-    return fotos.length > 0 ? (
-      <Space>
-        {fotos.map((foto, index) => (
-          <Image
-            key={index}
-            width={80}
-            src={foto}
-            alt={`Imagen ${index + 1}`}
-            onError={(e) => { e.target.src = '/images/placeholder.png'; }}
-          />
-        ))}
-      </Space>
-    ) : 'Sin fotos';
-  };
-  
+  }, [dispatch, uuid, identificador]);
 
-  const renderIMEIs = (imeis) => (
-    imeis.length > 0 ? imeis.join(', ') : 'Sin IMEIs'
-  );
-
-  const renderUsuario = (usuario) => (
+  const UsuarioDetalle = ({ usuario, empresa, rol }) => (
     <div>
-      <p>{usuario?.nombre} {usuario?.apellido}</p>
+      <Tag color={rol === 'comprador' ? 'green' : 'blue'}>
+        {rol === 'comprador' ? 'Comprador' : 'Vendedor'}
+      </Tag>
+
+      {empresa?.razonSocial ? (
+        <>
+          <p><strong>{empresa.razonSocial}</strong></p>
+          <p><em>Representado por: {usuario?.nombre} {usuario?.apellido}</em></p>
+          {empresa.direccion && (
+            <p>
+              <strong>Dirección Empresa:</strong>{' '}
+              {typeof empresa.direccion === 'string'
+                ? empresa.direccion
+                : `${empresa.direccion.calle || 'Calle N/D'}, ${empresa.direccion.altura || 'Altura N/D'}${empresa.direccion.departamento ? `, ${empresa.direccion.departamento}` : ''}`}
+            </p>
+          )}
+        </>
+      ) : (
+        <p><strong>{usuario?.nombre} {usuario?.apellido}</strong></p>
+      )}
+
       <p>DNI: {usuario?.dni || 'N/A'}</p>
       <p>Email: {usuario?.email || 'N/A'}</p>
       <p>CUIT: {usuario?.cuit || 'N/A'}</p>
-      <p>Dirección: {usuario?.direccion?.calle || 'N/A'}, {usuario?.direccion?.altura || ''}</p>
+      <p>
+        <strong>Dirección:</strong>{' '}
+        {typeof usuario?.direccion === 'string'
+          ? usuario.direccion
+          : `${usuario?.direccion?.calle || 'Calle N/D'}, ${usuario?.direccion?.altura || 'Altura N/D'}${usuario?.direccion?.departamento ? `, ${usuario.direccion.departamento}` : ''}`}
+      </p>
     </div>
   );
 
+  const renderIdentificadores = (identificadores) => {
+    if (!identificadores || identificadores.length === 0) return 'Sin identificadores';
+    return identificadores.map((det) => (
+      <div key={det.identificador_unico}>
+        <p>
+          {det.identificador_unico}{' '}
+          <span className="text-gray-500">
+            ({det.estado || 'vendido'})
+          </span>
+        </p>
+      </div>
+    ));
+  };
+
+  const renderFotos = (record) => {
+    let fotos = record?.fotos || [];
+
+    if (record?.identificadores) {
+      const fotosIdentificadores = record.identificadores.map(i => i.foto).filter(Boolean);
+      fotos = [...fotos, ...fotosIdentificadores];
+    }
+
+    if (fotos.length === 0) return 'Sin fotos';
+
+    return (
+      <Image.PreviewGroup>
+        <Space wrap>
+          {fotos.map((foto, index) => (
+            <Image
+              key={index}
+              width={80}
+              height={80}
+              style={{ objectFit: 'cover', borderRadius: '4px' }}
+              src={foto}
+              alt={`Foto ${index + 1}`}
+              fallback="/images/placeholder.png"
+            />
+          ))}
+        </Space>
+      </Image.PreviewGroup>
+    );
+  };
+
   const columns = [
-    { 
-      title: 'Fecha', 
-      dataIndex: 'fecha', 
-      key: 'fecha', 
-      render: (text) => new Date(text).toLocaleString() 
+    {
+      title: 'Fecha',
+      dataIndex: 'fecha',
+      key: 'fecha',
+      render: (text) => new Date(text).toLocaleString(),
     },
     {
       title: 'Comprador',
-      dataIndex: 'compradorTransaccion',
       key: 'comprador',
-      render: (comprador) => (
-        <div>
-          <p><strong>{comprador?.nombre} {comprador?.apellido}</strong></p>
-          <p>DNI: {comprador?.dni || 'N/A'}</p>
-          <p>Email: {comprador?.email || 'N/A'}</p>
-          <p>CUIT: {comprador?.cuit || 'N/A'}</p>
-          <p><strong>Dirección:</strong> {comprador?.direccion || 'Sin dirección'}</p>
-        </div>
+      render: (_, record) => (
+        <UsuarioDetalle
+          usuario={record.compradorTransaccion}
+          empresa={record.empresaCompradora}
+          rol="comprador"
+        />
       ),
     },
     {
       title: 'Vendedor',
-      dataIndex: 'vendedorTransaccion',
       key: 'vendedor',
-      render: (vendedor) => (
-        <div>
-          <p><strong>{vendedor?.nombre} {vendedor?.apellido}</strong></p>
-          <p>DNI: {vendedor?.dni || 'N/A'}</p>
-          <p>Email: {vendedor?.email || 'N/A'}</p>
-          <p>CUIT: {vendedor?.cuit || 'N/A'}</p>
-          <p><strong>Dirección:</strong> {vendedor?.direccion || 'Sin dirección'}</p>
-        </div>
+      render: (_, record) => (
+        <UsuarioDetalle
+          usuario={record.vendedorTransaccion}
+          empresa={record.empresaVendedora}
+          rol="vendedor"
+        />
       ),
     },
     {
@@ -106,42 +154,56 @@ const TrazabilidadBien = () => {
       ),
     },
     {
-      title: 'Identificadores IMEI',
-      dataIndex: ['bienTransaccion', 'detalles'],
-      key: 'imeis',
-      render: (detalles) => (
-        detalles && detalles.length > 0 
-          ? detalles.map(det => <p key={det.identificador_unico}>{det.identificador_unico} ({det.estado})</p>) 
-          : 'Sin IMEIs'
-      ),
+      title: 'Identificadores',
+      key: 'identificadores',
+      render: (_, record) => renderIdentificadores(record?.identificadores),
     },
     {
       title: 'Fotos',
-      dataIndex: 'bienTransaccion',
       key: 'fotos',
-      render: (bien) => renderFotos(bien),
+      render: (_, record) => renderFotos(record),
     },
-    
   ];
-  
-  
-
-  if (loading) return <Spin tip="Cargando..." />;
-  if (error) return <Alert message="Error" description={error} type="error" />;
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
-      <h1 className="text-2xl font-bold mb-4">Trazabilidad del Bien</h1>
-      {mensaje ? (
-        <Alert message="Información" description={mensaje} type="info" showIcon />
-      ) : (
-        <Table
-          dataSource={transacciones}
-          columns={columns}
-          rowKey="uuid"
-          pagination={{ pageSize: 5 }}
+      <div className="mb-4 flex items-center justify-between">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+          Volver
+        </Button>
+      </div>
+
+      <h1 className="text-2xl font-bold mb-4 text-blue-700">
+        Historial de Trazabilidad del Bien
+      </h1>
+
+      {loading && <Spin tip="Cargando historial..." size="large" />}
+
+      {error && (
+        <Alert
+          message="Error"
+          description={error}
+          type="error"
+          showIcon
+          className="mb-4"
         />
+      )}
+
+      {!loading && !error && transacciones.length === 0 ? (
+        <Alert
+          message="Este bien aún no tiene transacciones registradas."
+          type="info"
+          showIcon
+        />
+      ) : (
+        !loading && !error && (
+          <Table
+            dataSource={transacciones}
+            columns={columns}
+            rowKey="uuid"
+            pagination={{ pageSize: 5 }}
+          />
+        )
       )}
     </div>
   );

@@ -7,12 +7,10 @@ export const register = createAsyncThunk(
     'auth/register',
     async (userData, { rejectWithValue }) => {
         try {
-            console.log('Datos enviados al backend (Redux):', userData); // Depuración
+// Depuración
             const response = await api.post('/usuarios/register', userData);
-            console.log('Respuesta de la API:', response.data);
             return response.data;
         } catch (error) {
-            console.error('Error en la solicitud de registro:', error);
             return rejectWithValue(error.response.data.message || error.message);
         }
     }
@@ -22,30 +20,29 @@ export const register = createAsyncThunk(
 // Acción de inicio de sesión con rol
 
 export const login = createAsyncThunk('auth/login', async ({ email, password }, { rejectWithValue }) => {
-    try {
-        console.log('Datos enviados al backend:', { email, password });
-        const response = await api.post('/usuarios/login', { email, password });
-        console.log('Respuesta del backend:', response.data);
+  try {
+    const response = await api.post('/usuarios/login', { email, password });
 
-        const { usuario, token } = response.data;
+    const { usuario, token, refreshToken } = response.data;
 
-        if (!usuario || !token) {
-            throw new Error('La respuesta del servidor no contiene los datos esperados.');
-        }
-
-        // Guardar los datos correctos en localStorage
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('userUuid', usuario.uuid); // Cambiado de id a uuid
-        localStorage.setItem('userData', JSON.stringify(usuario)); // Guardar todo el objeto usuario
-
-        return { usuario, token }; // Devolver los datos esperados
-    } catch (error) {
-        console.error('Error en la solicitud de login:', error);
-        return rejectWithValue(
-            error.response?.data?.message || 'Ocurrió un error al iniciar sesión.'
-        );
+    if (!usuario || !token || !refreshToken) {
+      throw new Error('La respuesta del servidor no contiene los datos esperados.');
     }
+
+    // Guardar los datos correctos en localStorage
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('refreshToken', refreshToken); // ✅ AGREGALO
+    localStorage.setItem('userUuid', usuario.uuid);
+    localStorage.setItem('userData', JSON.stringify(usuario));
+
+    return { usuario, token, refreshToken }; // ✅ AGREGALO
+  } catch (error) {
+    return rejectWithValue(
+      error.response?.data?.message || 'Ocurrió un error al iniciar sesión.'
+    );
+  }
 });
+
 
 
 

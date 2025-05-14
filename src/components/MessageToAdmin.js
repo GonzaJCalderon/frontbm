@@ -1,153 +1,138 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { sendMessage, getMessages } from '../redux/actions/messageActions';
-import { FaArrowLeft, FaSignOutAlt } from 'react-icons/fa';
+import {
+  sendMessage,
+  getMessagesByUser,
+  markAllAsRead
+} from '../redux/actions/messageActions';
+import { FaArrowLeft, FaSignOutAlt, FaPaperPlane } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 const MessageToAdmin = () => {
   const [content, setContent] = useState('');
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const chatRef = useRef(null);
 
-  // Obtener usuario desde localStorage
   const userData = JSON.parse(localStorage.getItem('userData')) || {};
-  const userUuid = userData.uuid || null;
-  
-  if (!userUuid) {
-    console.warn("Advertencia: No se encontró el UUID del usuario en localStorage.");
-  }
+  const userUuid = userData.uuid;
 
-  // Estados de Redux
   const { loading: sending, success, error } = useSelector((state) => state.messages.send);
   const { loading: loadingMessages, messages } = useSelector((state) => state.messages.list);
 
-  const chatContainerRef = useRef(null);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!content.trim()) return;
-  
-    if (!userUuid) {
-      console.error("❌ Error: No se encontró el UUID del usuario.");
-      return;
-    }
-  
-    console.log("📩 Enviando mensaje sin asignar a un admin.");
-  
-    dispatch(sendMessage({
-      senderUuid: userUuid,
-      recipientUuid: null, // 🔥 No asignado aún
-      isForAdmins: true, // ✅ Indica que el mensaje es para los admins
-      content,
-    }));
-  
-    setContent('');
-  };
-  
-  const handleSendMessage = () => {
-    if (!content.trim()) return;
-    dispatch(sendMessage({ content }));
-    setContent('');
-  };
-  
-  // Cargar mensajes periódicamente
+  // Scroll automático
   useEffect(() => {
-    if (!userUuid) return;
-  
-    console.log("📩 Cargando mensajes para usuario:", userUuid);
-  
-    dispatch(getMessages(userUuid)); // ✅ Pasa userUuid para obtener solo los mensajes del usuario
-  
-    const interval = setInterval(() => {
-      dispatch(getMessages(userUuid));
-    }, 5000);
-  
-    return () => clearInterval(interval);
-  }, [dispatch, userUuid]);
-  
-
-  // Auto-scroll en la lista de mensajes
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages]);
 
+  // Cargar y refrescar mensajes periódicamente
+  useEffect(() => {
+    if (!userUuid) return;
+
+    dispatch(getMessagesByUser(userUuid));
+    dispatch(markAllAsRead({ from: userUuid, to: userUuid }));
+
+    const interval = setInterval(() => {
+      dispatch(getMessagesByUser(userUuid));
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [dispatch, userUuid]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!content.trim()) return;
+
+    dispatch(sendMessage({
+      recipientUuid: null,
+      isForAdmins: true,
+      content: content.trim(),
+    }));
+
+    setContent('');
+  };
+
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
-    <div className="max-w-2xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
-      {/* Botones de navegación */}
-      <div className="flex justify-between items-center mb-6">
-        <button 
-          onClick={() => navigate(-1)} 
-          className="px-3 py-1 bg-blue-100 text-blue-600 rounded"
-        >
-          <FaArrowLeft className="mr-2" />
-          Volver
+    <div className="max-w-2xl mx-auto mt-8 p-4 bg-white rounded-lg shadow-lg">
+      {/* Header */}
+      <div className="flex items-center justify-between bg-blue-100 p-3 rounded-md mb-4">
+        <button onClick={() => navigate(-1)} className="flex items-center text-blue-600 font-medium hover:underline">
+          <FaArrowLeft className="mr-2" /> Volver
         </button>
-        <button 
-          onClick={() => { 
-            localStorage.removeItem('userData'); 
-            navigate('/login'); 
-          }} 
-          className="px-3 py-1 bg-pink-100 text-pink-600 rounded"
+        <button
+          onClick={() => {
+            localStorage.removeItem('userData');
+            navigate('/login');
+          }}
+          className="flex items-center text-pink-600 font-medium hover:underline"
         >
-          <FaSignOutAlt className="mr-2" />
-          Cerrar Sesión
+          <FaSignOutAlt className="mr-2" /> Cerrar Sesión
         </button>
       </div>
 
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Chat con el Administrador</h2>
+      <h2 className="text-xl font-semibold text-gray-800 mb-4">Chat con el Administrador</h2>
 
-      {/* Lista de mensajes */}
-      <div 
-        ref={chatContainerRef} 
-        className="h-80 overflow-y-auto p-4 bg-gray-50 border border-gray-200 rounded mb-4"
+      {/* Chat Box */}
+      <div
+        ref={chatRef}
+        className="bg-gray-50 border border-gray-200 rounded-md h-80 overflow-y-auto px-4 py-2 space-y-4 mb-4"
       >
-        {(loadingMessages && messages.length === 0) ? (
-          <p>Cargando mensajes...</p>
+        {loadingMessages && messages.length === 0 ? (
+          <p className="text-gray-500">Cargando mensajes...</p>
+        ) : messages.length === 0 ? (
+          <p className="text-gray-500">No hay mensajes en esta conversación.</p>
         ) : (
-          messages.length === 0 ? (
-            <p className="text-gray-500">No hay mensajes.</p>
-          ) : (
-            messages.map((msg) => (
-              <div 
-                key={msg.uuid} 
-                className={`mb-4 flex ${msg.senderUuid === userUuid ? 'justify-end' : 'justify-start'}`}
+          messages
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+            .map((msg) => (
+              <div
+                key={msg.uuid}
+                className={`flex ${msg.senderUuid === userUuid ? 'justify-end' : 'justify-start'}`}
               >
-                <div 
-                  className={`p-3 rounded-lg max-w-xs break-words ${msg.senderUuid === userUuid ? 'bg-blue-200' : 'bg-green-200'}`}
+                <div
+                  className={`max-w-xs px-4 py-3 rounded-lg text-sm shadow-md ${
+                    msg.senderUuid === userUuid
+                      ? 'bg-blue-500 text-white rounded-br-none'
+                      : 'bg-green-200 text-gray-800 rounded-bl-none'
+                  }`}
                 >
-                  <p className="text-sm">{msg.content}</p>
-                  <small className="block mt-1 text-xs text-gray-600">
-                    {new Date(msg.createdAt).toLocaleTimeString()}
+                  <p>{msg.content}</p>
+                  <small className="block mt-1 text-xs text-gray-600 text-right">
+                    {formatTime(msg.createdAt)}
                   </small>
                 </div>
               </div>
             ))
-          )
         )}
       </div>
 
-      {/* Formulario de envío */}
-      <form onSubmit={handleSubmit} className="flex">
-        <textarea
-          className="w-full p-3 border rounded-l"
+      {/* Input */}
+      <form onSubmit={handleSendMessage} className="flex">
+        <input
+          type="text"
           placeholder="Escribe tu mensaje..."
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          rows="3"
-        ></textarea>
-        <button 
-          type="submit" 
-          className="bg-blue-500 text-white px-4 py-3 rounded-r"
+          className="flex-1 border px-3 py-2 rounded-l-md focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded-r-md hover:bg-blue-700"
         >
-          {sending ? 'Enviando...' : 'Enviar'}
+          <FaPaperPlane />
         </button>
       </form>
 
-      {/* Mensajes de estado */}
-      {success && <p className="mt-4 text-green-600">Mensaje enviado correctamente.</p>}
-      {error && <p className="mt-4 text-red-600">{error}</p>}
+      {/* Estado del envío */}
+      {success && <p className="mt-3 text-green-600">Mensaje enviado correctamente.</p>}
+      {error && <p className="mt-3 text-red-600">{error}</p>}
     </div>
   );
 };

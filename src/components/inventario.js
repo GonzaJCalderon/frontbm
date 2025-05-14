@@ -1,9 +1,22 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState, useRef } from 'react'; // useRef agregado acá
 import { useDispatch, useSelector } from 'react-redux';
-import { Table, Typography, Spin, Alert, Button, Space, Input, Modal, Carousel,Image } from 'antd';
+import {
+  Table,
+  Typography,
+  Spin,
+  Alert,
+  Button,
+  Space,
+  Input,
+  Modal,
+  Carousel,
+  Image
+} from 'antd';
 import { LeftOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { fetchBienes } from '../redux/actions/bienes';
+import {fetchBienesPorPropietario} from '../redux/actions/bienes';
+import imagenPredeterminada from '../assets/27002.jpg';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -11,40 +24,72 @@ const { Search } = Input;
 const Inventario = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const storedUser = JSON.parse(localStorage.getItem('userData') || '{}');
 
+  const carouselRef = useRef(null); // ✅ ya no da warning
+
+  
   const [filteredItems, setFilteredItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentFotos, setCurrentFotos] = useState([]);
+  const [expandedFotoRows, setExpandedFotoRows] = useState({});
+  const [modalBien, setModalBien] = useState(null);
+
+
 
   // 1) Obtener { items, error, loading } desde el store
   const { items, error, loading } = useSelector((state) => state.bienes);
 
-  // 2) Al montar, sacar el userUuid y hacer fetchBienes
-  useEffect(() => {
-    const userUuid = localStorage.getItem('userUuid');
-    if (userUuid) {
-      dispatch(fetchBienes(userUuid));
-    } else {
-      console.error('No se encontró userUuid en localStorage');
+  
+
+ // 2) Al montar, obtener bienes del usuario o empresa
+useEffect(() => {
+  const userData = JSON.parse(localStorage.getItem('userData'));
+
+  const esDelegado = ['delegado', 'responsable'].includes(userData?.rolEmpresa);
+  const uuidEmpresa = userData?.empresaUuid;
+  const uuidUsuario = userData?.uuid;
+
+  const fetch = async () => {
+    const uuidAUsar = esDelegado && uuidEmpresa ? uuidEmpresa : uuidUsuario;
+    if (!uuidAUsar) return;
+
+    const res = await dispatch(fetchBienesPorPropietario(uuidAUsar));
+    if (res.success) {
+      const ordenados = res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setFilteredItems(ordenados);
     }
-  }, [dispatch]);
+  };
+
+  fetch();
+}, [dispatch]);
+
+    
+
+  
+  
 
   // 3) Cuando items cambia, creamos filteredItems (ordenado, etc.)
   useEffect(() => {
     if (!loading && Array.isArray(items)) {
-      console.log("📌 Bienes en Redux antes de procesar:", JSON.stringify(items, null, 2));
   
       const bienesConStock = items.filter(bien => bien.stock !== undefined && bien.stock !== null);
       const sorted = bienesConStock.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   
-      console.log("✅ Bienes listos para renderizar:", JSON.stringify(sorted, null, 2));
   
       setFilteredItems(sorted);
     }
   }, [items, loading]);
   
-
+  const toggleFotoExpand = (uuid) => {
+    setExpandedFotoRows(prev => ({
+      ...prev,
+      [uuid]: !prev[uuid],
+    }));
+  };
+  
+ 
   
   // 4) Manejo de búsqueda
   const handleSearch = (value) => {
@@ -84,13 +129,16 @@ const Inventario = () => {
   };
 
   // 6) Modal para mostrar fotos
-  const handleOpenModal = (fotos) => {
+  const handleOpenModal = (fotos, bien = null) => {
     setCurrentFotos(fotos);
+    setModalBien(bien);
     setIsModalVisible(true);
   };
+  
   const handleCloseModal = () => {
     setIsModalVisible(false);
     setCurrentFotos([]);
+    setModalBien(null);
   };
 
   // 7) Saber si es Teléfono Móvil
@@ -99,6 +147,26 @@ const Inventario = () => {
     const lower = tipo.toLowerCase();
     return lower.includes('teléfono') && (lower.includes('móvil') || lower.includes('movil'));
   };
+
+  const exportCSV = () => {
+    const headers = ['Tipo', 'Marca', 'Modelo', 'Stock', 'Precio'];
+    const rows = filteredItems.map(b => [
+      b.tipo,
+      b.marca,
+      b.modelo,
+      b.stock,
+      b.precio
+    ]);
+    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "inventario.csv");
+    document.body.appendChild(link);
+    link.click();
+  };
+  
 
   // 8) Definir columnas
   const columns = [
@@ -118,10 +186,19 @@ const Inventario = () => {
       title: 'Stock',
       dataIndex: 'stock',
       render: (value, record) => {
-        console.log("📌 Stock recibido en la tabla:", record.tipo, "->", value);
         return value > 0 ? value : <span style={{ color: 'gray' }}>Sin stock</span>;
       },
+      
     },
+
+    {
+      title: 'Precio',
+      dataIndex: 'precio',
+      render: (precio) => (precio !== undefined && precio !== null && precio !== 'No disponible'
+        ? `$${Number(precio).toFixed(2)}`
+        : 'No disponible'),
+    },
+    
     
     
     
@@ -151,28 +228,87 @@ const Inventario = () => {
     {
       title: 'Fotos',
       dataIndex: 'fotos',
-      render: (fotos) => {
-        console.log("📸 Fotos en la tabla para:", fotos);
-        
-        if (!fotos || fotos.length === 0) {
-          return 'Sin fotos';
+      render: (_, record) => {
+        const isTelefono = esTelefonoMovil(record.tipo);
+    
+        if (isTelefono && Array.isArray(record.identificadores) && record.identificadores.length > 0) {
+          const detallesConFoto = record.identificadores.filter((d) => d.foto);
+    
+          return detallesConFoto.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              {detallesConFoto.map((det, idx) => (
+                <div key={idx} style={{ textAlign: 'center' }}>
+                  <Image
+                    width={80}
+                    src={det.foto}
+                    alt={`IMEI: ${det.identificador_unico}`}
+                    onError={(e) => (e.target.src = imagenPredeterminada)}
+                  />
+                  <div style={{ fontSize: 12, marginTop: 4 }}>{det.identificador_unico}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span style={{ color: 'gray' }}>Sin fotos por IMEI</span>
+          );
         }
     
+        // ✅ SOLUCIÓN ACA: Parseamos las fotos si vienen como string
+        let fotos = [];
+        if (record.fotos) {
+          if (Array.isArray(record.fotos)) {
+            fotos = record.fotos;
+          } else if (typeof record.fotos === 'string') {
+            try {
+              fotos = JSON.parse(record.fotos);
+            } catch (error) {
+              console.warn('Error al parsear fotos del inventario:', error);
+            }
+          }
+        }
+    
+        if (!fotos || fotos.length === 0) return 'Sin fotos';
+
+        // ✅ Eliminar duplicados (por URL)
+        const fotosUnicas = [...new Set(fotos)];
+        
+    
+        const isExpanded = expandedFotoRows[record.uuid];
+        const fotosLimitadas = isExpanded ? fotosUnicas : fotosUnicas.slice(0, 3);
+
+    
         return (
-          <Space>
-            {fotos.map((foto, index) => (
-              <Image
-                key={index}
-                width={80}
-                src={foto}
-                alt={`Foto ${index + 1}`}
-                onError={(e) => { e.target.src = '/images/placeholder.png'; }} // ✅ Evita imágenes rotas
-              />
-            ))}
-          </Space>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <Space wrap>
+              {fotosLimitadas.map((foto, idx) => (
+                <Image
+                  key={idx}
+                  width={80}
+                  src={foto}
+                  alt={`Foto ${idx + 1}`}
+                  onClick={() => handleOpenModal(fotos, record)}
+                  preview={false}
+                  style={{ cursor: 'pointer' }}
+                  onError={(e) => (e.target.src = imagenPredeterminada)}
+                />
+              ))}
+            </Space>
+            {fotos.length > 3 && (
+              <Button
+                type="link"
+                onClick={() => toggleFotoExpand(record.uuid)}
+                style={{ padding: 0 }}
+              >
+                {isExpanded ? 'Ver menos' : 'Ver más'}
+              </Button>
+            )}
+          </div>
         );
-      },
-    },
+      }
+    }
+    
+    
+    
     
   ];
   
@@ -182,9 +318,10 @@ const Inventario = () => {
   if (loading) {
     return <Spin tip="Cargando bienes..." />;
   }
-  if (error) {
+  if (error && !Array.isArray(items)) {
     return <Alert message="Error" description={error} type="error" />;
   }
+  
 
   return (
     <div>
@@ -205,42 +342,104 @@ const Inventario = () => {
         />
       </Space>
 
+      {storedUser?.empresaUuid && (
+  <Alert
+    message="Estás operando en nombre de una empresa"
+    description={`Todos los bienes que registres/modifiques pertenecerán a: ${storedUser?.razonSocial || 'Empresa'}`}
+    type="info"
+    showIcon
+    style={{ marginBottom: 16 }}
+  />
+)}
+
+
       <Title level={2}>Inventario</Title>
 
       <p class="mb-4">Aquí podrás consultar tu stock de Bienes Muebles Registrados</p>
 
-
       <Table
-        dataSource={filteredItems}
-        columns={columns}
-        rowKey="uuid"
-        pagination={{
-          pageSize: 5,
-          showSizeChanger: false,
-          position: ['bottomCenter'],
-        }}
-      />
+  dataSource={filteredItems}
+  columns={columns}
+  rowKey="uuid"
+  pagination={{
+    pageSize: 5,
+    showSizeChanger: false,
+    position: ['bottomCenter'],
+  }}
+  locale={{
+    emptyText: "Aún no has registrado bienes.",
+  }}
+/>
 
 <Modal
   open={isModalVisible}
   footer={null}
   onCancel={handleCloseModal}
   centered
-  width={600}
+  width={800}
+  bodyStyle={{ padding: 0 }}
 >
-  <Carousel autoplay>
-    {currentFotos.map((url, index) => (
-      <div key={index}>
-        <img
-          src={url}
-          alt={`Imagen ${index + 1}`}
-          style={{ width: '100%', height: 'auto' }}
-          onError={(e) => { e.target.src = '/images/placeholder.png'; }} // ✅ Manejo de error
-        />
-      </div>
-    ))}
-  </Carousel>
+  <div style={{ padding: '1rem', background: '#f9f9f9' }}>
+    <Title level={4} style={{ textAlign: 'center' }}>
+      {modalBien?.tipo} {modalBien?.marca} {modalBien?.modelo}
+    </Title>
+
+    <div style={{ position: 'relative' }}>
+    <Carousel ref={carouselRef}>
+  {currentFotos.map((url, index) => (
+    <div key={index}>
+      <img
+        src={url}
+        alt={`Imagen ${index + 1}`}
+        style={{ width: '100%', height: 'auto' }}
+        onError={(e) => { e.target.src = '/images/placeholder.png'; }}
+      />
+    </div>
+  ))}
+</Carousel>
+
+<div style={{ textAlign: 'center', marginTop: 16 }}>
+  <Button onClick={() => carouselRef.current?.prev()} style={{ marginRight: 8 }}>
+    Anterior
+  </Button>
+  <Button onClick={() => carouselRef.current?.next()}>
+    Siguiente
+  </Button>
+</div>
+
+
+      {/* Botones anterior / siguiente */}
+      <Button
+        onClick={() => carouselRef.current?.prev()}
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: 10,
+          transform: 'translateY(-50%)',
+          zIndex: 10,
+        }}
+      >
+        ←
+      </Button>
+      <Button
+        onClick={() => carouselRef.current?.next()}
+        style={{
+          position: 'absolute',
+          top: '50%',
+          right: 10,
+          transform: 'translateY(-50%)',
+          zIndex: 10,
+        }}
+      >
+        →
+      </Button>
+    </div>
+  </div>
 </Modal>
+
+
+<Button onClick={exportCSV}>Descargar inventario</Button>
+
     </div>
   );
 };

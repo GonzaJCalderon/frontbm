@@ -30,8 +30,6 @@ const initialState = {
 };
 
 const messageReducer = (state = initialState, action) => {
-  console.log("🛑 Acción recibida en messageReducer:", action.type, action.payload);
-  console.log("📩 Estado antes de actualizar:", state);
 
   switch (action.type) { 
     case SEND_MESSAGE_REQUEST:
@@ -138,10 +136,12 @@ const messageReducer = (state = initialState, action) => {
 
      
       case GET_UNREAD_MESSAGES:
-        console.log("📩 Reducer: Nuevos mensajes no leídos recibidos:", action.payload);
+      
+
         return {
           ...state,
-          unread: action.payload.length > 0 ? action.payload : [], // Evita mostrar 7 cuando debería ser 0
+          unread: Array.isArray(action.payload) ? action.payload : [],
+          
         };
       
 

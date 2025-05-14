@@ -80,10 +80,24 @@ import {
    REENVIAR_REGISTRO_ERROR,
    REINTENTAR_REGISTRO_REQUEST, 
    REINTENTAR_REGISTRO_SUCCESS, 
-   REINTENTAR_REGISTRO_ERROR
-  
+   REINTENTAR_REGISTRO_ERROR,
+   FETCH_EMPRESAS_REQUEST,
+   FETCH_EMPRESAS_SUCCESS,
+   FETCH_EMPRESAS_ERROR,
+   REGISTER_DELEGADO_REQUEST,
+  REGISTER_DELEGADO_SUCCESS,
+  REGISTER_DELEGADO_ERROR,
     
 } from './actionTypes';
+
+
+/**
+ * Acción para obtener transacciones según tipo de usuario (persona o empresa)
+ * 
+ * @param {string} uuid - UUID del usuario
+ * @param {string|null} empresaUuid - UUID de la empresa (si aplica)
+ * @param {string|null} rolEmpresa - Rol actual en la empresa (delegado/responsable o null)
+ */
 
 // Define getToken at the top of your file
 const getToken = () => localStorage.getItem('token');
@@ -106,7 +120,6 @@ export const fetchUsuarios = () => async (dispatch) => {
 
     return response.data;
   } catch (error) {
-    console.error("Error al obtener usuarios:", error);
     dispatch({
       type: FETCH_USUARIOS_ERROR,
       payload: error.response?.data?.message || "Error desconocido al obtener usuarios.",
@@ -123,23 +136,40 @@ const getCurrentUserId = () => {
     return currentUser ? currentUser.id : null;
 };
 
-// Asegúrate de que la función esté definida antes de ser utilizada
-export const fetchUsuarioDetails = (id) => async (dispatch) => {
+
+
+// 👇 Permite string directo (uuid) o un objeto con filtros
+export const fetchUsuarioDetails = (input) => async (dispatch) => {
   dispatch({ type: 'FETCH_USUARIO_DETAILS_REQUEST' });
+
   try {
     const token = localStorage.getItem('authToken');
-    const response = await api.get(`/usuarios/${id}`, {
+
+    // Determinar los query params según el tipo de input
+    const queryParams = typeof input === 'string' ? { uuid: input } : input;
+
+    const response = await api.get('/usuarios/detalles', {
+      params: queryParams,
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
-    dispatch({ type: 'FETCH_USUARIO_DETAILS_SUCCESS', payload: response.data });
-    return response.data; // Importante para usarlo en el componente
+
+    dispatch({
+      type: 'FETCH_USUARIO_DETAILS_SUCCESS',
+      payload: response.data,
+    });
+
+    return response.data;
   } catch (error) {
-    dispatch({ type: 'FETCH_USUARIO_DETAILS_FAILURE', payload: error.message });
-    throw error; // Propaga el error al componente
+    dispatch({
+      type: 'FETCH_USUARIO_DETAILS_FAILURE',
+      payload: error?.response?.data?.message || error.message,
+    });
+    throw error;
   }
 };
+
 
 
 
@@ -148,15 +178,13 @@ export const login = createAsyncThunk(
     'auth/login',
     async ({ email, password, rolTemporal }, { rejectWithValue }) => {
       try {
-        console.log('Datos enviados al backend:', { email, password, rolTemporal });
         const response = await api.post('/usuarios/login', { email, password, rolTemporal });
-        console.log('Respuesta del backend:', response.data); // Verifica la respuesta
+// Verifica la respuesta
         return {
           usuario: response.data.usuario,  // Asegúrate de estructurarlo así
           token: response.data.token
         };
       } catch (error) {
-        console.error('Error en la solicitud de login:', error);
         return rejectWithValue(error.response.data);
       }
     }
@@ -185,17 +213,28 @@ export const register = (newUser) => async dispatch => {
     }
 };
 
+// ✅ Nuevo fetch con paginado y tipo
+export const obtenerTodasLasTransacciones = async (uuid, modo, page = 1, tipo) => {
+  try {
+    const response = await api.get(`/transacciones/usuario/${uuid}?page=${page}&limit=10&tipo=${tipo || ''}`);
+    return response.data; // { success, data, page, total, totalPages }
+  } catch (error) {
+    console.error('❌ Error al obtener transacciones:', error);
+    throw new Error(error.response?.data?.message || 'Error al obtener transacciones.');
+  }
+};
+
+
+
 // Agregar usuario
 export const addUsuario = (newUser) => async dispatch => {
     dispatch({ type: ADD_USUARIO_REQUEST });
     
-    console.log("Estructura de newUser antes de enviar al backend:", newUser);
   
     // Verificación de campos obligatorios
     const requiredFields = ['dni', 'cuit', 'nombre', 'apellido', 'email', 'direccion', 'tipo'];
     for (let field of requiredFields) {
       if (!newUser[field]) {
-        console.error(`Falta el campo: ${field}`);
         dispatch({
           type: ADD_USUARIO_ERROR,
           error: `Falta el campo: ${field}`
@@ -206,7 +245,6 @@ export const addUsuario = (newUser) => async dispatch => {
   
     // Asegurar que los campos de dirección estén presentes
     if (!newUser.direccion || !newUser.direccion.calle || !newUser.direccion.altura || !newUser.direccion.departamento) {
-      console.error('Faltan campos en la dirección');
       dispatch({
         type: ADD_USUARIO_ERROR,
         error: 'Faltan campos en la dirección'
@@ -237,7 +275,6 @@ export const addUsuario = (newUser) => async dispatch => {
         razonSocial: newUser.tipo === 'juridica' ? newUser.razonSocial || '' : undefined,
       });
   
-      console.log("Respuesta del backend:", response.data);
   
       if (response.data && response.data.usuario) {
         dispatch({
@@ -249,7 +286,6 @@ export const addUsuario = (newUser) => async dispatch => {
         throw new Error('Estructura de respuesta inesperada');
       }
     } catch (error) {
-      console.log("Error al registrar usuario:", error.response ? error.response.data : error.message);
       dispatch({
         type: ADD_USUARIO_ERROR,
         error: error.response ? error.response.data : { message: error.message }
@@ -263,38 +299,92 @@ export const addUsuario = (newUser) => async dispatch => {
 
 
 // Acción para obtener compras y ventas de usuario
-export const obtenerTransacciones = async (uuid) => {
-    try {
-      const response = await api.get(`/transacciones/usuario/${uuid}`);
-      console.log('Transacciones obtenidas:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error en obtenerTransacciones:', error);
-      throw new Error(error.response?.data?.message || 'Error al cargar las transacciones.');
-    }
-  };
-  
-  
-
-
-
-// Acción para el Administrador
-export const fetchTransaccionesByAdmin = (uuid) => async (dispatch) => {
+export const obtenerTransacciones = async (uuid, tipo = '', page = 1, limit = 10) => {
   try {
-      const response = await api.get(`/transacciones/usuario/${uuid}`);
-      dispatch({ type: 'FETCH_TRANSACCIONES_SUCCESS', payload: response.data });
+    const response = await api.get(`/transacciones/usuario/${uuid}?tipo=${tipo}&page=${page}&limit=${limit}`);
+    return response.data;
   } catch (error) {
-      console.error('Error fetching transactions:', error);
-      dispatch({ type: 'FETCH_TRANSACCIONES_ERROR', payload: error.message });
+    throw new Error(error.response?.data?.message || 'Error al obtener las transacciones.');
   }
 };
+
+
+// Acción para obtener transacciones por empresa
+export const obtenerTransaccionesEmpresa = async (empresaUuid) => {
+  try {
+    const response = await api.get(`/transacciones/empresa/${empresaUuid}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error al obtener transacciones de la empresa');
+  }
+};
+
+
+// src/redux/actions/usuarios.js
+export const obtenerComprasUsuario = async (uuid, page = 1, limit = 10) => {
+  try {
+    const response = await api.get(`/transacciones/usuario/${uuid}/compras?page=${page}&limit=${limit}`);
+    return {
+      data: response.data.data,
+      total: response.data.total
+    };
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error al obtener las compras.');
+  }
+};
+
+export const obtenerVentasUsuario = async (uuid, page = 1, limit = 10) => {
+  try {
+    const response = await api.get(`/transacciones/usuario/${uuid}/ventas?page=${page}&limit=${limit}`);
+    return {
+      data: response.data.data,
+      total: response.data.total
+    };
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Error al obtener las ventas.');
+  }
+};
+
+
+
+export const fetchTransaccionesByAdmin = (uuid, empresaUuid = null, rolEmpresa = null) => async (dispatch) => {
+  dispatch({ type: FETCH_TRANSACCIONES_REQUEST });
+
+  try {
+    let response;
+
+    if (empresaUuid) {
+      response = await api.get(`/transacciones/empresa/${empresaUuid}`);
+    } else {
+      response = await api.get(`/transacciones/usuario/${uuid}`);
+    }
+
+    const data = response.data;
+    const transacciones = Array.isArray(data)
+      ? data
+      : [...(data.compras || []), ...(data.ventas || [])];
+
+    dispatch({
+      type: FETCH_TRANSACCIONES_SUCCESS,
+      payload: transacciones,
+    });
+
+  } catch (error) {
+    dispatch({
+      type: FETCH_TRANSACCIONES_ERROR,
+      payload: error.message || 'Error al obtener transacciones',
+    });
+  }
+};
+
+
+
 
 
 
 // Acción para Compras y Ventas
 export const fetchUsuarioComprasVentas = (userId) => async (dispatch) => {
     if (!userId) {
-        console.error('El userId es null o undefined');
         return;
     }
 
@@ -311,7 +401,6 @@ export const fetchUsuarioComprasVentas = (userId) => async (dispatch) => {
         });
     } catch (error) {
         const errorMessage = error.message || 'Error desconocido';
-        console.error('Error al obtener compras y ventas:', errorMessage);
         dispatch({ type: FETCH_COMPRAS_VENTAS_ERROR, payload: errorMessage });
     }
 };
@@ -335,12 +424,12 @@ export const deleteUsuario = (uuid) => async (dispatch) => {
 };
 
 
+
 // Asignar rol a usuario
 export const assignRole = (uuid, role) => async (dispatch) => {
   dispatch({ type: ASSIGN_ROLE_REQUEST });
   try {
     // Asegúrate de que `uuid` y `rolDefinitivo` son correctos
-    console.log('Enviando PATCH a /usuarios/:uuid/rol:', uuid, 'con rol:', role);
 
     const response = await api.patch(`usuarios/usuarios/${uuid}/rol`, { rolDefinitivo: role });
 
@@ -349,12 +438,10 @@ export const assignRole = (uuid, role) => async (dispatch) => {
       payload: response.data,
     });
 
-    console.log('Rol actualizado exitosamente:', response.data);
   } catch (error) {
     const errorMessage =
       error.response?.data?.message || error.message || 'Error al asignar rol';
 
-    console.error('Error asignando rol:', errorMessage);
 
     dispatch({
       type: ASSIGN_ROLE_ERROR,
@@ -378,43 +465,61 @@ export const resetPassword = (userId) => async dispatch => {
 };
 
 // Redux Action - Actualizar Usuario
+// Redux Action - Actualizar Usuario
 export const updateUser = (uuid, userData) => async (dispatch) => {
   dispatch({ type: 'UPDATE_USER_REQUEST' });
 
   try {
-      const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken');
 
-      const response = await api.put(`/usuarios/${uuid}`, userData, {
-          headers: {
-              Authorization: `Bearer ${token}`,
-          },
-      });
+    const response = await api.put(`/usuarios/${uuid}`, userData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      dispatch({ type: 'UPDATE_USER_SUCCESS', payload: response.data });
+    const updatedUser = response.data.usuario; // ✅ solo extraemos la parte útil
 
-      notification.success({
-          message: 'Usuario actualizado',
-          description: 'Los datos del usuario fueron actualizados correctamente.',
-      });
+    dispatch({ type: 'UPDATE_USER_SUCCESS', payload: updatedUser });
 
-      return Promise.resolve(response.data);
+    notification.success({
+      message: 'Usuario actualizado',
+      description: 'Los datos del usuario fueron actualizados correctamente.',
+    });
+
+    return Promise.resolve(updatedUser); // ✅ solo el objeto usuario
   } catch (error) {
-      const errorMessage =
-          error.response?.data?.message || error.message || 'Error desconocido';
+    const errorMessage =
+      error.response?.data?.message || error.message || 'Error desconocido';
 
-      console.error('Error en la actualización:', errorMessage);
+    notification.error({
+      message: 'Error al actualizar usuario',
+      description: errorMessage,
+    });
 
-      notification.error({
-          message: 'Error al actualizar usuario',
-          description: errorMessage,
-      });
+    dispatch({
+      type: 'UPDATE_USER_ERROR',
+      payload: errorMessage,
+    });
 
-      dispatch({
-          type: 'UPDATE_USER_ERROR',
-          payload: errorMessage,
-      });
+    return Promise.reject(new Error(errorMessage));
+  }
+};
 
-      return Promise.reject(new Error(errorMessage));
+export const getUserByUuid = async (uuid) => {
+  try {
+    const token = localStorage.getItem('authToken');
+
+    const response = await api.get(`/usuarios/usuario/${uuid}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    return response.data.usuario;
+  } catch (error) {
+    console.error('Error al obtener el usuario por UUID:', error);
+    throw error;
   }
 };
 
@@ -479,14 +584,12 @@ export const fetchPendingRegistrations = () => async (dispatch) => {
 
   try {
       const response = await api.get('/usuarios/usuarios/pendientes'); // Ajusta la ruta si es necesario
-      console.log("Usuarios pendientes obtenidos:", response.data);
 
       dispatch({
           type: FETCH_PENDING_REGISTRATIONS_SUCCESS,
           payload: response.data,
       });
   } catch (error) {
-      console.error('Error al obtener usuarios pendientes:', error);
       dispatch({
           type: FETCH_PENDING_REGISTRATIONS_ERROR,
           error: error.message,
@@ -502,8 +605,6 @@ export const approveUser = (userUuid, data) => async (dispatch) => {
 
   try {
       const token = localStorage.getItem('token');
-      console.log('Token:', token);
-      console.log('Payload enviado al backend:', data);
 
       const response = await api.put(`/usuarios/${userUuid}/aprobar`, data, {
           headers: {
@@ -511,12 +612,10 @@ export const approveUser = (userUuid, data) => async (dispatch) => {
           },
       });
 
-      console.log('Respuesta del backend:', response.data);
 
       dispatch({ type: 'APPROVE_USER_SUCCESS', payload: response.data });
       return response.data;
   } catch (error) {
-      console.error('Error al aprobar usuario:', error.response?.data || error.message);
       dispatch({ type: 'APPROVE_USER_ERROR', payload: error.response?.data || error.message });
       throw error;
   }
@@ -530,7 +629,6 @@ export const denyRegistration = (userUuid, data) => async (dispatch) => {
   try {
     const token = localStorage.getItem('token');
 
-    console.log('Payload enviado al backend:', data);
 
     const response = await api.put(`/usuarios/${userUuid}/rechazar`, data, {
       headers: {
@@ -541,7 +639,6 @@ export const denyRegistration = (userUuid, data) => async (dispatch) => {
     dispatch({ type: 'DENY_REGISTRATION_SUCCESS', payload: response.data });
     return response.data;
   } catch (error) {
-    console.error('Error al rechazar usuario:', error.response?.data || error.message);
     dispatch({ type: 'DENY_REGISTRATION_ERROR', payload: error.response?.data || error.message });
     throw error;
   }
@@ -550,10 +647,9 @@ export const denyRegistration = (userUuid, data) => async (dispatch) => {
 export const fetchApprovedUsers = () => async (dispatch) => {
   dispatch({ type: 'FETCH_APPROVED_USERS_REQUEST' });
   try {
-    const response = await api.get('/usuarios/usuarios/aprobados'); // Verifica la ruta correcta
+    const response = await api.get('/usuarios/aprobados'); // Verifica la ruta correcta
     dispatch({ type: 'FETCH_APPROVED_USERS_SUCCESS', payload: response.data });
   } catch (error) {
-    console.error("Error al obtener usuarios aprobados:", error);
     dispatch({ type: 'FETCH_APPROVED_USERS_ERROR', payload: error.message });
   }
 };
@@ -577,7 +673,6 @@ export const fetchRejectedUsers = () => async (dispatch) => {
 // Acción para verificar si el usuario existe
 export const checkExistingUser = (params) => async (dispatch) => {
   try {
-    console.log("📌 Enviando datos a checkExistingUser:", params);
     const { dni, nombre, apellido } = params;
 
     if (!dni || !nombre || !apellido) {
@@ -592,7 +687,6 @@ export const checkExistingUser = (params) => async (dispatch) => {
       return { existe: false }; // Si no existe, devolvemos `{ existe: false }`
     }
   } catch (error) {
-    console.error("❌ Error en checkExistingUser:", error.message);
     return { existe: false }; // Devolver `existe: false` si hay error
   }
 };
@@ -619,19 +713,26 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
       throw new Error('Token no disponible.');
     }
 
-    console.log("📌 Enviando datos para registrar usuario:", usuarioData);
 
     // 🔹 Asegurarnos de que la estructura es correcta antes de enviar
     const cleanedData = {
       dni: usuarioData.dni,
-      nombre: usuarioData.nombre.trim(),
-      apellido: usuarioData.apellido.trim(),
-      email: usuarioData.email.trim(),
+      nombre: usuarioData.nombre?.trim(),
+      apellido: usuarioData.apellido?.trim(),
+      email: usuarioData.email?.trim(),
       tipo: usuarioData.tipo,
-      cuit: usuarioData.cuit?.trim() || "", // Evitar `undefined`
-      direccion: usuarioData.direccion || {}, // Evitar `undefined`
+      cuit: usuarioData.cuit?.trim() || '',
       razonSocial: usuarioData.tipo === 'juridica' ? usuarioData.razonSocial?.trim() : null,
+      direccion: usuarioData.direccion || {},
+    
+      // 👇 Agregá estos campos si es persona jurídica
+      dniResponsable: usuarioData.dniResponsable || '',
+      nombreResponsable: usuarioData.nombreResponsable || '',
+      apellidoResponsable: usuarioData.apellidoResponsable || '',
+      cuitResponsable: usuarioData.cuitResponsable || '',
+      domicilioResponsable: usuarioData.domicilioResponsable || {},
     };
+    
 
     const response = await api.post('/usuarios/register-usuario-por-tercero', cleanedData, {
       headers: {
@@ -646,7 +747,6 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
         payload: response.data.usuario,
       });
 
-      console.log("✅ Usuario registrado con éxito:", response.data.usuario);
       return response.data.usuario;
     }
 
@@ -657,32 +757,69 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
       error: error.message,
     });
 
-    console.error("❌ Error en registerUsuarioPorTercero:", error.response?.data || error);
     throw new Error(error.response?.data?.message || "Error en el registro de usuario.");
   }
-};
+}; 
 
+export const registerDelegado = (delegadoData) => async (dispatch) => {
+  dispatch({ type: REGISTER_DELEGADO_REQUEST });
 
-// Acción para obtener un usuario por UUID
-export const getUserByUuid = (uuid) => async (dispatch) => {
   try {
-    const response = await api.get(`/usuarios/${uuid}`);
-    return response.data; // ✅ Devuelve el usuario encontrado
+    const token = localStorage.getItem('authToken');
+    if (!token) throw new Error('No se encontró token de autenticación.');
+
+    const payload = {
+      ...delegadoData,
+      tipo: 'fisica', // 🔒 Siempre física
+    };
+
+    console.log('📤 Enviando datos del delegado:', payload); // 🔍 DEBUG
+
+    const response = await api.post('/usuarios/registrar-delegado', payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('✅ Respuesta de registro delegado:', response.data); // 🔍 DEBUG
+
+    if (response.data?.usuario) {
+      dispatch({
+        type: REGISTER_DELEGADO_SUCCESS,
+        payload: response.data.usuario,
+      });
+      return response.data.usuario;
+    }
+
+    throw new Error(response.data?.message || 'No se pudo registrar el delegado.');
   } catch (error) {
-    console.error("❌ Error al obtener usuario:", error);
-    return null; // En caso de error, devuelve null
+    const msg =
+      error.response?.data?.message ||
+      error.message ||
+      'Error desconocido al registrar delegado.';
+
+    console.error('❌ Error al registrar delegado:', msg); // 🔥 DEBUG FULL
+
+    dispatch({
+      type: REGISTER_DELEGADO_ERROR,
+      error: msg,
+    });
+
+    throw new Error(msg);
   }
 };
+
+
 
   
   // Acción para obtener historial de cambios
 export const fetchHistorialCambios = async (uuid) => {
   try {
     const response = await api.get(`/historialcambios/historial-cambios/${uuid}`);
-    console.log('Respuesta de la API:', response.data); // Verifica que sea un array
+// Verifica que sea un array
     return response.data; // Devuelve los datos directamente
   } catch (error) {
-    console.error('Error al obtener historial de cambios:', error.message);
     throw error; // Propaga el error para manejarlo en el componente
   }
 };
@@ -696,32 +833,34 @@ export const reenviarRegistro = (uuid, formData) => async (dispatch) => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error en reenviarRegistro:', error.response || error.message);
     throw new Error(error.response?.data?.message || 'Error al reenviar registro.');
   }
 };
-
 
 export const fetchRenaperData = (dni) => async (dispatch) => {
   dispatch({ type: 'FETCH_RENAPER_REQUEST' });
 
   try {
-      const { data } = await api.get(`/renaper/renaper/${dni}`);
-      if (data.success) {
-          dispatch({ type: 'FETCH_RENAPER_SUCCESS', payload: data.data.persona });
-          return data.data.persona;
-      } else {
-          dispatch({ type: 'FETCH_RENAPER_FAILURE', payload: data.message || 'Error al buscar los datos.' });
-          throw new Error(data.message || 'Error al buscar los datos.');
-      }
+    const { data } = await api.get(`/renaper/${dni}`);
+
+    // 🔍 Validar respuesta esperada desde RENAPER
+    if (data && data.resultado === 0 && data.persona) {
+      dispatch({ type: 'FETCH_RENAPER_SUCCESS', payload: data.persona });
+      return data.persona;
+    } else {
+      const errorMsg = data.mensaje || 'Error al buscar los datos.';
+      dispatch({ type: 'FETCH_RENAPER_FAILURE', payload: errorMsg });
+      throw new Error(errorMsg);
+    }
   } catch (error) {
-      dispatch({
-          type: 'FETCH_RENAPER_FAILURE',
-          payload: error.response?.data?.message || 'Error inesperado.',
-      });
-      throw error;
+    dispatch({
+      type: 'FETCH_RENAPER_FAILURE',
+      payload: error.response?.data?.mensaje || error.message || 'Error inesperado.',
+    });
+    throw error;
   }
 };
+
 
 export const reintentarRegistro = (uuid, formData) => async (dispatch) => {
   dispatch({ type: REINTENTAR_REGISTRO_REQUEST });
@@ -736,7 +875,6 @@ export const reintentarRegistro = (uuid, formData) => async (dispatch) => {
       throw new Error('Los datos del formulario son requeridos.');
     }
 
-    console.log('Enviando datos para reintentar registro:', { uuid, formData });
 
     // Realizar la solicitud al backend
     const response = await api.put(`/usuarios/${uuid}/reintentar`, formData, {
@@ -785,5 +923,104 @@ export const reintentarRegistro = (uuid, formData) => async (dispatch) => {
     // Lanzar el error para manejarlo en el componente
     throw new Error(errorMessage);
   }
+}; 
+
+export const getEmpresas = () => async (dispatch) => {
+  dispatch({ type: 'FETCH_EMPRESAS_REQUEST' });
+
+  try {
+    const response = await api.get('/empresas');
+    dispatch({ type: 'FETCH_EMPRESAS_SUCCESS', payload: response.data.empresas });
+  } catch (error) {
+    dispatch({
+      type: 'FETCH_EMPRESAS_FAIL',
+      payload: error.response?.data?.message || error.message,
+    });
+  }
 };
 
+export const getEmpresaByUuid = async (uuid) => {
+  try {
+    const response = await api.get(`/usuarios/empresas/${uuid}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error al obtener empresa por UUID:', error);
+    return null;
+  }
+};
+
+
+export const fetchDelegados = (empresaUuid) => async (dispatch) => {
+  dispatch({ type: 'FETCH_DELEGADOS_REQUEST' });
+
+  try {
+    const token = localStorage.getItem('authToken'); // 👈 asegúrate de usar esta
+    const res = await api.get(`/empresas/${empresaUuid}/delegados`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    console.log('[✅ API] Delegados recibidos:', res.data.delegados);
+
+    dispatch({ type: 'FETCH_DELEGADOS_SUCCESS', payload: res.data.delegados });
+  } catch (error) {
+    console.error('[❌ ERROR] al cargar delegados:', error);
+    dispatch({ type: 'FETCH_DELEGADOS_ERROR', payload: error.message });
+  }
+};
+
+
+// actions/empresa.js
+export const fetchMiEmpresaYDelegados = () => async (dispatch) => {
+  dispatch({ type: 'FETCH_EMPRESAS_REQUEST' });
+  dispatch({ type: 'FETCH_DELEGADOS_REQUEST' });
+
+  try {
+    const token = localStorage.getItem('token'); // 👈 asegurate que sea la key correcta
+
+    const empresaRes = await api.get('/empresas/delegado/empresa', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const empresa = empresaRes.data.empresa;
+
+    console.log('[✅ Empresa obtenida]:', empresa);
+
+    if (!empresa || !empresa.uuid) {
+      throw new Error('Empresa no válida o sin UUID.');
+    }
+
+    dispatch({ type: 'FETCH_EMPRESAS_SUCCESS', payload: [empresa] });
+
+    const delegadosRes = await api.get(`/empresas/${empresa.uuid}/delegados`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    console.log('[✅ Delegados obtenidos]:', delegadosRes.data.delegados);
+
+    dispatch({ type: 'FETCH_DELEGADOS_SUCCESS', payload: delegadosRes.data.delegados });
+
+  } catch (err) {
+    console.error('[❌ ERROR AL CARGAR EMPRESA + DELEGADOS]:', err);
+
+    dispatch({
+      type: 'FETCH_EMPRESAS_ERROR',
+      payload: err.response?.data?.message || err.message,
+    });
+
+    dispatch({
+      type: 'FETCH_DELEGADOS_ERROR',
+      payload: err.response?.data?.message || err.message,
+    });
+  }
+};
+
+
+
+// actions/usuarios.js
+export const fetchEmpresaDeDelegado = () => async () => {
+  const token = localStorage.getItem('authToken');
+  const res = await api.get('/usuarios/delegado/empresa', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return res.data;
+};

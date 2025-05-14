@@ -12,7 +12,6 @@ const prepareFormData = (bienData, files) => {
             formData.append('fotos', file); // 'fotos' debe coincidir con el campo que espera el backend
         });
     } else {
-        console.error("No se pasaron archivos al FormData.");
     }
 
     return formData;

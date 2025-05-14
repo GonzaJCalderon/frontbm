@@ -12,7 +12,6 @@ const searchReducer = (state = initialState, action) => {
         case SEARCH_REQUEST:
             return { ...state, loading: true, error: null };
         case SEARCH_SUCCESS:
-            console.log("Datos guardados en Redux:", action.payload);
             return {
                 ...state,
                 loading: false,

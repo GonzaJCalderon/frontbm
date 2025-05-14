@@ -1,180 +1,280 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Table, Spin, Alert, Button, Space, Input, Modal, Form, InputNumber, message, Typography } from 'antd';
-import { LeftOutlined, LogoutOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
-import { fetchBienesPorUsuario, updateBien, deleteBien } from '../redux/actions/bienes';
-
-const { Search } = Input;
-const { Title } = Typography;
-const { confirm } = Modal;
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  fetchBienesPorUsuario,
+  fetchBienesPorEmpresa,
+  deleteBien
+} from '../redux/actions/bienes';
+import { fetchApprovedUsers } from '../redux/actions/usuarios';
+import {
+  Spin,
+  Table,
+  Button,
+  Tag,
+  Space,
+  Input,
+  Modal,
+  Image,
+  Alert,
+} from 'antd';
+import {
+  ArrowLeftOutlined,
+  LogoutOutlined,
+  UpOutlined,
+  DownOutlined,
+} from '@ant-design/icons';
 
 const BienesPorUsuario = () => {
   const { uuid } = useParams();
-  const dispatch = useDispatch();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  const [filteredItems, setFilteredItems] = useState([]);
+  const [expandedFotoRows, setExpandedFotoRows] = useState({});
+  const [expandedIMEIRows, setExpandedIMEIRows] = useState({});
+  const [previewFoto, setPreviewFoto] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [currentItem, setCurrentItem] = useState(null);
-  const [userName, setUserName] = useState('');
-  const [form] = Form.useForm();
+  const [usuarioActual, setUsuarioActual] = useState(null);
 
-  const { items = [], loading, error } = useSelector((state) => state.bienes || {});
+  const bienesState = useSelector((state) => state.bienes);
   const usuarios = useSelector((state) => state.usuarios.approvedUsers || []);
 
-  useEffect(() => {
-    if (uuid) {
-      dispatch(fetchBienesPorUsuario(uuid));
-    }
-  }, [uuid, dispatch]);
+  const isLoading = bienesState.loading;
+  const bienes = bienesState.items || [];
+
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  const isAdmin = userData.rol === 'admin';
 
   useEffect(() => {
-    if (Array.isArray(items)) {
-      setFilteredItems(items);
-    }
-  }, [items]);
+    dispatch(fetchApprovedUsers());
+  }, [dispatch]);
 
   useEffect(() => {
-    const usuario = usuarios.find((user) => user.uuid === uuid);
-    if (usuario) {
-      setUserName(`${usuario.nombre} ${usuario.apellido}`);
+    const usuario = usuarios.find((u) => u.uuid === uuid);
+    if (!usuario) return;
+
+    setUsuarioActual(usuario);
+
+    const isEmpresa = usuario.rolEmpresa === 'responsable' || usuario.rolEmpresa === 'delegado';
+    const idDestino = isEmpresa ? usuario.empresa_uuid : uuid;
+
+    if (isEmpresa) {
+      dispatch(fetchBienesPorEmpresa(idDestino));
+    } else {
+      dispatch(fetchBienesPorUsuario(idDestino, true));
     }
-  }, [usuarios, uuid]);
+  }, [uuid, usuarios, dispatch]);
 
-  // 🔹 Abrir modal de edición
-  const handleEdit = (bien) => {
-    setCurrentItem(bien);
-    form.setFieldsValue({ ...bien });
-    setIsEditModalVisible(true);
+  const toggleFotoExpand = (idx) => {
+    setExpandedFotoRows((prev) => ({ ...prev, [idx]: !prev[idx] }));
   };
 
-  // 🔹 Cerrar modal de edición
-  const handleCancelEdit = () => {
-    setCurrentItem(null);
-    setIsEditModalVisible(false);
-    form.resetFields();
-  };
+  const handleSearchChange = (e) => setSearchTerm(e.target.value.toLowerCase());
 
-  // 🔹 Guardar cambios
-  const handleSaveEdit = async () => {
-    try {
-      const updatedValues = await form.validateFields();
-      dispatch(updateBien(currentItem.uuid, updatedValues));
-      message.success('Bien actualizado correctamente.');
-      handleCancelEdit();
-    } catch (error) {
-      console.error('Error al actualizar:', error);
-    }
-  };
-
-  // 🔹 Confirmar eliminación
-  const handleDelete = (uuid) => {
-    confirm({
-      title: '¿Estás seguro de eliminar este bien?',
-      icon: <ExclamationCircleOutlined />,
-      content: 'Esta acción no se puede deshacer.',
+  const handleDeleteBien = (bienUuid) => {
+    Modal.confirm({
+      title: '¿Eliminar bien?',
+      content: 'Esta acción es irreversible.',
       okText: 'Sí, eliminar',
       okType: 'danger',
       cancelText: 'Cancelar',
-      onOk() {
-        dispatch(deleteBien(uuid));
-        message.success('Bien eliminado correctamente.');
+      onOk: async () => {
+        try {
+          await dispatch(deleteBien(bienUuid));
+          Modal.success({ content: 'Bien eliminado correctamente.' });
+          const idDestino = usuarioActual?.empresa_uuid || uuid;
+          usuarioActual?.rolEmpresa
+            ? dispatch(fetchBienesPorEmpresa(idDestino))
+            : dispatch(fetchBienesPorUsuario(idDestino, true));
+        } catch (err) {
+          Modal.error({ title: 'Error', content: 'No se pudo eliminar el bien.' });
+        }
       },
     });
   };
 
-  // 🔹 Columnas de la tabla
+  const bienesFiltrados = bienes.filter((b) =>
+    [b.tipo, b.marca, b.modelo, b.descripcion]
+      .some((field) => field?.toLowerCase().includes(searchTerm))
+  );
+
   const columns = [
-    { title: 'Tipo', dataIndex: 'tipo', key: 'tipo' },
-    { title: 'Marca', dataIndex: 'marca', key: 'marca' },
-    { title: 'Modelo', dataIndex: 'modelo', key: 'modelo' },
-    { title: 'Descripción', dataIndex: 'descripcion', key: 'descripcion' },
-    { 
-      title: 'Precio', 
-      dataIndex: 'precio', 
-      key: 'precio', 
-      render: (precio) => precio ? `$${Number(precio).toFixed(2)}` : 'No disponible' 
-    },
-    { title: 'Stock', dataIndex: 'stock', key: 'stock' },
     {
-      title: 'IMEIs y Estado',
+      title: 'Fecha de Registro',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (createdAt) => createdAt ? new Date(createdAt).toLocaleString() : 'Sin fecha',
+    },
+    {
+      title: 'Tipo',
+      dataIndex: 'tipo',
+      key: 'tipo',
+    },
+    {
+      title: 'Marca',
+      dataIndex: 'marca',
+      key: 'marca',
+    },
+    {
+      title: 'Modelo',
+      dataIndex: 'modelo',
+      key: 'modelo',
+    },
+    {
+      title: 'Descripción',
+      dataIndex: 'descripcion',
+      key: 'descripcion',
+    },
+    {
+      title: 'Precio',
+      dataIndex: 'precio',
+      key: 'precio',
+      render: (precio) => `$${Number(precio).toFixed(2)}`,
+    },
+    {
+      title: 'Stock',
+      dataIndex: 'stock',
+      key: 'stock',
+      render: (s) => (s > 0 ? `${s} unidades` : 'Sin stock'),
+    },
+    {
+      title: 'IMEIs',
       dataIndex: 'identificadores',
-      key: 'identificadores',
-      render: (identificadores) => {
-        if (!identificadores || identificadores.length === 0) {
-          return <span style={{ color: 'gray' }}>Sin identificadores disponibles</span>;
-        }
-        return identificadores.map((imei, index) => (
-          <p key={index}>{imei.identificador_unico} - {imei.estado || 'Disponible'}</p>
-        ));
-      },
-    },
-    {
-      title: 'Fotos',
-      dataIndex: 'fotos',
-      key: 'fotos',
-      render: (fotos) => {
-        const validFotos = (fotos || []).filter((url) => url);
-        return validFotos.length > 0 ? (
-          <img
-            src={validFotos[0]}
-            alt="Foto"
-            style={{ width: '80px', height: 'auto', cursor: 'pointer', borderRadius: '8px' }}
-          />
-        ) : (
-          <span style={{ color: 'gray' }}>Sin imagen</span>
+      key: 'imeis',
+      render: (identificadores = [], row) => {
+        const expanded = expandedIMEIRows[row.uuid];
+        const visibles = expanded ? identificadores : identificadores.slice(0, 1);
+        return (
+          <>
+            {visibles.map((det) => (
+              <p key={det.identificador_unico}>
+                {det.identificador_unico}{' '}
+                <Tag color={det.estado?.toLowerCase() === 'disponible' ? 'green' : 'red'}>
+                  {det.estado}
+                </Tag>
+              </p>
+            ))}
+            {identificadores.length > 1 && (
+              <Button
+                type="link"
+                size="small"
+                onClick={() =>
+                  setExpandedIMEIRows((prev) => ({
+                    ...prev,
+                    [row.uuid]: !prev[row.uuid],
+                  }))
+                }
+              >
+                {expanded ? <UpOutlined /> : <DownOutlined />} {expanded ? 'Ver menos' : 'Ver más'}
+              </Button>
+            )}
+          </>
         );
       },
     },
     {
-      title: 'Acciones',
-      key: 'acciones',
-      render: (_, bien) => (
-        <Space>
-          <Button type="primary" onClick={() => navigate(`/bienes/trazabilidad/${bien.uuid}`)}>
-            Ver Trazabilidad
-          </Button>
-          <Button icon={<EditOutlined />} onClick={() => handleEdit(bien)}>
-            Editar
-          </Button>
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(bien.uuid)}>
-            Eliminar
-          </Button>
-        </Space>
-      ),
+      title: 'Fotos',
+      key: 'fotos',
+      render: (_, row, idx) => {
+        const fotos = row.fotos || [];
+        const expanded = expandedFotoRows[idx];
+        const visibles = expanded ? fotos : fotos.slice(0, 3);
+
+        return fotos.length === 0 ? (
+          'Sin fotos'
+        ) : (
+          <>
+            <Space>
+              {visibles.map((foto, i) => (
+                <Image
+                  key={i}
+                  width={80}
+                  src={foto}
+                  alt={`Foto ${i + 1}`}
+                  onClick={() => setPreviewFoto(foto)}
+                  preview={false}
+                />
+              ))}
+            </Space>
+            {fotos.length > 3 && (
+              <Button
+                type="link"
+                size="small"
+                onClick={() => toggleFotoExpand(idx)}
+              >
+                {expanded ? <UpOutlined /> : <DownOutlined />} {expanded ? 'Ver menos' : 'Ver más'}
+              </Button>
+            )}
+          </>
+        );
+      },
     },
+    ...(isAdmin
+      ? [{
+          title: 'Acciones',
+          key: 'acciones',
+          render: (_, bien) => (
+            <Space>
+              <Button onClick={() => navigate(`/bienes/trazabilidad/${bien.uuid}`)}>
+                Trazabilidad
+              </Button>
+              <Button type="primary" onClick={() => navigate(`/bienes/edit/${bien.uuid}`)}>
+                Editar
+              </Button>
+              <Button danger onClick={() => handleDeleteBien(bien.uuid)}>
+                Eliminar
+              </Button>
+            </Space>
+          )
+        }]
+      : []),
   ];
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <Space style={{ marginBottom: 16 }}>
-        <Button icon={<LeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
-        <Button icon={<LogoutOutlined />} onClick={() => { localStorage.clear(); navigate('/home'); }} danger>Cerrar sesión</Button>
-        <Search placeholder="Buscar bienes" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: 300 }} enterButton />
-      </Space>
+      <div className="flex justify-between mb-4">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
+        <Button icon={<LogoutOutlined />} danger onClick={() => navigate('/home')}>Cerrar sesión</Button>
+      </div>
 
-      <Title level={3} className="mb-4">Bienes de {userName || 'Usuario desconocido'}</Title>
+      <h1 className="text-2xl font-bold mb-4 text-center">
+        Bienes de{' '}
+        {usuarioActual
+          ? (usuarioActual.rolEmpresa === 'responsable' || usuarioActual.rolEmpresa === 'delegado')
+            ? usuarioActual.empresa?.razonSocial || 'Empresa'
+            : `${usuarioActual.nombre} ${usuarioActual.apellido}`
+          : 'Usuario/Empresa'}
+      </h1>
 
-      {loading ? <Spin tip="Cargando bienes..." /> :
-        error ? <Alert message="Error" description={error} type="error" /> :
-        <Table dataSource={filteredItems} columns={columns} rowKey="uuid" pagination={{ pageSize: 10, position: ['bottomCenter'] }} bordered />
-      }
+      <Input.Search
+        placeholder="Buscar por tipo, marca, modelo, descripción..."
+        onChange={handleSearchChange}
+        allowClear
+        enterButton
+        style={{ maxWidth: 400, marginBottom: 20 }}
+      />
 
-      {/* 🛠 MODAL PARA EDITAR */}
-      <Modal title="Editar Bien" visible={isEditModalVisible} onOk={handleSaveEdit} onCancel={handleCancelEdit} okText="Guardar cambios">
-        <Form form={form} layout="vertical">
-          <Form.Item name="descripcion" label="Descripción" rules={[{ required: true, message: 'Ingrese la descripción' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="precio" label="Precio" rules={[{ required: true, message: 'Ingrese el precio' }]}>
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="stock" label="Stock" rules={[{ required: true, message: 'Ingrese la cantidad de stock' }]}>
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
+      {isLoading ? (
+        <Spin size="large" tip="Cargando bienes..." />
+      ) : bienesFiltrados.length === 0 ? (
+        <Alert type="info" message="No se encontraron bienes." />
+      ) : (
+        <Table
+          dataSource={bienesFiltrados}
+          columns={columns}
+          rowKey="uuid"
+          pagination={{ pageSize: 10 }}
+          scroll={{ x: true }}
+        />
+      )}
+
+      <Modal
+        open={!!previewFoto}
+        footer={null}
+        onCancel={() => setPreviewFoto(null)}
+        centered
+      >
+        <img src={previewFoto} alt="Vista previa" style={{ width: '100%' }} />
       </Modal>
     </div>
   );

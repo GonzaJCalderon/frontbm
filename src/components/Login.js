@@ -3,6 +3,8 @@ import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../redux/actions/auth';
 import { toast } from 'react-toastify';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
+
 import loginImage from '../assets/loginimg.png';
 
 const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
@@ -10,6 +12,8 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
         email: '',
         password: '',
     });
+    const [showPassword, setShowPassword] = useState(false);
+
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -30,31 +34,57 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
             const resultAction = await dispatch(login({ email, password }));
     
             if (login.fulfilled.match(resultAction)) {
-                const { usuario, token } = resultAction.payload || {};
+                const { usuario, token, refreshToken } = resultAction.payload || {};
+
     
-                if (usuario && token) {
+                if (usuario && token && refreshToken) {
                     // Guardar los datos en localStorage
                     localStorage.setItem('authToken', token);
+                    localStorage.setItem('refreshToken', refreshToken); // <-- ✅ ESTE FALTABA
                     localStorage.setItem('userUuid', usuario.uuid);
-                    
-                    // Guardar userData correctamente con uuid y role
                     localStorage.setItem('userData', JSON.stringify({
-                        uuid: usuario.uuid, // ✅ Ahora se asegura que uuid esté presente
-                        role: usuario.rolDefinitivo, // ✅ Guardar el rol correctamente
-                        email: usuario.email,
-                        nombre: usuario.nombre,
-                        apellido: usuario.apellido
+                      uuid: usuario.uuid,
+                      rol: usuario.rolDefinitivo,
+                      email: usuario.email,
+                      nombre: usuario.nombre,
+                      apellido: usuario.apellido,
+                      dni: usuario.dni || '',
+                      direccion: usuario.direccion || {
+                        calle: '',
+                        altura: '',
+                        barrio: '',
+                        departamento: '',
+                      },
+                      empresaUuid: usuario.empresaUuid || null,
+                      razonSocial: usuario.razonSocial || null,
+                      tipo: usuario.tipo || null,
+                      rolEmpresa: usuario.rolEmpresa || null,
                     }));
-                
-                    console.log('Redirigiendo según el rol definitivo:', usuario.rolDefinitivo);
-                
-    
-                    // Redirige al tablero de administrador para ambos roles, admin y moderador
-                    if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {
+                  
+                      
+                      
+                      
+                  
+                    // 🧠 LOG DEL ROL
+                    console.log('🧠 Rol del usuario:', usuario.rolDefinitivo);
+                    console.log('📛 Tipo de usuario:', usuario.tipo);
+                    console.log('🏢 Empresa asociada:', usuario.empresaUuid);
+                    console.log('🧾 Datos completos del usuario:', usuario);
+                  
+                    // Redirigir según el rol
+                    if (usuario.rolDefinitivo === 'admin') {
                         navigate('/admin/dashboard');
-                    } else {
+                      } else if (usuario.rolEmpresa === 'delegado') {
+                        // ✅ aunque no tenga empresaUuid, si es delegado, lo mandamos al dashboard
                         navigate('/user/dashboard');
-                    }
+                      } else if (usuario.tipo === 'juridica') {
+                        navigate('/user/dashboard');
+                      } else {
+                        navigate('/home');
+                      }
+                      
+                      
+                      
                 } else {
                     toast.error('No se pudieron obtener los datos del usuario.');
                 }
@@ -63,7 +93,6 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
                 toast.error(errorMessage);
             }
         } catch (error) {
-            console.error('Error en el login:', error);
             toast.error('Ocurrió un error inesperado. Intenta nuevamente.');
         }
     };
@@ -110,16 +139,25 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
                         <div className="mt-4">
                             <label className="text-gray-800 text-[15px] mb-2 block">Contraseña</label>
                             <div className="relative flex items-center">
-                                <input
-                                    name="password"
-                                    type="password"
-                                    required
-                                    className="w-full text-sm text-gray-800 bg-gray-100 focus:bg-transparent px-4 py-3.5 rounded-md outline-blue-600"
-                                    placeholder="Ingresa tu contraseña"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                />
-                            </div>
+  <input
+    name="password"
+    type={showPassword ? 'text' : 'password'}
+    required
+    className="w-full text-sm text-gray-800 bg-gray-100 focus:bg-transparent px-4 py-3.5 rounded-md outline-blue-600 pr-12"
+    placeholder="Ingresa tu contraseña"
+    value={formData.password}
+    onChange={handleChange}
+  />
+ <button
+  type="button"
+  className="absolute right-3 text-gray-600"
+  onClick={() => setShowPassword(!showPassword)}
+>
+  {showPassword ? <FaEyeSlash /> : <FaEye />}
+</button>
+
+</div>
+
                         </div>
 
                         {/* ✅ Botón "¿Olvidaste tu contraseña?" */}

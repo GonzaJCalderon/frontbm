@@ -6,6 +6,8 @@ import { useDispatch } from 'react-redux';
 import axios from 'axios';        // Si lo necesitas adicional a tu setup
 import api from '../redux/axiosConfig'; // Supuesto helper que wrappea axios, ajústalo según tu proyecto
 import { addBien } from '../redux/actions/bienes'; 
+import imeiEjemploImg from '../assets/imei-ejemplo.png'; // Ajusta la ruta si estás en una subcarpeta
+
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -23,6 +25,10 @@ const RegistrarBienPage = () => {
   const [selectedTipo, setSelectedTipo] = useState('');
   const [precio, setPrecio] = useState(null);
   const [stock, setStock] = useState(null);
+  const [identificadoresUnicos, setIdentificadoresUnicos] = useState([]);
+  const [loadingRegistro, setLoadingRegistro] = useState(false);
+
+
 
   // -------------------------
   // Manejo de marcas y modelos
@@ -44,8 +50,26 @@ const RegistrarBienPage = () => {
   const [totalPrecioIndividual, setTotalPrecioIndividual] = useState(0);
 
   // Para identificar al propietario
-  const token = localStorage.getItem('token');
-  const userUuid = localStorage.getItem('userUuid');
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  const token = localStorage.getItem('authToken');
+  const userUuid = userData.uuid; // siempre UUID del usuario autenticado
+const propietarioUuid = userData.empresaUuid || userData.uuid;
+
+  // -------------------------
+  // Modal: mostrar imagen de IMEI
+  // -------------------------
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
+  const openModal = () => {
+    setIsModalVisible(true); // Abre el modal
+  };
+
+  const closeModal = () => {
+    setIsModalVisible(false); // Cierra el modal
+  };
+
+
+  
 
   // -------------------------
   // Verificar autenticación
@@ -215,79 +239,81 @@ const RegistrarBienPage = () => {
     });
   };
 
+  const agregarIdentificador = () => {
+    setIdentificadoresUnicos(prev => [...prev, '']);
+  };
+  
+  const actualizarIdentificador = (index, value) => {
+    const nuevos = [...identificadoresUnicos];
+    nuevos[index] = value;
+    setIdentificadoresUnicos(nuevos);
+  };
+  
+  const eliminarIdentificador = (index) => {
+    setIdentificadoresUnicos(prev => prev.filter((_, i) => i !== index));
+  };
+  
+
   // -------------------------
   // Al dar "submit" al formulario
   // -------------------------
   const handleFinish = async () => {
+    setLoadingRegistro(true); // 👈 Mostrar loading
+    message.loading({ content: 'Espere mientras registramos el bien...', key: 'registroBien', duration: 0 });
+  
     try {
-      // Validaciones: si es teléfono y no hay IMEIs o stock
       if (selectedTipo.toLowerCase() === 'teléfono movil') {
         if (!stock || imeis.length !== stock) {
+          message.destroy('registroBien');
+          setLoadingRegistro(false);
           return message.error('Debe haber un IMEI (y precio) por cada unidad de stock.');
         }
-        // Verificar que no haya IMEIs vacíos
         for (let i = 0; i < imeis.length; i++) {
-          if (!imeis[i].imei.trim()) {
-            return message.error(`El IMEI #${i + 1} está vacío. Por favor, complétalo.`);
+          if (!imeis[i].imei.trim() || !imeis[i].precio) {
+            message.destroy('registroBien');
+            setLoadingRegistro(false);
+            return message.error(`El IMEI #${i + 1} debe tener un precio.`);
           }
         }
       }
-
-      // Preparamos FormData
+  
       const formData = new FormData();
       formData.append('tipo', selectedTipo);
       formData.append('marca', form.getFieldValue('bienMarca'));
       formData.append('modelo', form.getFieldValue('bienModelo'));
       formData.append('descripcion', descripcion);
-      formData.append('propietario_uuid', userUuid);
-
-      // Si es teléfono, el precio total se maneja como suma de IMEIs (cada uno con su precio)
-      // Si es otro tipo, es un precio global
+      formData.append('propietario_uuid', propietarioUuid);
+      formData.append('registrado_por_uuid', userUuid);
+  
       if (selectedTipo.toLowerCase() === 'teléfono movil') {
-        formData.append('precio', '0'); // Ej: podemos mandar 0 o el total, depende del backend
+        const precioTotal = imeis.reduce((acc, curr) => acc + (Number(curr.precio) || 0), 0);
+        formData.append('precio', precioTotal);
       } else {
-        formData.append('precio', precio);
+        formData.append('precio', precio || 0);
       }
-
-      // Stock 
+  
       formData.append('stock', JSON.stringify({ cantidad: stock }));
-
-      // IMEIs (con precio y foto), o ID autogenerados si no es teléfono 
+  
       if (selectedTipo.toLowerCase() === 'teléfono movil') {
-        // Enviamos en JSON la info de IMEIs
-        // Cada IMEI podría tener su precio, etc.
-        // También se envían fotos en formData individualmente
         formData.append('imei', JSON.stringify(imeis));
-
-        // Adjuntar cada foto con un campo distinto
-        // (una alternativa es mandar todas bajo un mismo nombre 'imeiFotos[]', pero
-        //  eso requiere adaptar tu backend)
         imeis.forEach((item, index) => {
           if (item.foto) {
             formData.append(`imeiFoto_${index}`, item.foto.originFileObj || item.foto);
           }
         });
       } else {
-        // En caso de bienes que no son teléfonos, mandamos un array de IDs o nada
-        // Generamos identificadores aleatorios
-        const newIDs = Array(stock)
-          .fill('')
-          .map(() => `ID-${Math.random().toString(36).substr(2, 9)}`);
-        formData.append('imei', JSON.stringify(newIDs)); // Reutilizamos el campo "imei"
+        formData.append('imei', JSON.stringify([]));
       }
-
-      // Fotos del bien (no teléfono)
+  
       if (selectedTipo.toLowerCase() !== 'teléfono movil') {
         fileList.forEach((file, index) => {
-          formData.append('fotos', file.originFileObj || file);
+          formData.append(`fotos_bien_0_${index}`, file.originFileObj || file);
         });
       }
-
-      // Llamamos acción Redux
+  
       await dispatch(addBien(formData));
-      message.success('Bien registrado exitosamente.');
-
-      // Reseteamos formulario
+      message.success({ content: '✅ Bien registrado exitosamente.', key: 'registroBien', duration: 2 });
+  
       form.resetFields();
       setFileList([]);
       setImeis([]);
@@ -300,242 +326,330 @@ const RegistrarBienPage = () => {
       setNuevaMarca('');
       setNuevoModelo('');
       setTotalPrecioIndividual(0);
-
-      // Redirigir adonde necesites
+  
       navigate('/user/dashboard');
     } catch (error) {
-      console.error('Error al registrar el bien:', error);
-      message.error('Error al registrar el bien.');
+      console.error(error);
+      message.error({ content: '❌ Error al registrar el bien.', key: 'registroBien' });
+    } finally {
+      setLoadingRegistro(false); // 👈 Ocultar loading
     }
   };
+  
+  
+  const esDelegado = !!userData.empresaUuid;
 
-  return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      {/* Botones de cabecera */}
-      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
-          Volver
-        </Button>
-        <Button icon={<HomeOutlined />} onClick={() => navigate('/user/dashboard')}>
-          Inicio
-        </Button>
+return (
+  <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+    {/* Botones de cabecera */}
+    <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
+      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+        Volver
+      </Button>
+      <Button icon={<HomeOutlined />} onClick={() => navigate('/user/dashboard')}>
+        Inicio
+      </Button>
+    </div>
+
+    {esDelegado && (
+      <div style={{ marginBottom: 16, backgroundColor: '#fff7e6', padding: 12, border: '1px solid #faad14', borderRadius: 8 }}>
+        Estás cargando bienes en representación de la empresa <strong>{userData.razonSocial || 'Tu Empresa'}</strong>
       </div>
+    )}
 
-      <Title level={3}>Registro de Bienes</Title>
-      <p>Aquí podas registrar tus bienes de manera individual</p>
+    <Title level={3}>Registro de Bienes</Title>
+    <Title level={3}>Cargar nuevo bien</Title>
+    <p>Utilizá este formulario para registrar un bien individual en tu inventario.</p>
 
-      <Form form={form} layout="vertical" onFinish={handleFinish}>
-        {/* Tipo de Bien */}
-        <Form.Item
-          name="bienTipo"
-          label="Tipo de Bien"
-          rules={[{ required: true, message: 'Seleccione el tipo de bien' }]}
+    <Form
+      form={form}
+      layout="vertical"
+      onFinish={handleFinish}
+      scrollToFirstError
+      validateTrigger={['onBlur', 'onSubmit']} // UX friendly
+    >
+      {/* Tipo de Bien */}
+      <Form.Item
+        name="bienTipo"
+        label="Tipo de Bien"
+        rules={[{ required: true, message: 'Seleccione el tipo de bien' }]}
+      >
+        <Select
+          placeholder="Seleccione tipo"
+          onChange={(value) => {
+            setSelectedTipo(value);
+            handleTipoChange(value);
+            form.setFieldsValue({ bienTipo: value });
+          }}
         >
-          <Select
-            placeholder="Seleccione tipo"
-            value={selectedTipo}
-            onChange={(value) => {
-              form.setFieldsValue({ bienTipo: value });
-              handleTipoChange(value);
-            }}
-          >
-            {['bicicleta', 'TV', 'equipo de audio', 'cámara fotográfica', 'notebook', 'tablet', 'teléfono movil'].map((tipo) => (
-              <Option key={tipo} value={tipo}>
-                {tipo}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+          {['bicicleta', 'TV', 'equipo de audio', 'cámara fotográfica', 'notebook', 'tablet', 'teléfono movil'].map((tipo) => (
+            <Select.Option key={tipo} value={tipo}>
+              {tipo}
+            </Select.Option>
+          ))}
+        </Select>
+      </Form.Item>
 
-        {/* Marca */}
-        <Form.Item
-          name="bienMarca"
-          label="Marca"
-          rules={[{ required: true, message: 'Ingrese la marca' }]}
+      {/* Marca */}
+      <Form.Item
+        name="bienMarca"
+        label="Marca"
+        rules={[{ required: true, message: 'Ingrese la marca' }]}
+      >
+        <Select
+          placeholder="Seleccione o agregue una marca"
+          onChange={handleMarcaChange}
+          dropdownRender={(menu) => (
+            <>
+              {menu}
+              <div style={{ display: 'flex', gap: 8, padding: 8 }}>
+                <Input
+                  placeholder="Nueva marca"
+                  value={nuevaMarca}
+                  onChange={(e) => setNuevaMarca(e.target.value)}
+                />
+                <Button type="link" onClick={agregarNuevaMarca}>Agregar</Button>
+              </div>
+            </>
+          )}
         >
-          <Select
-            placeholder="Seleccione o ingrese una marca"
-            onChange={handleMarcaChange}
-            dropdownRender={(menu) => (
-              <>
-                {menu}
-                <div style={{ display: 'flex', gap: 5, padding: 8 }}>
-                  <Input
-                    placeholder="Nueva marca"
-                    value={nuevaMarca}
-                    onChange={(e) => setNuevaMarca(e.target.value)}
-                  />
-                  <Button type="primary" onClick={agregarNuevaMarca}>
-                    Agregar
-                  </Button>
-                </div>
-              </>
-            )}
-          >
-            {marcas.map((marca) => (
-              <Option key={marca} value={marca}>
-                {marca}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+          {marcas.map((marca) => (
+            <Select.Option key={marca} value={marca}>
+              {marca}
+            </Select.Option>
+          ))}
+        </Select>
+      </Form.Item>
 
-        {/* Modelo */}
-        <Form.Item
-          name="bienModelo"
-          label="Modelo"
-          rules={[{ required: true, message: 'Ingrese el modelo' }]}
+      {/* Modelo */}
+      <Form.Item
+        name="bienModelo"
+        label="Modelo"
+        rules={[{ required: true, message: 'Ingrese el modelo' }]}
+      >
+        <Select
+          placeholder="Seleccione o agregue un modelo"
+          onChange={(value) => form.setFieldsValue({ bienModelo: value })}
+          dropdownRender={(menu) => (
+            <>
+              {menu}
+              <div style={{ display: 'flex', gap: 8, padding: 8 }}>
+                <Input
+                  placeholder="Nuevo modelo"
+                  value={nuevoModelo}
+                  onChange={(e) => setNuevoModelo(e.target.value)}
+                />
+                <Button type="link" onClick={agregarNuevoModelo}>Agregar</Button>
+              </div>
+            </>
+          )}
         >
-          <Select
-            placeholder="Seleccione o ingrese un modelo"
-            onChange={(value) => form.setFieldsValue({ bienModelo: value })}
-            dropdownRender={(menu) => (
-              <>
-                {menu}
-                <div style={{ display: 'flex', gap: 5, padding: 8 }}>
-                  <Input
-                    placeholder="Nuevo modelo"
-                    value={nuevoModelo}
-                    onChange={(e) => setNuevoModelo(e.target.value)}
-                  />
-                  <Button type="primary" onClick={agregarNuevoModelo}>
-                    Agregar
-                  </Button>
-                </div>
-              </>
-            )}
-          >
-            {modelos.map((modelo) => (
-              <Option key={modelo} value={modelo}>
-                {modelo}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+          {modelos.map((modelo) => (
+            <Select.Option key={modelo} value={modelo}>
+              {modelo}
+            </Select.Option>
+          ))}
+        </Select>
+      </Form.Item>
 
-        {/* Descripción */}
-        <Form.Item name="descripcion" label="Descripción">
-          <Input.TextArea
-            rows={4}
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-          />
-        </Form.Item>
+      {/* Descripción */}
+      <Form.Item name="descripcion" label="Descripción">
+        <Input.TextArea
+          rows={4}
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          placeholder="Descripción detallada del bien"
+        />
+      </Form.Item>
 
-        {/* Stock */}
+      {/* Stock */}
+      <Form.Item
+        name="bienStock"
+        label="Cantidad"
+        rules={[{ required: true, message: 'Ingrese el stock' }]}
+      >
+        <InputNumber
+          min={1}
+          style={{ width: '100%' }}
+          value={stock}
+          onChange={(value) => setStock(value)}
+        />
+      </Form.Item>
+
+      {/* Precio general */}
+      {selectedTipo.toLowerCase() !== 'teléfono movil' && (
         <Form.Item
-          name="bienStock"
-          label="Cantidad"
-          rules={[{ required: true, message: 'Ingrese el stock' }]}
+          name="bienPrecio"
+          label="Precio"
+          rules={[{ required: true, message: 'Ingrese el precio' }]}
         >
           <InputNumber
-            min={1}
+            min={0}
             style={{ width: '100%' }}
-            value={stock}
-            onChange={(value) => setStock(value)}
+            value={precio}
+            onChange={(value) => setPrecio(value)}
           />
         </Form.Item>
+      )}
 
-        {/* 
-          Si NO es teléfono, mostramos "Precio Global"
-          Si ES teléfono, ocultamos este campo y usamos precios individuales en los IMEIs
-        */}
-        {selectedTipo.toLowerCase() !== 'teléfono movil' && (
-          <Form.Item
-            name="bienPrecio"
-            label="Precio"
-            rules={[{ required: true, message: 'Ingrese el precio' }]}
-          >
-            <InputNumber
-              min={0}
-              style={{ width: '100%' }}
-              value={precio}
-              onChange={(value) => setPrecio(value)}
-            />
-          </Form.Item>
-        )}
+      {/* IMEIs para teléfonos */}
+      {selectedTipo.toLowerCase() === 'teléfono movil' && imeis.length > 0 && (
+        <div style={{ border: '1px dashed #ccc', padding: 16, borderRadius: 8 }}>
+          <Title level={5}>Detalle de IMEIs</Title>
+          {imeis.map((item, index) => (
+            <div key={index} style={{
+              marginBottom: '20px',
+              background: '#fafafa',
+              border: '1px solid #eee',
+              padding: '15px',
+              borderRadius: '8px'
+            }}>
+              <p><strong>IMEI #{index + 1}</strong></p>
+              <Form.Item label="Número de IMEI">
+                <Input
+                  value={item.imei}
+                  onChange={(e) => handleImeiChange(index, 'imei', e.target.value)}
+                  placeholder="Ingrese el IMEI"
+                  maxLength={15} // Limitar a 15 caracteres
+                />
+              </Form.Item>
+              <Form.Item label="Precio Individual">
+                <InputNumber
+                  min={0}
+                  style={{ width: '100%' }}
+                  value={item.precio}
+                  onChange={(val) => handleImeiChange(index, 'precio', val)}
+                />
+              </Form.Item>
+              <Form.Item label="Foto del dispositivo">
+                <Upload
+                  listType="picture"
+                  fileList={item.foto ? [{ uid: `imei-${index}`, name: `foto-${index}.jpg`, status: 'done', url: URL.createObjectURL(item.foto) }] : []}
+                  beforeUpload={(file) => {
+                    handleImeiChange(index, 'foto', file);
+                    return false;
+                  }}
+                  onRemove={() => handleImeiChange(index, 'foto', null)}
+                  showUploadList={{ showRemoveIcon: true }}
+                >
+                  <Button>Subir Foto</Button>
+                </Upload>
+              </Form.Item>
+              <Button type="link" danger onClick={() => eliminarImei(index)}>Eliminar IMEI</Button>
+            </div>
+          ))}
+          <p><strong>Total acumulado:</strong> ${totalPrecioIndividual}</p>
 
-        {/* 
-          Si ES teléfono, mostramos la lista de IMEIs 
-          con precio individual y foto 
-        */}
-        {selectedTipo.toLowerCase() === 'teléfono movil' && imeis.length > 0 && (
-          <div style={{ border: '1px dashed #ccc', padding: 10, marginBottom: 16 }}>
-            <Title level={5}>Detalle de Teléfonos (IMEI)</Title>
-            {imeis.map((item, index) => (
-              <div
-                key={index}
-                style={{
-                  marginBottom: '10px',
-                  border: '1px solid #ddd',
-                  padding: '10px',
-                  borderRadius: '5px',
-                }}
-              >
-                <p style={{ fontWeight: 'bold' }}>IMEI #{index + 1}</p>
-                <Form.Item label="Número de IMEI">
-                  <Input
-                    value={item.imei}
-                    onChange={(e) => handleImeiChange(index, 'imei', e.target.value)}
-                    placeholder="Ingrese IMEI"
-                  />
-                </Form.Item>
-                <Form.Item label="Precio Individual">
-                  <InputNumber
-                    min={0}
-                    style={{ width: '100%' }}
-                    value={item.precio}
-                    onChange={(val) => handleImeiChange(index, 'precio', val)}
-                  />
-                </Form.Item>
-                <Form.Item label="Foto">
-                  <Upload
-                    listType="picture"
-                    beforeUpload={(file) => {
-                      handleImeiChange(index, 'foto', file);
-                      return false; // Evita carga automática
-                    }}
-                  >
-                    <Button>Subir Foto Teléfono</Button>
-                  </Upload>
-                </Form.Item>
-                <Button type="danger" onClick={() => eliminarImei(index)}>
-                  Eliminar IMEI
-                </Button>
-              </div>
-            ))}
+          {/* Mostrar ayuda para obtener el IMEI */}
+        <p style={{ marginTop: '8px' }}>
+  <Button type="link" onClick={openModal} style={{ padding: 0 }}>
+    ¿Cómo obtener mi IMEI?
+  </Button>
+</p>
 
-            {/* Mostrar la suma total de precios individuales */}
-            <p style={{ fontWeight: 'bold' }}>
-              Total de precios individuales: ${totalPrecioIndividual}
-            </p>
+          {/* Modal */}
+          <div className={`modal ${isModalVisible ? 'modal-open' : ''}`}>
+            <div className="modal-content">
+              <span className="close" onClick={closeModal}>&times;</span>
+              <h2>¿Cómo obtener el IMEI?</h2>
+              <p>Marca <strong>*#06#</strong> en tu teléfono y aparecerá en pantalla.</p>
+   <img src={imeiEjemploImg} alt="Ejemplo de cómo ver el IMEI en el celular" />
+
+            </div>
           </div>
-        )}
 
-        {/* Si NO es teléfono, fotos generales del bien */}
-        {selectedTipo.toLowerCase() !== 'teléfono movil' && (
-          <Form.Item label="Fotos del Bien">
-            <Upload
-              listType="picture"
-              fileList={fileList}
-              onChange={({ fileList: newFileList }) => {
-                setFileList(newFileList);
-              }}
-              beforeUpload={() => false}
-            >
-              <Button>Subir Fotos</Button>
-            </Upload>
-          </Form.Item>
-        )}
+        </div>
+      )}
 
-        <Form.Item>
-          <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
-            Registrar Bien
-          </Button>
+      {/* Fotos generales */}
+      {selectedTipo.toLowerCase() !== 'teléfono movil' && (
+        <Form.Item label="Fotos del Bien">
+          <Upload
+            listType="picture"
+            fileList={fileList}
+            onChange={({ fileList: newList }) => setFileList(newList)}
+            beforeUpload={() => false}
+          >
+            <Button>Subir Imágenes</Button>
+          </Upload>
         </Form.Item>
-      </Form>
-    </div>
-  );
+      )}
+
+      <Form.Item>
+        <Button
+          type="primary"
+          htmlType="submit"
+          style={{ width: '100%' }}
+          loading={loadingRegistro}
+          disabled={loadingRegistro}
+        >
+          Registrar Bien
+        </Button>
+      </Form.Item>
+    </Form>
+    <style>
+{`
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    justify-content: center;
+    align-items: center;
+  }
+
+  .modal-open {
+    display: flex;
+  }
+
+  .modal-content {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 300px;
+    width: 90%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    text-align: center;
+    position: relative;
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .modal-content img {
+    max-width: 100%;
+    height: auto;
+    margin-top: 10px;
+    border-radius: 6px;
+  }
+
+  .close {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .close:hover {
+    color: #333;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+`}
+</style>
+
+  </div>
+);
+
 };
 
 export default RegistrarBienPage;

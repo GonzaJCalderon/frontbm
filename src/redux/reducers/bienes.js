@@ -19,6 +19,16 @@ import {
   GET_BIENES_USUARIO_FAILURE, 
   GET_BIENES_USUARIO_SUCCESS,
   DELETE_BIEN,
+  SEARCH_REQUEST, 
+  SEARCH_SUCCESS, 
+  SEARCH_ERROR,
+  FETCH_BIENES_EMPRESA_REQUEST,
+  FETCH_BIENES_EMPRESA_SUCCESS,
+  FETCH_BIENES_EMPRESA_ERROR,
+  GET_BIENES_PROPIETARIO_SUCCESS,
+  GET_BIENES_PROPIETARIO_FAILURE,
+  GET_BIENES_PROPIETARIO_REQUEST,
+  RESET_BIEN_SUCCESS,
 } from '../actions/actionTypes';
 
 const initialState = {
@@ -136,32 +146,59 @@ const bienesReducer = (state = initialState, action) => {
         ),
       };
 
-      case REGISTRAR_VENTA_EXITO:
+      case REGISTRAR_VENTA_EXITO: {
+        const transacciones = action.payload || [];
+      
         return {
           ...state,
-          items: state.items.map(bien => 
-            bien.uuid === action.payload.uuid
-              ? {
-                  ...bien,
-                  propietario: action.payload.propietario ?? bien.propietario,
-                  stock: action.payload.stock ?? bien.stock,
-                  fechaActualizacion: action.payload.updatedAt ?? bien.fechaActualizacion,
-                }
-              : bien
-          ),
+          items: state.items.map((bien) => {
+            const transac = transacciones.find(t => t.bien_uuid === bien.uuid);
+            if (!transac) return bien;
+      
+            return {
+              ...bien,
+              propietario_uuid: transac.comprador_uuid,
+              fotos: transac.fotos || bien.fotos,
+              identificadores: transac.imeis || bien.identificadores,
+            };
+          }),
           success: true,
+          loading: false,
         };
+      }
+      
+      case REGISTRAR_VENTA_ERROR: {
+        return {
+          ...state,
+          error: action.payload,
+          success: false,
+          loading: false,
+        };
+      }
+      
+      
       
         case REGISTRAR_COMPRA_EXITO:
+          const nuevosBienes = action.payload.transacciones?.map((trans) => {
+            const bien = trans.bien || {}; // En caso de que venga trans.bien
+            return {
+              ...bien,
+              uuid: bien.uuid || trans.bien_uuid,
+              precio: bien.precio || trans.precio,
+              fotos: trans.fotos || [],
+              stock: trans.cantidad || 1,
+              identificadores: trans.imeis || [], // 👈 si vienen IMEIs desde backend
+              propietario_uuid: trans.comprador_uuid,
+            };
+          }) || [];
+        
           return {
             ...state,
-            items: [
-              ...state.items,
-              ...action.payload.transacciones?.map((transaccion) => transaccion.bien || transaccion.bien_uuid) || [],
-            ],
+            items: [...state.items, ...nuevosBienes],
             success: true,
             error: null,
           };
+        
         
 
     case REGISTRAR_VENTA_ERROR:
@@ -183,16 +220,45 @@ const bienesReducer = (state = initialState, action) => {
       };
 
       case FETCH_TRAZABILIDAD_SUCCESS:
-  return {
-    ...state,
-    loading: false,
-    transacciones: action.payload.map(transaccion => ({
-      ...transaccion,
-      fotos: transaccion.fotos || [],
-      imeis: transaccion.imeis || [],
-    })),
-    mensaje: action.payload.length ? '' : 'Este bien aún no tiene transacciones.',
-  };
+        return {
+          ...state,
+          loading: false,
+          transacciones: Array.isArray(action.payload)
+            ? action.payload.map((transaccion) => ({
+                ...transaccion,
+                compradorTransaccion: transaccion.comprador || {},
+                vendedorTransaccion: transaccion.vendedor || {},
+                empresaCompradora: transaccion.empresaCompradora || null,
+                empresaVendedora: transaccion.empresaVendedora || null,
+                bienTransaccion: {
+                  ...transaccion.bien,
+                  detalles: transaccion.imeis || [],
+                  fotos: transaccion.fotos || [],
+                },
+              }))
+            : [],
+          mensaje:
+            Array.isArray(action.payload) && action.payload.length
+              ? ''
+              : 'Este bien aún no tiene transacciones.',
+        };
+      
+      
+      
+
+  case SEARCH_REQUEST:
+      return { ...state, loading: true, error: null };
+
+    case SEARCH_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        items: Array.isArray(action.payload) ? action.payload : [],
+      };
+      
+
+    case SEARCH_ERROR:
+      return { ...state, loading: false, error: action.payload };
 
 
     case DELETE_BIEN:
@@ -200,6 +266,60 @@ const bienesReducer = (state = initialState, action) => {
         ...state,
         items: state.items.filter((bien) => bien.uuid !== action.payload),
       };
+      case FETCH_BIENES_EMPRESA_REQUEST:
+  return {
+    ...state,
+    loading: true,
+    error: null,
+  };
+
+case FETCH_BIENES_EMPRESA_SUCCESS:
+  return {
+    ...state,
+    loading: false,
+    bienesEmpresa: action.payload,
+  };
+
+case FETCH_BIENES_EMPRESA_ERROR:
+  return {
+    ...state,
+    loading: false,
+    error: action.payload,
+  };
+
+  case GET_BIENES_PROPIETARIO_SUCCESS:
+    return {
+      ...state,
+      loading: false,
+      items: (action.payload?.bienes || []).map((bien) => ({
+        ...bien,
+        stock: typeof bien.stock === 'number' ? bien.stock : 0,
+        identificadores: bien.identificadores || [],
+        fotos: bien.fotos || [],
+      })),
+      totalPages: Math.ceil((action.payload?.total || 0) / (action.payload?.pageSize || 1)),
+      currentPage: action.payload?.page || 1,
+    };
+  
+  
+    case GET_BIENES_PROPIETARIO_REQUEST:
+      return {
+        ...state,
+        loading: true,
+        error: null,
+      };
+    
+    case GET_BIENES_PROPIETARIO_FAILURE:
+      return {
+        ...state,
+        loading: false,
+        error: action.payload,
+      };
+    
+      case RESET_BIEN_SUCCESS:
+        return { ...state, success: false };
+      
+
 
     default:
       return state;

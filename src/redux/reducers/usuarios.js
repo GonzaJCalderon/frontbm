@@ -67,7 +67,19 @@ import {
     FETCH_HISTORIAL_CAMBIOS_ERROR, 
     REINTENTAR_REGISTRO_REQUEST, 
     REINTENTAR_REGISTRO_SUCCESS, 
-    REINTENTAR_REGISTRO_ERROR   
+    REINTENTAR_REGISTRO_ERROR,
+    FETCH_DELEGADOS_REQUEST,
+    FETCH_DELEGADOS_SUCCESS,
+    FETCH_DELEGADOS_ERROR,
+    FETCH_EMPRESAS_REQUEST,
+    FETCH_EMPRESAS_SUCCESS,
+    FETCH_EMPRESAS_ERROR,
+    REGISTER_DELEGADO_REQUEST, 
+    REGISTER_DELEGADO_SUCCESS, 
+    REGISTER_DELEGADO_ERROR,
+    FETCH_TRANSACCIONES_EMPRESA_SUCCESS,
+    FETCH_TRANSACCIONES_EMPRESA_ERROR,
+    FETCH_TRANSACCIONES_EMPRESA_REQUEST,
 } from '../actions/actionTypes';
 
 const initialState = {
@@ -83,12 +95,17 @@ const initialState = {
     vendedor: null,
     loading: false,
     error: null,
+    delegados: [],
+    delegadosLoading: false,
+    delegadosError: null,
     pendingRegistrations: [],
     comprasVentas: {
         bienesComprados: [],
         bienesVendidos: [],
     },
-    transacciones: [], 
+    transacciones: [],
+    transaccionesLoading: false,
+    transaccionesError: null,
 };
 
 
@@ -210,7 +227,6 @@ const usuariosReducer = (state = initialState, action) => {
                 loading: true
             };
             case ASSIGN_ROLE_SUCCESS:
-                console.log('Payload de ASSIGN_ROLE_SUCCESS:', action.payload);
                 return {
                   ...state,
                   userDetails: {
@@ -248,15 +264,14 @@ const usuariosReducer = (state = initialState, action) => {
                 ...state,
                 loading: true
             };
-        case UPDATE_USER_SUCCESS:
-            return {
-                ...state,
-                userDetails: {
-                    ...state.userDetails,
-                    ...action.payload
-                },
-                loading: false
-            };
+            case UPDATE_USER_SUCCESS:
+                return {
+                  ...state,
+                  userDetails: { ...state.userDetails, ...action.payload },
+                  user: { ...state.user, ...action.payload }, // ← esto actualiza el usuario logueado
+                  loading: false,
+                };
+              
         case UPDATE_USER_ERROR:
             return {
                 ...state,
@@ -331,21 +346,25 @@ const usuariosReducer = (state = initialState, action) => {
             };
             case FETCH_TRANSACCIONES_REQUEST:
                 return {
-                    ...state,
-                    loading: true,
+                  ...state,
+                  transaccionesLoading: true,
+                  transaccionesError: null,
                 };
-            case FETCH_TRANSACCIONES_SUCCESS:
+              
+              case FETCH_TRANSACCIONES_SUCCESS:
                 return {
-                    ...state,
-                    loading: false,
-                    transacciones: action.payload, // Asegúrate de que esto sea un array
+                  ...state,
+                  transaccionesLoading: false,
+                  transacciones: action.payload,
                 };
-            case FETCH_TRANSACCIONES_ERROR:
+              
+              case FETCH_TRANSACCIONES_ERROR:
                 return {
-                    ...state,
-                    loading: false,
-                    error: action.payload,
+                  ...state,
+                  transaccionesLoading: false,
+                  transaccionesError: action.payload,
                 };
+              
 
               // Manejo de solicitudes de registro pendientes
         case FETCH_PENDING_REGISTRATIONS_REQUEST:
@@ -392,8 +411,7 @@ const usuariosReducer = (state = initialState, action) => {
             return { ...state, loading: false, success: action.payload, error: null };
           case DENY_REGISTRATION_ERROR:
             return { ...state, loading: false, success: null, error: action.payload };
-         
-            return state;
+        
 
             case FETCH_APPROVED_USERS_REQUEST:
                 return { ...state, loading: true, error: null };
@@ -424,12 +442,7 @@ const usuariosReducer = (state = initialState, action) => {
                         loading: false,
                         rejectedUsers: action.payload,
                     };
-                    case FETCH_APPROVED_USERS_ERROR:
-  return {
-    ...state,
-    loading: false,
-    error: action.payload,
-  };
+     
 
                 case FETCH_REJECTED_USERS_ERROR:
                     return {
@@ -511,9 +524,85 @@ case FETCH_HISTORIAL_CAMBIOS_ERROR:
           reintentarRegistroLoading: false,
           reintentarRegistroSuccess: null,
           reintentarRegistroError: action.payload,
+        }; 
+
+        case FETCH_EMPRESAS_REQUEST:
+    return { ...state, loading: true };
+
+  case FETCH_EMPRESAS_SUCCESS:
+    return { ...state, loading: false, empresas: action.payload };
+
+  case FETCH_EMPRESAS_ERROR:
+    return { ...state, loading: false, error: action.payload };
+    case FETCH_TRANSACCIONES_EMPRESA_REQUEST:
+    return {
+        ...state,
+        loading: true,
+        error: null,
+    };
+
+case FETCH_TRANSACCIONES_EMPRESA_SUCCESS:
+    return {
+        ...state,
+        loading: false,
+        transacciones: action.payload, // O como lo estés manejando
+    };
+
+case FETCH_TRANSACCIONES_EMPRESA_ERROR:
+    return {
+        ...state,
+        loading: false,
+        error: action.payload,
+    };
+
+        
+    case FETCH_DELEGADOS_REQUEST:
+        return {
+          ...state,
+          delegadosLoading: true,
+          delegadosError: null,
         };
+      
+      case FETCH_DELEGADOS_SUCCESS:
+        return {
+          ...state,
+          delegados: action.payload,
+          delegadosLoading: false,
+          delegadosError: null,
+        };
+      
+      case FETCH_DELEGADOS_ERROR:
+        return {
+          ...state,
+          delegados: [],
+          delegadosLoading: false,
+          delegadosError: action.payload,
+        };
+      
+case REGISTER_DELEGADO_REQUEST:
+    return {
+      ...state,
+      loading: true,
+      error: null,
+    };
+  
+  case REGISTER_DELEGADO_SUCCESS:
+    return {
+      ...state,
+      loading: false,
+      usuarios: [...state.usuarios, action.payload], // opcional si querés guardar en usuarios
+      error: null,
+    };
+  
+  case REGISTER_DELEGADO_ERROR:
+    return {
+      ...state,
+      loading: false,
+      error: action.error,
+    };
   
 
+              
         default:
             return state;
     };

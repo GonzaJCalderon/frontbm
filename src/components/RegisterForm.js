@@ -19,60 +19,143 @@ const Register = () => {
     apellido: '',
     email: '',
     password: '',
+    confirmPassword: '',
     dni: '',
     razonSocial: '',
-    direccionEmpresa: {
-      calle: '',
-      altura: '',
-    },
-    direccion: {
-      calle: '',
-      altura: '',
-      barrio: '',
-      departamento: '',
-    },
+    direccionEmpresa: { calle: '', altura: '', departamento: '' },
+
+    direccion: { calle: '', altura: '', barrio: '', departamento: '' },
     cuit: '',
+  
+    // 🆕 NUEVOS CAMPOS PARA RESPONSABLE (solo juridica)
+    dniResponsable: '',
+    nombreResponsable: '',
+    apellidoResponsable: '',
+    cuitResponsable: '', 
+    provinciaResponsable: '',
+    domicilioResponsable: { calle: '', altura: '', barrio: '', departamento: '' },
   });
+  
 
   const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState(null);
   const [renaperError, setRenaperError] = useState('');
   const [renaperData, setRenaperData] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);   
+const [loadingRenaper, setLoadingRenaper] = useState(false);
 
-  const validateDNIWithRenaper = async (dni) => {
-    try {
-      if (!dni) {
-        setRenaperError('El DNI es obligatorio.');
+
+const esDeMendoza = (provincia) =>
+  provincia?.toUpperCase().includes('MENDOZA');
+
+const validateDNIWithRenaper = async (dni) => {
+  try {
+    if (!dni) {
+      setRenaperError('El DNI es obligatorio.');
+      return;
+    }
+
+    const { data } = await api.get(`/renaper/${dni}`);
+
+    if (data.resultado === 0 && data.persona) {
+      const persona = data.persona;
+      const provincia = persona.domicilio.provincia || '';
+      const localidad = persona.domicilio.localidad || '';
+
+      if (persona.fallecido) {
+        setRenaperError('Esta persona figura como fallecida y no puede registrarse.');
+        setRenaperData(null);
         return;
       }
 
-      const { data } = await api.get(`/renaper/${dni}`);
-      if (data.success) {
-        const persona = data.data.persona;
-        setFormData((prev) => ({
-          ...prev,
-          nombre: persona.nombres,
-          apellido: persona.apellidos,
-          direccion: {
-            calle: persona.domicilio.calle || '',
-            altura: persona.domicilio.nroCalle || '',
-            barrio: persona.domicilio.barrio || '',
-            departamento: persona.domicilio.localidad || '',
-          },
-          cuit: persona.nroCuil,
-        }));
-        setRenaperData(persona);
-        setRenaperError('');
+      const mendoza = esDeMendoza(provincia);
+      const depNormalizado = mendoza ? normalizarDepartamento(localidad) : '';
+
+      if (!mendoza) {
+        setRenaperError('⚠️ Esta persona no reside en Mendoza. Completá el departamento manualmente.');
       } else {
-        setRenaperError(data.message || 'Persona no encontrada en Renaper.');
-        setRenaperData(null);
+        setRenaperError('');
       }
-    } catch (error) {
-      console.error('Error al validar el DNI con Renaper:', error);
-      setRenaperError('Error al validar el DNI.');
+
+      setFormData((prev) => ({
+        ...prev,
+        nombre: persona.nombres,
+        apellido: persona.apellidos,
+        direccion: {
+          calle: persona.domicilio.calle || '',
+          altura: persona.domicilio.nroCalle || '',
+          barrio: persona.domicilio.barrio || '',
+          departamento: depNormalizado,
+        },
+        cuit: persona.nroCuil,
+        provincia: provincia,
+      }));
+
+      setRenaperData(persona);
+    } else {
+      setRenaperError(data.mensaje || 'Persona no encontrada en Renaper.');
+      setRenaperData(null);
     }
-  };
+  } catch (error) {
+    setRenaperError('Error al validar el DNI.');
+    setRenaperData(null);
+  }
+};
+
+
+const validateDNIResponsableWithRenaper = async (dni) => {
+  try {
+    const { data } = await api.get(`/renaper/${dni}`);
+    if (data.resultado === 0 && data.persona && !data.persona.fallecido) {
+      const p = data.persona;    
+      const provincia = p.domicilio.provincia || '';
+      const localidad = p.domicilio.localidad || '';
+      const mendoza = esDeMendoza(provincia);
+
+      const depNormalizado = mendoza ? normalizarDepartamento(localidad) : '';
+
+      if (!mendoza) {
+        setRenaperError('⚠️ El responsable no reside en Mendoza. Completá el departamento manualmente.');
+      } else {
+        setRenaperError('');
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        provinciaResponsable: provincia,
+        cuitResponsable: p.nroCuil,
+        nombreResponsable: p.nombres,
+        apellidoResponsable: p.apellidos,
+        domicilioResponsable: {
+          calle: p.domicilio.calle || '',
+          altura: p.domicilio.nroCalle > 0 ? String(p.domicilio.nroCalle) : 'S/N',
+          barrio: p.domicilio.barrio || '',
+          departamento: depNormalizado
+        }
+      }));
+    } else {
+      setRenaperError('No se pudo validar el DNI del responsable.');
+    }
+  } catch (e) {
+    setRenaperError('Error al validar el DNI del responsable.');
+  }
+};
+
+
+
+const normalizarDepartamento = (localidad) => {
+  if (!localidad) return '';
+
+  // Match por nombre ignorando tildes y case
+  const match = departments.find(dep => 
+    dep.normalize("NFD").replace(/[\u0300-\u036f]/g, '').toLowerCase() ===
+    localidad.normalize("NFD").replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  );
+
+  return match || ''; // Devuelve el departamento formateado si hay match
+};
+
 
   const validateField = (name, value) => {
     let error = '';
@@ -114,45 +197,171 @@ const Register = () => {
       }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+      validateField(name, value);
     }
 
     validateField(name, value);
   };
-
+ 
+  const validarCampos = () => {
+    const nuevosErrores = {};
+    const esFisica = formData.tipo === 'fisica';
+    const esJuridica = formData.tipo === 'juridica';
+  
+    // Validaciones comunes
+    if (!formData.email) nuevosErrores.email = 'Este campo es obligatorio';
+    if (!formData.password) nuevosErrores.password = 'Este campo es obligatorio';
+    if (!formData.confirmPassword) nuevosErrores.confirmPassword = 'Este campo es obligatorio';
+    if (formData.password !== formData.confirmPassword)
+      nuevosErrores.confirmPassword = 'Las contraseñas no coinciden';
+  
+    // Persona física
+    if (esFisica) {
+      if (!formData.nombre) nuevosErrores.nombre = 'Este campo es obligatorio';
+      if (!formData.apellido) nuevosErrores.apellido = 'Este campo es obligatorio';
+      if (!formData.dni) nuevosErrores.dni = 'Este campo es obligatorio';
+      if (!formData.cuit) nuevosErrores.cuit = 'Este campo es obligatorio';
+  
+      const { calle, departamento } = formData.direccion;
+      if (!calle || !departamento) {
+        nuevosErrores.direccion = 'Debe completar calle y departamento';
+      }
+    }
+  
+    // Persona jurídica
+    if (esJuridica) {
+      if (!formData.razonSocial) nuevosErrores.razonSocial = 'Este campo es obligatorio';
+      if (!formData.cuit) nuevosErrores.cuit = 'CUIT de la empresa es obligatorio';
+  
+      const { calle, departamento } = formData.direccionEmpresa;
+      if (!calle || !departamento) {
+        nuevosErrores.direccionEmpresa = 'Debe completar calle y departamento de la empresa';
+      }
+  
+      if (!formData.dniResponsable) nuevosErrores.dniResponsable = 'Este campo es obligatorio';
+      if (!formData.nombreResponsable) nuevosErrores.nombreResponsable = 'Nombre del responsable faltante';
+      if (!formData.apellidoResponsable) nuevosErrores.apellidoResponsable = 'Apellido del responsable faltante';
+      if (!formData.cuitResponsable) nuevosErrores.cuitResponsable = 'CUIT del responsable faltante';
+  
+      const { calle: calleRes, departamento: depRes } = formData.domicilioResponsable;
+      if (!calleRes || !depRes) {
+        nuevosErrores.domicilioResponsable = 'Debe completar calle y departamento del responsable';
+      }
+    }
+  
+    setErrors(nuevosErrores);
+    console.log('🧾 Errores validados:', nuevosErrores);
+    return Object.keys(nuevosErrores).length === 0;
+  };
+  
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (renaperError || (formData.tipo === 'fisica' && !renaperData)) {
+    setIsSubmitting(true);
+    setNotification(null);
+  
+    const esValido = validarCampos();
+  
+    if (!esValido) {
       setNotification({
-        message: 'No se puede registrar: Persona no encontrada en Renaper.',
+        message: 'Por favor, corregí los errores del formulario.',
         type: 'error',
       });
+      setIsSubmitting(false);
       return;
     }
-
+  
+    if (formData.tipo === 'fisica' && (!renaperData || renaperError)) {
+      setNotification({
+        message: 'No se puede registrar: Persona no validada con RENAPER.',
+        type: 'error',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+  
+    const isFisica = formData.tipo === 'fisica';
+    const isJuridica = formData.tipo === 'juridica';
+  
     const userData = {
-      ...formData,
-      direccion: {
-        calle: formData.direccion.calle,
-        altura: formData.direccion.altura,
-        barrio: formData.direccion.barrio || null,
-        departamento: formData.direccion.departamento,
-      },
+      tipo: formData.tipo,
+      email: formData.email,
+      password: formData.password,
+      cuit: formData.cuit,
+      razonSocial: isJuridica ? formData.razonSocial : null,
+    
+      // Datos principales del usuario
+      nombre: isFisica ? formData.nombre : formData.nombreResponsable,
+      apellido: isFisica ? formData.apellido : formData.apellidoResponsable,
+      dni: isFisica ? formData.dni : formData.dniResponsable,
+    
+      // Dirección del usuario/responsable (siempre se guarda como `direccion`)
+      direccion: isFisica
+        ? {
+            calle: formData.direccion.calle,
+            altura: formData.direccion.altura,
+            barrio: formData.direccion.barrio || null,
+            departamento: formData.direccion.departamento,
+          }
+        : {
+            calle: formData.domicilioResponsable.calle,
+            altura: formData.domicilioResponsable.altura,
+            barrio: formData.domicilioResponsable.barrio || null,
+            departamento: formData.domicilioResponsable.departamento,
+          },
+    
+      // Dirección de la empresa como campo separado
+      direccionEmpresa: isJuridica
+        ? {
+            calle: formData.direccionEmpresa.calle,
+            altura: formData.direccionEmpresa.altura,
+            departamento: formData.direccionEmpresa.departamento,
+          }
+        : null,
+    
+      // Datos del responsable (si aplica)
+      dniResponsable: isJuridica ? formData.dniResponsable : null,
+      nombreResponsable: isJuridica ? formData.nombreResponsable : null,
+      apellidoResponsable: isJuridica ? formData.apellidoResponsable : null,
+      cuitResponsable: isJuridica ? formData.cuitResponsable : null,
+      domicilioResponsable: isJuridica
+        ? {
+            calle: formData.domicilioResponsable.calle,
+            altura: formData.domicilioResponsable.altura,
+            barrio: formData.domicilioResponsable.barrio || null,
+            departamento: formData.domicilioResponsable.departamento,
+          }
+        : null,
+    
       rolDefinitivo: 'usuario',
     };
-
+    
+  
+    console.log('📤 Enviando al backend:', userData);
+  
     try {
       const resultAction = await dispatch(register(userData));
+  
       if (register.fulfilled.match(resultAction)) {
-        setNotification({ message: 'Registro exitoso. Redirigiendo al login...', type: 'success' });
+        localStorage.setItem('userData', JSON.stringify(resultAction.payload));
+        setNotification({ message: '✅ Registro exitoso. Redirigiendo...', type: 'success' });
         setTimeout(() => (window.location.href = '/'), 3000);
       } else {
-        setNotification({ message: resultAction.payload || 'Error durante el registro.', type: 'error' });
+        setNotification({
+          message: resultAction.payload || '❌ Error durante el registro.',
+          type: 'error',
+        });
       }
     } catch (error) {
-      setNotification({ message: 'Ocurrió un error inesperado.', type: 'error' });
+      setNotification({
+        message: '❌ Ocurrió un error inesperado.',
+        type: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
+  
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
@@ -175,6 +384,7 @@ const Register = () => {
         <div className="bg-gray-50 p-8 md:p-12 rounded-lg shadow-lg overflow-auto">
           <h3 className="text-blue-500 text-3xl font-extrabold text-center md:text-left mb-8">Crea una cuenta</h3>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Tipo de sujeto */}
             <div className="mb-6">
               <label className="text-gray-800 text-xs block mb-2" htmlFor="tipo">Tipo de Sujeto</label>
               <div className="flex items-center space-x-4">
@@ -202,7 +412,8 @@ const Register = () => {
                 </label>
               </div>
             </div>
-
+  
+            {/* Persona Jurídica */}
             {formData.tipo === 'juridica' && (
               <>
                 <div className="mb-6">
@@ -216,7 +427,21 @@ const Register = () => {
                     className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
                     placeholder="Ingresa la razón social"
                   />
-                </div>
+                </div> 
+                <div className="mb-6">
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="cuit">CUIT de la Empresa</label>
+  <input
+    id="cuit"
+    type="text"
+    name="cuit"
+    value={formData.cuit}
+    onChange={handleChange}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    placeholder="Ingresa el CUIT de la empresa"
+  />
+  {errors.cuit && <p className="text-red-500 text-xs mt-2">{errors.cuit}</p>}
+</div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
                     <label className="text-gray-800 text-xs block mb-2" htmlFor="calleEmpresa">Calle Empresa</label>
@@ -231,65 +456,260 @@ const Register = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-gray-800 text-xs block mb-2" htmlFor="alturaEmpresa">Altura Empresa</label>
-                    <input
-                      id="alturaEmpresa"
-                      type="text"
-                      name="alturaEmpresa"
-                      value={formData.direccionEmpresa.altura}
-                      onChange={handleChange}
-                      className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                      placeholder="Ingresa la altura"
-                    />
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="alturaEmpresa">Numeración Empresa</label>
+  <input
+    id="alturaEmpresa"
+    type="text"
+    name="alturaEmpresa"
+    value={formData.direccionEmpresa.altura}
+    onChange={handleChange}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    placeholder="Ingresa la numeración"
+  />
+</div>
+
+                  <div className="mb-6">
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="departamentoEmpresa">Departamento Empresa</label>
+  <select
+    id="departamentoEmpresa"
+    name="departamentoEmpresa"
+    value={formData.direccionEmpresa.departamento}
+    onChange={(e) =>
+      setFormData((prev) => ({
+        ...prev,
+        direccionEmpresa: {
+          ...prev.direccionEmpresa,
+          departamento: e.target.value,
+        },
+      }))
+    }
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+  >
+    <option value="">Selecciona un departamento</option>
+    {departments.map((dep, idx) => (
+      <option key={idx} value={dep}>{dep}</option>
+    ))}
+  </select>
+</div>
+
+                </div>
+  
+                {/* Responsable legal */}
+                <div className="mb-6 mt-8 border-t pt-6">
+                  <h4 className="font-semibold text-gray-700 mb-4">Responsable de la Empresa</h4>
+  
+                  <label className="text-gray-800 text-xs block mb-2" htmlFor="dniResponsable">DNI del Responsable</label>
+                  <input
+                    id="dniResponsable"
+                    type="text"
+                    name="dniResponsable"
+                    value={formData.dniResponsable}
+                    onChange={handleChange}
+                    onBlur={() => validateDNIResponsableWithRenaper(formData.dniResponsable)}
+                    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                    placeholder="DNI del responsable"
+                  />
+                  {/* CUIT del responsable */}
+<div className="mb-6 mt-4">
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="cuitResponsable">CUIT del Responsable</label>
+  <input
+    id="cuitResponsable"
+    type="text"
+    name="cuitResponsable"
+    value={formData.cuitResponsable}
+    readOnly
+    className="w-full bg-gray-100 text-sm border-b border-gray-300 px-2 py-3 outline-none"
+  />
+</div>
+
+  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="text-gray-800 text-xs block mb-2" htmlFor="nombreResponsable">Nombre</label>
+                      <input
+                        id="nombreResponsable"
+                        type="text"
+                        name="nombreResponsable"
+                        value={formData.nombreResponsable}
+                        readOnly
+                        className="w-full bg-gray-100 text-sm border-b border-gray-300 px-2 py-3 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-800 text-xs block mb-2" htmlFor="apellidoResponsable">Apellido</label>
+                      <input
+                        id="apellidoResponsable"
+                        type="text"
+                        name="apellidoResponsable"
+                        value={formData.apellidoResponsable}
+                        readOnly
+                        className="w-full bg-gray-100 text-sm border-b border-gray-300 px-2 py-3 outline-none"
+                      />
+                    </div>
                   </div>
+  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="text-gray-800 text-xs block mb-2" htmlFor="calleResponsable">Calle</label>
+                      <input
+                        id="calleResponsable"
+                        type="text"
+                        name="calleResponsable"
+                        value={formData.domicilioResponsable.calle}
+                        readOnly
+                        className="w-full bg-gray-100 text-sm border-b border-gray-300 px-2 py-3 outline-none"
+                      />
+                    </div>
+                    <div>
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="alturaEmpresa">Numeración Empresa</label>
+  <input
+    id="alturaEmpresa"
+    type="text"
+    name="alturaEmpresa"
+    value={formData.direccionEmpresa.altura}
+    onChange={handleChange}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    placeholder="Ingresa la numeración"
+  />
+</div>
+
+                  </div>
+                </div>
+
+                <div className="mb-6">
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="departamentoResponsable">
+    Departamento Responsable
+  </label>
+  <select
+    id="departamentoResponsable"
+    name="departamentoResponsable"
+    value={formData.domicilioResponsable.departamento}
+    onChange={(e) =>
+      setFormData((prev) => ({
+        ...prev,
+        domicilioResponsable: {
+          ...prev.domicilioResponsable,
+          departamento: e.target.value,
+        },
+      }))
+    }
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    disabled={esDeMendoza(formData.provinciaResponsable)} // 👈 este es el truco
+  >
+    <option value="">Selecciona un departamento</option>
+    {departments.map((dep, idx) => (
+      <option key={idx} value={dep}>{dep}</option>
+    ))}
+  </select> 
+
+   {/* 💬 INFO EXTRA para que el usuario sepa de qué provincia es */}
+   {formData.provinciaResponsable && (
+    <p className="text-sm text-gray-600 mt-1">
+      Provincia detectada del responsable: <strong>{formData.provinciaResponsable}</strong>
+    </p>
+  )}
+</div>
+
+              </>
+            )}
+  
+            {/* Persona física */}
+            {formData.tipo === 'fisica' && (
+              <>
+                <div className="mb-6">
+                  <label className="text-gray-800 text-xs block mb-2" htmlFor="dni">DNI</label>
+                  <input
+                    id="dni"
+                    type="text"
+                    name="dni"
+                    value={formData.dni}
+                    onChange={handleChange}
+                    onBlur={() => validateDNIWithRenaper(formData.dni)}
+                    className={`w-full text-black text-sm border-b ${errors.dni ? 'border-red-500' : 'border-gray-300'} focus:border-blue-500 px-2 py-3 outline-none`}
+                    placeholder="Ingresa tu DNI"
+                  />
+                  {errors.dni && <p className="text-red-500 text-xs mt-2">{errors.dni}</p>}
+                  {renaperError && <p className="text-red-500 text-xs mt-2">{renaperError}</p>}
+                </div>
+
+                
+  
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-gray-800 text-xs block mb-2" htmlFor="nombre">Nombre</label>
+                    <input
+                      id="nombre"
+                      type="text"
+                      name="nombre"
+                      value={formData.nombre}
+                      onChange={handleChange}
+                      className={`w-full text-black text-sm border-b ${errors.nombre ? 'border-red-500' : 'border-gray-300'} focus:border-blue-500 px-2 py-3 outline-none`}
+                      placeholder="Ingresa tu nombre"
+                    />
+                    {errors.nombre && <p className="text-red-500 text-xs mt-2">{errors.nombre}</p>}
+                  </div>
+                  <div>
+                    <label className="text-gray-800 text-xs block mb-2" htmlFor="apellido">Apellido</label>
+                    <input
+                      id="apellido"
+                      type="text"
+                      name="apellido"
+                      value={formData.apellido}
+                      onChange={handleChange}
+                      className={`w-full text-black text-sm border-b ${errors.apellido ? 'border-red-500' : 'border-gray-300'} focus:border-blue-500 px-2 py-3 outline-none`}
+                      placeholder="Ingresa tu apellido"
+                    />
+                    {errors.apellido && <p className="text-red-500 text-xs mt-2">{errors.apellido}</p>}
+                  </div>
+                </div>
+  
+                {/* Dirección física */}
+                <div className="mb-6">
+                  <label className="text-gray-800 text-xs block mb-2" htmlFor="calle">Calle</label>
+                  <input
+                    id="calle"
+                    type="text"
+                    name="calle"
+                    value={formData.direccion.calle}
+                    onChange={handleChange}
+                    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                    placeholder="Ingresa la calle"
+                  />
+                </div>
+                <div className="mb-6">
+  <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">Numeración</label>
+  <input
+    id="altura"
+    type="text"
+    name="altura"
+    value={formData.direccion.altura}
+    onChange={handleChange}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    placeholder="Ingresa la numeración"
+  />
+</div>
+
+                <div className="mb-6">
+                  <label className="text-gray-800 text-xs block mb-2" htmlFor="departamento">Departamento</label>
+                  <select
+  id="departamento"
+  name="departamento"
+  value={formData.direccion.departamento}
+  onChange={handleChange}
+  className="..."
+  disabled={formData.provincia !== 'MENDOZA' && !formData.direccion.departamento}
+>
+
+                    <option value="">Selecciona un departamento</option>
+                    {departments.map((dep, index) => (
+                      <option key={index} value={dep}>{dep}</option>
+                    ))}
+                  </select>
                 </div>
               </>
             )}
-
-            {formData.tipo === 'fisica' && (
-              <div className="mb-6">
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="dni">DNI</label>
-                <input
-                  id="dni"
-                  type="text"
-                  name="dni"
-                  value={formData.dni}
-                  onChange={handleChange}
-                  onBlur={() => validateDNIWithRenaper(formData.dni)}
-                  className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                  placeholder="Ingresa tu DNI"
-                />
-                {renaperError && <p className="text-red-500 text-xs mt-2">{renaperError}</p>}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="nombre">Nombre</label>
-                <input
-                  id="nombre"
-                  type="text"
-                  name="nombre"
-                  value={formData.nombre}
-                  onChange={handleChange}
-                  className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                  placeholder="Ingresa tu nombre"
-                />
-              </div>
-              <div>
-                <label className="text-gray-800 text-xs block mb-2" htmlFor="apellido">Apellido</label>
-                <input
-                  id="apellido"
-                  type="text"
-                  name="apellido"
-                  value={formData.apellido}
-                  onChange={handleChange}
-                  className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                  placeholder="Ingresa tu apellido"
-                />
-              </div>
-            </div>
-
+  
+            {/* Email */}
             <div className="mb-6">
               <label className="text-gray-800 text-xs block mb-2" htmlFor="email">Correo Electrónico</label>
               <input
@@ -298,12 +718,14 @@ const Register = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                className={`w-full text-black text-sm border-b ${errors.email ? 'border-red-500' : 'border-gray-300'} focus:border-blue-500 px-2 py-3 outline-none`}
                 placeholder="Ingresa tu correo electrónico"
               />
+              {errors.email && <p className="text-red-500 text-xs mt-2">{errors.email}</p>}
             </div>
-
-            <div className="mb-6">
+  
+            {/* Contraseñas */}
+            <div className="mb-6 relative">
               <label className="text-gray-800 text-xs block mb-2" htmlFor="password">Contraseña</label>
               <input
                 id="password"
@@ -311,60 +733,33 @@ const Register = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+                className={`w-full text-black text-sm border-b ${errors.password ? 'border-red-500' : 'border-gray-300'} focus:border-blue-500 px-2 py-3 outline-none`}
                 placeholder="Ingresa tu contraseña"
               />
+              {errors.password && <p className="text-red-500 text-xs mt-2">{errors.password}</p>}
               <button
                 type="button"
                 onClick={togglePasswordVisibility}
-                className="absolute right-4 inset-y-0 text-blue-500"
+                className="absolute right-2 top-9 text-blue-500 text-xs"
               >
                 {showPassword ? 'Ocultar' : 'Mostrar'}
               </button>
             </div>
-
+  
             <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="calle">Calle</label>
+              <label className="text-gray-800 text-xs block mb-2" htmlFor="confirmPassword">Confirmar Contraseña</label>
               <input
-                id="calle"
-                type="text"
-                name="calle"
-                value={formData.direccion.calle}
+                id="confirmPassword"
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                placeholder="Ingresa la calle"
+                className={`w-full text-black text-sm border-b ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} focus:border-blue-500 px-2 py-3 outline-none`}
+                placeholder="Reingresa tu contraseña"
               />
+              {errors.confirmPassword && <p className="text-red-500 text-xs mt-2">{errors.confirmPassword}</p>}
             </div>
-
-            <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="altura">Altura</label>
-              <input
-                id="altura"
-                type="text"
-                name="altura"
-                value={formData.direccion.altura}
-                onChange={handleChange}
-                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                placeholder="Ingresa la altura"
-              />
-            </div>
-
-            <div className="mb-6">
-              <label className="text-gray-800 text-xs block mb-2" htmlFor="departamento">Departamento</label>
-              <select
-                id="departamento"
-                name="departamento"
-                value={formData.direccion.departamento}
-                onChange={handleChange}
-                className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-              >
-                <option value="">Selecciona un departamento</option>
-                {departments.map((dep, index) => (
-                  <option key={index} value={dep}>{dep}</option>
-                ))}
-              </select>
-            </div>
-
+  
             <button
               type="submit"
               className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
@@ -372,7 +767,7 @@ const Register = () => {
               Registrarse
             </button>
           </form>
-
+  
           {notification && (
             <Notification
               message={notification.message}
@@ -384,6 +779,8 @@ const Register = () => {
       </div>
     </div>
   );
+  
+  
 };
 
 export default Register;

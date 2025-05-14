@@ -13,7 +13,8 @@ const UsuarioDetails = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    dispatch(fetchUsuarioDetails(id))
+    dispatch(fetchUsuarioDetails({ uuid: id }))
+
       .then((response) => setUsuario(response))
       .catch((err) => {
         const errorMessage = err.message || 'Error al obtener los detalles del usuario.';

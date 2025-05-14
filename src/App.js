@@ -1,6 +1,7 @@
 import './App.css';
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
+
 import BienList from './components/BienList';
 import BienForm from './components/BienForm';
 import Home from './components/Home';
@@ -11,14 +12,14 @@ import Operaciones from './components/Operaciones';
 import EditUsuario from './components/EditarUsuario';
 import SuccessPage from './components/SuccessPage';
 import SeleccionarRol from './components/SeleccionarRol';
-import ComprarPage from './components/ComprarPage'; // Asegúrate de tener este componente
+import ComprarPage from './components/ComprarPage';
 import VenderPage from './components/VenderPage';
 import Perfil from './components/Perfil';
 import UserDashboard from './components/UserDashboard';
 import Inventario from './components/inventario';
 import AdminOperaciones from './components/AdminOperaciones';
-import AdminUsuariosDashboard from './components/AdminUsuariosDashboard';  // Nueva ruta
-import ExcelUploadPage from './components/ExcelUploadPage'; 
+import AdminUsuariosDashboard from './components/AdminUsuariosDashboard';
+import ExcelUploadPage from './components/ExcelUploadPage';
 import HistorialCambios from './components/HistorialCambios';
 import BienesPorUsuario from './components/BienesPorUsuario';
 import UsuarioDetails from './components/UsuarioDetails';
@@ -29,9 +30,41 @@ import MessageToAdmin from './components/MessageToAdmin';
 import MessageAdmin from './components/AdminMessages';
 import AdminInbox from './components/AdminInbox';
 import ResetPassword from './components/ResetPassword';
-import ForgotPassword from './components/ForgotPassword'
+import ForgotPassword from './components/ForgotPassword';
+import DelegadosEmpresa from './components/DelegadosEmpresa';
+import RegistrarDelegado from './components/RegistrarDelegado';
+import MiEmpresa from './components/MiEmpresa';
+import ActivarCuenta from './components/ActivarCuenta';
+
+import { refreshAuthToken } from './utils/auth'; // ✅ tu helper
 
 const App = () => {
+  const navigate = useNavigate();
+
+  // ⏱ Refrescar token cada 25 minutos si hay sesión activa
+useEffect(() => {
+  const intentarRefreshInicial = async () => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      const success = await refreshAuthToken();
+      if (!success) {
+        console.warn('⛔ No se pudo refrescar el token inicial. Cerrando sesión.');
+        localStorage.clear();
+        navigate('/login');
+      }
+    }
+  };
+
+  intentarRefreshInicial(); // 🔁 Esto se ejecuta una vez al montar
+
+  const interval = setInterval(() => {
+    refreshAuthToken();
+  }, 25 * 60 * 1000); // cada 25 minutos
+
+  return () => clearInterval(interval);
+}, [navigate]);
+
+
   return (
     <div className="App">
       <Routes>
@@ -44,15 +77,16 @@ const App = () => {
         <Route path="/usuarios/:id" element={<UsuarioDetails />} />
         <Route path="/usuarios" element={<UsuarioList />} />
         <Route path="/bienes/trazabilidad/:uuid" element={<TrazabilidadBien />} />
+        <Route path="/bienes/trazabilidad-identificador/:identificador" element={<TrazabilidadBien />} />
         <Route path="/usuarios/:id/edit" element={<EditUsuario />} />
         <Route path="/admin/dashboard" element={<Dashboard />} />
         <Route path="/admin/operaciones/:uuid" element={<AdminOperaciones />} />
         <Route path="/admin/historial-cambios/:uuid" element={<HistorialCambios />} />
-        <Route path="/admin/usuarios" element={<AdminUsuariosDashboard />} />  
-        <Route path="/user/dashboard" element={<UserDashboard />} /> 
+        <Route path="/admin/usuarios" element={<AdminUsuariosDashboard />} />
+        <Route path="/user/dashboard" element={<UserDashboard />} />
         <Route path="/home" element={<Home />} />
-        <Route path="/perfil" element={<Perfil />} />
         <Route path="/" element={<Home />} />
+        <Route path="/perfil" element={<Perfil />} />
         <Route path="/comprar" element={<ComprarPage />} />
         <Route path="/vender" element={<VenderPage />} />
         <Route path="/inventario" element={<Inventario />} />
@@ -65,13 +99,14 @@ const App = () => {
         <Route path="/admin/chat/:userUuid" element={<MessageAdmin />} />
         <Route path="/mensaje-admin" element={<MessageToAdmin />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/usuarios/reset-password/:token" element={<ResetPassword />} />
-
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/empresa/:uuid/delegados" element={<DelegadosEmpresa />} />
+        <Route path="/empresa/delegados/nuevo" element={<RegistrarDelegado />} />
+        <Route path="/empresa/mia" element={<MiEmpresa />} />
+        <Route path="/activar-cuenta" element={<ActivarCuenta />} />
       </Routes>
     </div>
   );
 };
-
-
 
 export default App;

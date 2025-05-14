@@ -15,10 +15,12 @@ const departments = [
 
 const roles = ['admin', 'moderador', 'usuario'];
 
+
 const EditUsuario = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  
   
   const userDetails = useSelector((state) => state.usuarios.userDetails);
   const [formData, setFormData] = useState({
@@ -36,55 +38,51 @@ const EditUsuario = () => {
     rol: '',
   });
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (id) {
-      dispatch(fetchUsuarioDetails(id))
-        .then(() => setError(''))
-        .catch((err) => {
-          const errorMessage = typeof err?.message === 'string' ? err.message : JSON.stringify(err);
-          setError(errorMessage);
-        });
+        dispatch(fetchUsuarioDetails(id))
+            .then(() => setError(''))
+            .catch((err) => {
+                const errorMessage = err?.message || 'Error desconocido al obtener datos';
+                setError(errorMessage);
+            });
     }
-  }, [dispatch, id]);
+}, [dispatch, id]);
 
-  useEffect(() => {
-    if (userDetails) {
+
+useEffect(() => {
+  if (userDetails && Object.keys(userDetails).length > 0) {
       setFormData({
-        nombre: userDetails.nombre || '',
-        dni: userDetails.dni || '',
-        email: userDetails.email || '',
-        password: '',
-        direccion: {
-          calle: userDetails.direccion?.calle || '',
-          altura: userDetails.direccion?.altura || '',
-          barrio: userDetails.direccion?.barrio || '',
-          departamento: userDetails.direccion?.departamento || '',
-        },
-        apellido: userDetails.apellido || '',
-        rol: userDetails.rolDefinitivo || '', // Carga el rol definitivo aquí
+          nombre: userDetails.nombre || '',
+          dni: userDetails.dni || '',
+          email: userDetails.email || '',
+          password: '',
+          direccion: {
+              calle: userDetails.direccion?.calle || '',
+              altura: userDetails.direccion?.altura || '',
+              barrio: userDetails.direccion?.barrio || '',
+              departamento: userDetails.direccion?.departamento || '',
+          },
+          apellido: userDetails.apellido || '',
+          rol: userDetails.rolDefinitivo || '', 
       });
-    }
-  }, [userDetails]);
-  
+  }
+}, [userDetails]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    if (name in formData.direccion) {
-      setFormData((prevState) => ({
-        ...prevState,
-        direccion: {
-          ...prevState.direccion,
-          [name]: value,
-        },
-      }));
-    } else {
-      setFormData((prevState) => ({
-        ...prevState,
-        [name]: value,
-      }));
-    }
-  };
+  
+const handleChange = (e) => {
+  const { name, value } = e.target;
+
+  setFormData((prevState) => ({
+      ...prevState,
+      ...(name in prevState.direccion
+          ? { direccion: { ...prevState.direccion, [name]: value } }
+          : { [name]: value })
+  }));
+};
+
 
   const handleRoleChange = (value) => {
     setFormData((prevState) => ({
@@ -102,32 +100,35 @@ const EditUsuario = () => {
       },
     }));
   };
+  
   const handleSubmit = (e) => {
     e.preventDefault();
-  
-    const descripcionCambio = `Actualización de usuario: ${formData.nombre} (${formData.email})`;
-  
-    const userData = {
-      ...formData,
-      descripcion: descripcionCambio, // Incluye la descripción
-    };
-  
+
+    const cambios = Object.entries(formData)
+        .filter(([key, value]) => value !== userDetails?.[key])
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(', ');
+
+    const descripcionCambio = `Modificaciones realizadas: ${cambios}`;
+
+    const userData = { ...formData, descripcion: descripcionCambio };
+
     dispatch(updateUser(id, userData))
-      .then(() => {
-        notification.success({
-          message: 'Éxito',
-          description: 'Datos del usuario actualizados correctamente.',
+        .then(() => {
+            notification.success({
+                message: 'Éxito',
+                description: 'Datos del usuario actualizados correctamente.',
+            });
+            navigate('/usuarios');
+        })
+        .catch((err) => {
+            notification.error({
+                message: 'Error',
+                description: err.message || 'No se pudo actualizar el usuario.',
+            });
         });
-        navigate('/usuarios');
-      })
-      .catch((err) => {
-        notification.error({
-          message: 'Error',
-          description: err.message || 'No se pudo actualizar el usuario.',
-        });
-      });
-  };
-  
+};
+
   
 
   return (

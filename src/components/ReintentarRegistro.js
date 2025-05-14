@@ -68,7 +68,6 @@ const ReintentarRegistro = () => {
         setRenaperData(null);
       }
     } catch (error) {
-      console.error('Error al validar el DNI con Renaper:', error);
       setRenaperError('Error al validar el DNI.');
     }
   };
@@ -137,7 +136,6 @@ const ReintentarRegistro = () => {
         setFormSubmitted(true);
       })
       .catch((error) => {
-        console.error('Error al reenviar los datos:', error);
         notification.error({
           message: 'Error',
           description: error.message || 'Ocurrió un error al reenviar los datos.',

@@ -1,15 +1,18 @@
-import axios from 'axios';  
+
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Button, Select, message, Typography, Upload, Modal, Table } from 'antd';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchBienes, registrarCompra, agregarMarca, agregarModelo } from '../redux/actions/bienes';
-import { checkExistingUser, registerUsuarioPorTercero } from '../redux/actions/usuarios';
+import { Form, Input, InputNumber, Button, Select, message, Typography, Upload, Modal, Table, Card, Checkbox, Row, Col, Image, Spin, Collapse   } from 'antd';
+import { useDispatch,  useSelector } from 'react-redux';
+import { fetchBienes,fetchBienesPorEmpresa,  fetchBienesPorUsuario, fetchBienesPorPropietario,  registrarCompra, agregarMarca, agregarModelo,addBien } from '../redux/actions/bienes';
+import { checkExistingUser, registerUsuarioPorTercero, fetchRenaperData} from '../redux/actions/usuarios';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 import api from '../redux/axiosConfig'; // Instancia de axios configurada
+import useInfiniteBienesPorPropietario from '../hooks/useInfiniteBienesPorPropietario';
 
 const { Option } = Select;
 const { Title } = Typography;
+const { Panel } = Collapse;
+
 
 const departments = [
   'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén', 'Rivadavia',
@@ -37,8 +40,22 @@ const ComprarPage = () => {
   const [tipoDeSujeto, setTipoDeSujeto] = useState(null);
   const [imeis, setImeis] = useState([]); // Estado para los IMEIs y fotos de cada teléfono
   const [tipoSeleccionado, setTipoSeleccionado] = useState("");
-  const [bienesAComprar, setBienesAComprar] = useState([]);
   const [currentBien, setCurrentBien] = useState(null);
+  const [bienesDelVendedor, setBienesDelVendedor] = useState([]);
+  const [bienesAComprar, setBienesAComprar] = useState([]);
+
+  const [selectedBienDelVendedor, setSelectedBienDelVendedor] = useState(null);
+const [searchBien, setSearchBien] = useState('');
+const [imeisDisponibles, setImeisDisponibles] = useState([]); 
+const [imeisSeleccionados, setImeisSeleccionados] = useState([]);
+const [imeiFotos, setImeiFotos] = useState({});
+const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
+
+
+
+
+
+
 
   const handleCancel = () => {
     setIsVisible(false); // Cierra el Modal
@@ -55,14 +72,23 @@ const ComprarPage = () => {
   const [nuevoModelo, setNuevoModelo] = useState('');
   const [error, setError] = useState(null); // Define el estado para manejar errores
   const [bienes, setBienes] = useState([]); // Si también necesitas manejar los bienes directamente
-  console.log('Bienes desde Redux:', bienes); // Agregar log
+// Agregar log
 
   const token = localStorage.getItem('authToken');
-  console.log('Token de autenticación:', token);
 
   const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
 
-  const uuid = JSON.parse(localStorage.getItem('userData') || '{}').uuid;
+  const uuid = JSON.parse(localStorage.getItem('userData') || '{}').uuid; 
+
+  const scrollToStep2 = () => {
+    setTimeout(() => {
+      const formSection = document.getElementById('form-step-2-scroll');
+      if (formSection) {
+        formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 300);
+  };
+  
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -72,39 +98,23 @@ const ComprarPage = () => {
     }
   }, []);
   
-  useEffect(() => {
-    const cargarBienes = async () => {
-      if (!uuid) {
-        console.error('El UUID del usuario no está disponible.');
-        return;
-      }
+  const {
+    bienes: bienesComprador,
+    error: errorCargandoBienes,
+    isLoading,
+    fetchNextPage,
+    hasMore,
+    resetBienes
+  } = useInfiniteBienesPorPropietario(usuario?.empresaUuid || usuario?.uuid);
+
   
-      try {
-        const response = await dispatch(fetchBienes(uuid));
-        console.log('Respuesta de fetchBienes:', response);
   
-        if (!response.success) {
-          console.error('Error desde el backend:', response.error);
-          setError(response.error); 
-          return;
-        }
-  
-        console.log('Bienes cargados:', response.data);
-        setBienes(response.data); 
-      } catch (error) {
-        console.error('Error en la llamada fetchBienes:', error);
-        setError('Error al cargar los bienes.');
-      }
-    };
-  
-    cargarBienes();
-  }, [dispatch, uuid]);
 
   // Agregar un bien al array antes de confirmar la compra
   const agregarBien = (values) => {
     setBienesAComprar(prevBienes => {
       const nuevosBienes = [...prevBienes, values];
-      console.log("Bien agregado:", nuevosBienes); // 🛠️ Debug
+// 🛠️ Debug
       return nuevosBienes;
     });
   
@@ -181,10 +191,8 @@ const ComprarPage = () => {
       await dispatch(registrarCompra(formData));
       await dispatch(fetchBienes(uuid));  // Refrescar los bienes después de la compra
     } catch (error) {
-      console.error("❌ Error al procesar la compra:", error);
     }
   };
-
   const handleTipoChange = async (tipo) => {
     setTipoSeleccionado(tipo);
     if (!tipo) {
@@ -201,7 +209,6 @@ const ComprarPage = () => {
         setMarcas([]);
       }
     } catch (error) {
-      console.error('Error al cargar las marcas:', error);
       message.error('No se pudieron cargar las marcas para este tipo.');
     }
   };
@@ -216,50 +223,80 @@ const ComprarPage = () => {
     try {
       const response = await api.get(`/bienes/bienes/modelos?tipo=${tipoSeleccionado}&marca=${marca}`);
       if (response.status === 200 && response.data.modelos) {
-        console.log('Modelos cargados:', response.data.modelos);
         setModelos(response.data.modelos);
         formStep2.setFieldsValue({ modelo: undefined });
       } else {
         setModelos([]);
       }
     } catch (error) {
-      console.error('Error al cargar los modelos:', error);
       message.error('No se pudieron cargar los modelos para esta marca.');
     }
   };
-
   const validateDNIWithRenaper = async (dni) => {
     try {
       if (!dni) {
         message.error('El DNI es obligatorio.');
-        return;
+        return false;
       }
-
-      const { data } = await api.get(`/renaper/${dni}`);
-      if (data.success) {
-        const persona = data.data.persona;
-
+  
+      const persona = await dispatch(fetchRenaperData(dni));
+  
+      if (!persona) {
+        message.error('No se encontraron datos en RENAPER.');
+        return false;
+      }
+  
+      // Rellenar con datos del Renaper
+      formStep1.setFieldsValue({
+        nombre: persona.nombres,
+        apellido: persona.apellidos,
+        cuit: persona.nroCuil,
+        direccion: {
+          calle: persona.domicilio.calle || '',
+          altura: persona.domicilio.nroCalle || '',
+          barrio: persona.domicilio.barrio || '',
+          departamento: persona.domicilio.localidad || '',
+        },
+      });
+  
+      // 💡 EXTRA: Consultar si ya está registrado en el sistema
+      const checkUserResponse = await dispatch(checkExistingUser({
+        dni,
+        nombre: persona.nombres,
+        apellido: persona.apellidos,
+        email: persona.email,
+      }));
+      console.log("Respuesta de checkExistingUser:", checkUserResponse); // 👈
+  
+      if (checkUserResponse?.existe && checkUserResponse?.usuario?.email) {
         formStep1.setFieldsValue({
-          nombre: persona.nombres,
-          apellido: persona.apellidos,
-          cuit: persona.nroCuil,
-          direccion: {
-            calle: persona.domicilio.calle || '',
-            altura: persona.domicilio.nroCalle || '',
-            barrio: persona.domicilio.barrio || '',
-            departamento: persona.domicilio.localidad || '',
-          },
+          email: checkUserResponse.usuario.email,
         });
+      
+        message.info('Este usuario ya existe. Se cargó su email registrado.');
+      
+        // 🚀 Aquí agregamos la carga de bienes directamente
+        setVendedorId(checkUserResponse.usuario.uuid); // Importante para paso 2
+        setEmpresaVendedoraUuid(checkUserResponse.usuario.empresa_uuid || checkUserResponse.usuario.uuid);
 
-        message.success('Datos cargados correctamente desde Renaper.');
-      } else {
-        message.error(data.message || 'Persona no encontrada en Renaper.');
+      
+        await cargarBienesDelVendedor({
+          tipo: checkUserResponse.usuario.tipo,
+          uuidUsuario: checkUserResponse.usuario.uuid,
+          uuidEmpresa: checkUserResponse.usuario.empresa_uuid,
+        });
       }
+      
+  
+      message.success('Datos cargados correctamente desde RENAPER.');
+      return true;
     } catch (error) {
-      console.error('Error al validar el DNI con Renaper:', error);
-      message.error('Error al validar el DNI.');
+      message.error(error.message || 'Error al validar el DNI con RENAPER.');
+      return false;
     }
   };
+  
+  
 
   const agregarNuevaMarca = async () => {
     if (!nuevaMarca.trim()) {
@@ -286,7 +323,6 @@ const ComprarPage = () => {
             setNuevaMarca('');
         }
     } catch (error) {
-        console.error('Error al registrar la marca:', error);
         message.error('No se pudo registrar la marca. Intenta de nuevo.');
     }
   };
@@ -302,58 +338,160 @@ const ComprarPage = () => {
       });
     }
   };
+
+  const validarPropiedadDeBienes = () => {
+    const bienesInvalidos = bienesAComprar.filter(b => b.uuid && b.propietario_uuid && b.propietario_uuid !== empresaVendedoraUuid);
   
-
-  const agregarNuevoModelo = async () => {
-    if (!nuevoModelo.trim()) {
-        message.warning('El modelo no puede estar vacío.');
-        return;
+    if (bienesInvalidos.length > 0) {
+      message.error("Uno o más bienes seleccionados ya le pertenecen al comprador.");
+      return false;
     }
-
-    const tipoSeleccionado = formStep2.getFieldValue('tipo');
-    const marcaSeleccionada = formStep2.getFieldValue('marca');
-
-    if (!tipoSeleccionado || !marcaSeleccionada) {
-        message.warning('Selecciona un tipo y una marca antes de agregar un modelo.');
-        return;
-    }
-
+  
+    return true;
+  };
+  
+  const cargarBienesDelVendedor = async ({ uuidUsuario, uuidEmpresa }) => {
     try {
-        const response = await api.post('/bienes/bienes/modelos', {
-            tipo: tipoSeleccionado,
-            marca: marcaSeleccionada,
-            modelo: nuevoModelo.trim(),
-        });
-
-        console.log('Respuesta al agregar modelo:', response.data); // Agregar log
-
-        if (response.status === 201) {
-            message.success(`Modelo "${nuevoModelo}" registrado con éxito.`);
-            setModelos((prevModelos) => [...prevModelos, nuevoModelo.trim()]);
-            formStep2.setFieldsValue({ modelo: nuevoModelo.trim() });
-            setNuevoModelo('');
-        }
-    } catch (error) {
-        if (error.response?.status === 409) {
-            message.error('El modelo ya existe.');
-        } else {
-            message.error('No se pudo registrar el modelo. Intenta de nuevo.');
-        }
-        console.error('Error al registrar el modelo:', error);
+      console.log("📦 Buscando bienes del vendedor:");
+      console.log("👤 Usuario UUID:", uuidUsuario);
+      console.log("🏢 Empresa UUID:", uuidEmpresa);
+  
+      setSelectedBienDelVendedor(null);
+      setImeisSeleccionados([]);
+  
+      const results = await Promise.all([
+        dispatch(fetchBienesPorPropietario(uuidUsuario)),
+        uuidEmpresa ? dispatch(fetchBienesPorPropietario(uuidEmpresa)) : Promise.resolve({ data: [] }),
+      ]);
+  
+      const [bienesUsuario, bienesEmpresa] = results;
+  
+      const todosLosBienes = [
+        ...(bienesUsuario?.data || []),
+        ...(bienesEmpresa?.data || []),
+      ];
+  
+      console.log("✅ Bienes combinados del vendedor:", todosLosBienes);
+  
+      const bienesProcesados = todosLosBienes.map(bien => ({
+        ...bien,
+        stock: bien.stock ?? 0,
+        propietario: bien.propietario || 'Desconocido',
+        fechaActualizacion: bien.fechaActualizacion || 'Sin fecha',
+        detalles: bien.identificadores || [],
+        fotos: [
+          ...(bien.todasLasFotos || []),
+          ...(bien.fotos || []),
+          ...(bien.identificadores?.map(i => i.foto).filter(Boolean) || [])
+        ],
+        
+        imeis: (bien.identificadores || []).map(imei => ({
+          imei: imei.identificador_unico,
+          fotoUrl: imei.foto,
+          estado: imei.estado
+        }))
+      }));
+  
+      setBienesDelVendedor(bienesProcesados);
+    } catch (err) {
+      console.error("❌ Error al cargar los bienes del vendedor:", err);
+      message.error('Error al cargar los bienes del vendedor.');
     }
   };
+  
+  
+  
+  
+  const agregarNuevoModelo = async () => {
+    if (!nuevoModelo.trim()) {
+      message.warning('El modelo no puede estar vacío.');
+      return;
+    }
+  
+    const tipoSeleccionado = formStep2.getFieldValue('tipo');
+    const marcaSeleccionada = formStep2.getFieldValue('marca');
+  
+    if (!tipoSeleccionado || !marcaSeleccionada) {
+      message.warning('Selecciona un tipo y una marca antes de agregar un modelo.');
+      return;
+    }
+  
+    try {
+      const response = await api.post('/bienes/bienes/modelos', {
+        tipo: tipoSeleccionado,
+        marca: marcaSeleccionada,
+        modelo: nuevoModelo.trim(),
+      });
+  
+      if (response.status === 201) {
+        message.success(`Modelo "${nuevoModelo}" registrado con éxito.`);
+        setModelos((prevModelos) => [...prevModelos, nuevoModelo.trim()]);
+        formStep2.setFieldsValue({ modelo: nuevoModelo.trim() });
+        setNuevoModelo('');
+      }
+    } catch (error) {
+      if (error.response?.status === 409) {
+        message.error('El modelo ya existe.');
+      } else {
+        message.error('No se pudo registrar el modelo. Intenta de nuevo.');
+      }
+    }
+  };
+  
+
+
+  const onChangeCheckbox = (checkedValues) => {
+    const valoresTransformados = checkedValues.map(item => ({
+      imei: item.imei,
+      fotoUrl: item.fotoUrl,
+      fotoOriginal: null,
+    }));
+  
+    setImeisSeleccionados(valoresTransformados);
+  
+    // 🔥 Actualizar cantidad automáticamente
+    formStep2.setFieldsValue({
+      bienStock: valoresTransformados.length,
+    });
+  
+    console.log('✅ IMEIs seleccionados transformados:', valoresTransformados);
+  };
+  
+  
 
   const handleFinishStep1 = async (values) => {
     try {
-      const { nombre, apellido, email, dni, cuit, tipo, razonSocial, direccion } = values;
+      const {
+        nombre,
+        apellido,
+        email,
+        dni,
+        cuit,
+        tipo,
+        razonSocial,
+        direccion,
+        dniResponsable,
+        nombreResponsable,
+        apellidoResponsable,
+        cuitResponsable,
+        domicilioResponsable,
+      } = values;
+      
+  // ✅ Asegurar tipo válido
+const tipoLimpio = tipo === 'persona' ? 'fisica' : tipo;
 
-      // Validación previa para asegurarse de que los campos obligatorios estén completos
       if (!dni || !nombre || !apellido || !email) {
         message.error('Por favor, completa todos los campos obligatorios (DNI, Nombre, Apellido, Email).');
         return;
       }
-
-      console.log('Datos enviados en el paso 1:', values);
+  
+      // 🔐 Validar con Renaper antes de continuar
+      const validado = await validateDNIWithRenaper(dni);
+      
+      if (!validado) {
+        message.error('No se puede continuar sin validar correctamente el DNI con Renaper.');
+        return;
+      }
 
       // Verificar si el usuario ya está registrado
       const existingUserResponse = await dispatch(
@@ -369,9 +507,16 @@ const ComprarPage = () => {
 
         // Asignar el UUID del usuario registrado
         setVendedorId(existingUser.uuid);
+        setEmpresaVendedoraUuid(existingUser.empresa_uuid || existingUser.uuid);
+  
 
+        await cargarBienesDelVendedor({
+          tipo: existingUser.tipo,
+          uuidUsuario: existingUser.uuid,
+          uuidEmpresa: existingUser.empresa_uuid,
+        });
+        
         if (existingUser.rolDefinitivo !== 'vendedor') {
-          console.log('El usuario existe pero no es vendedor, actualizando rol...');
 
           // Intentar actualizar el rol del usuario existente
           try {
@@ -384,10 +529,8 @@ const ComprarPage = () => {
             );
 
             if (updateResponse.error) {
-              console.warn('No se pudo actualizar el rol del usuario, pero el flujo continuará.');
             }
           } catch (updateError) {
-            console.error('Error actualizando el rol del usuario:', updateError.message);
           }
         }
 
@@ -396,8 +539,6 @@ const ComprarPage = () => {
         return;
       }
 
-      // Registrar un nuevo usuario si no existe
-      console.log('Registrando un nuevo usuario...');
       const newUserResponse = await dispatch(
         registerUsuarioPorTercero({
           nombre,
@@ -405,174 +546,233 @@ const ComprarPage = () => {
           email,
           dni,
           cuit,
-          tipo,
-          razonSocial: tipo === 'juridica' ? razonSocial : null,
+          tipo: tipoLimpio,
+          razonSocial: tipoLimpio === 'juridica' ? razonSocial : null,
           direccion,
-          rolTemporal: 'vendedor', // Registrar como vendedor de forma temporal
+          dniResponsable: tipoLimpio === 'juridica' ? dniResponsable : null,
+          nombreResponsable: tipoLimpio === 'juridica' ? nombreResponsable : null,
+          apellidoResponsable: tipoLimpio === 'juridica' ? apellidoResponsable : null,
+          cuitResponsable: tipoLimpio === 'juridica' ? cuitResponsable : null,
+          domicilioResponsable: tipoLimpio === 'juridica' ? domicilioResponsable : null,
+          rolTemporal: 'vendedor',
         })
       );
+      
+      
+      
 
       if (newUserResponse?.uuid) {
         setVendedorId(newUserResponse.uuid);
+        setEmpresaVendedoraUuid(newUserResponse.empresa_uuid || newUserResponse.uuid);
         message.success('Nuevo usuario registrado, continuando al siguiente paso.');
+      
+        await cargarBienesDelVendedor({
+          tipo: tipoLimpio,
+          uuidUsuario: newUserResponse.uuid,
+          uuidEmpresa: newUserResponse.empresa_uuid,
+        });
+        
         setStep(2); // Continuar al paso 2
       } else {
         throw new Error('No se pudo registrar al usuario.');
       }
     } catch (error) {
-      console.error('Error en el paso 1:', error.message || error);
       message.error(error.message || 'Ocurrió un error en el registro del usuario.');
     }
   };
-  const handleFinishStep2 = (values) => {
-    // Validar precio
-    const precio = values.bienPrecio ? parseFloat(values.bienPrecio) : 0;
-    if (isNaN(precio) || precio <= 0) {
-      message.error('El precio debe ser un número válido mayor a 0.');
-      return;
-    }
+
+  const handleFinishStep2 = async (values) => {
+    try {
+      setLoading(true);
+      const precio = parseFloat(values.bienPrecio);
+      const cantidad = parseInt(values.bienStock, 10);
   
-    // Validar cantidad
-    const cantidad = values.bienStock ? parseInt(values.bienStock, 10) : 0;
-    if (isNaN(cantidad) || cantidad <= 0) {
-      message.error('La cantidad debe ser un número válido mayor a 0.');
-      return;
-    }
+      if (isNaN(precio) || precio <= 0) {
+        message.error('El precio debe ser un número válido mayor a 0.');
+        return;
+      }
   
-    // Validar IMEIs y fotos (si el tipo es "teléfono movil")
-    if (tipoSeleccionado === "teléfono movil" && !verificarImeisConFotos()) {
-      return; // Detener si falta alguno de estos datos
-    }
+      if (isNaN(cantidad) || cantidad <= 0) {
+        message.error('La cantidad debe ser mayor a 0.');
+        return;
+      }
   
-    // Crear el objeto nuevoBien con los datos validados
-    const nuevoBien = {
-      tipo: values.tipo || 'desconocido',  // Se asegura de que tipo siempre tenga un valor
-      marca: values.marca || 'desconocido',
-      modelo: values.modelo || 'desconocido',
-      descripcion: values.bienDescripcion || '',
-      precio, // Ya convertido y validado
-      cantidad, // Ya convertido y validado
-      metodoPago: values.metodoPago || 'efectivo',  // Valor predeterminado
-      // Si es teléfono movil se usa el estado 'imeis', de lo contrario se asignan las fotos generales
-      imeis: tipoSeleccionado === "teléfono movil" ? imeis : [],
-      fotos: tipoSeleccionado !== "teléfono movil" ? fileList : []  // <-- Agregado para bienes sin IMEI
-    };
-    
+      if (tipoSeleccionado === "teléfono movil" && !verificarImeisConFotos()) {
+        return;
+      }
   
-    console.log("✅ Bien agregado correctamente:", nuevoBien);
+      const esBienExistente = selectedBienDelVendedor?.uuid;
+      let bienParaCompra = null;
   
-    // Agregar el nuevo bien al listado
-    setBienesAComprar((prevBienes) => [...prevBienes, nuevoBien]);
-    message.success("Bien agregado correctamente.");
+      if (esBienExistente) {
+        // Bien del vendedor
+        bienParaCompra = {
+          uuid: selectedBienDelVendedor.uuid,
+          tipo: values.tipo,
+          marca: values.marca,
+          modelo: values.modelo,
+          descripcion: values.bienDescripcion,
+          precio,
+          cantidad,
+          metodoPago: values.metodoPago || 'efectivo',
+          imeis: tipoSeleccionado === "teléfono movil"
+            ? imeisSeleccionados.map((item) => ({
+                imei: item.imei,
+                fotoUrl: item.fotoUrl,
+                fotoOriginal: item.fotoOriginal || null,
+              }))
+            : [],
+            fotos: tipoSeleccionado !== "teléfono movil"
+            ? fileList.map((f) => f.originFileObj instanceof File ? f.originFileObj : f)
+            : []
+          
+          
+
+        };
+      } else {
+        // Bien nuevo
+        const formData = new FormData();
+        const esEmpresa = tipoDeSujeto === 'juridica';
+        const propietario_uuid = empresaVendedoraUuid;
+
   
-    // Reiniciar el formulario para ingresar otro bien
-    formStep2.resetFields();
+        formData.append('tipo', values.tipo);
+        formData.append('marca', values.marca);
+        formData.append('modelo', values.modelo);
+        formData.append('descripcion', values.bienDescripcion);
+        formData.append('precio', precio);
+        formData.append('stock', JSON.stringify({ cantidad }));
+        formData.append('propietario_uuid', propietario_uuid);
+        formData.append('registrado_por_uuid', vendedorId);
+        formData.append('overridePermiso', 'true');
   
-    // Si el bien es de tipo "teléfono movil", reiniciar el estado de IMEIs para el siguiente bien
-    if (tipoSeleccionado === "teléfono movil") {
+        if (tipoSeleccionado === "teléfono movil") {
+          const imeisParaRegistro = imeis.map((item) => ({ imei: item.imei }));
+          formData.append('imei', JSON.stringify(imeisParaRegistro));
+  
+          imeis.forEach((item, index) => {
+            if (item.foto) {
+              formData.append(`imeiFoto_${index}`, item.foto);
+            }
+          });
+        } else {
+          fileList.forEach((foto, index) => {
+            const archivo = foto.originFileObj || foto;
+            formData.append(`fotos[${index}]`, archivo);
+          });
+        }
+  
+        const bienCreado = await dispatch(addBien(formData));
+  
+        bienParaCompra = {
+          uuid: bienCreado.bien.uuid,
+          tipo: bienCreado.bien.tipo,
+          marca: bienCreado.bien.marca,
+          modelo: bienCreado.bien.modelo,
+          descripcion: bienCreado.bien.descripcion,
+          precio: bienCreado.bien.precio,
+          cantidad,
+          metodoPago: values.metodoPago || 'efectivo',
+          imeis: tipoSeleccionado === "teléfono movil"
+            ? imeis.map((item) => ({
+                imei: item.imei,
+                fotoUrl: null,
+                fotoOriginal: item.foto || null,
+              }))
+            : [],
+            fotos: tipoSeleccionado !== "teléfono movil"
+            ? fileList.map((f) => f.originFileObj instanceof File ? f.originFileObj : f)
+            : []
+          
+        };
+  
+        message.success(`Bien "${bienCreado.bien.tipo} ${bienCreado.bien.marca}" registrado correctamente.`);
+      }
+  
+      setBienesAComprar((prev) => [...prev, bienParaCompra]);
+  
+      // Reseteo de estados
+      formStep2.resetFields();
+      setFileList([]);
       setImeis([]);
-    }
-  };
+      setImeisSeleccionados([]);
+      setSelectedBienDelVendedor(null);
   
+      message.success('Bien agregado a la compra.');
+    } catch (error) {
+      console.error(error);
+      message.error(error.message || 'Error al agregar el bien.');
+    } finally {
+      setLoading(false);
+    }
+    
+  };
+ 
   const confirmarCompra = async () => {
-    // Validar que se haya agregado al menos un bien
     if (bienesAComprar.length === 0) {
       message.error("Debe agregar al menos un bien para completar la compra.");
       return;
     }
   
-    // Validar para cada bien de tipo "teléfono movil" que se hayan ingresado sus IMEIS
-    for (let i = 0; i < bienesAComprar.length; i++) {
-      const bien = bienesAComprar[i];
-      if (bien.tipo === "teléfono movil") {
-        // Se espera que la cantidad de IMEIS coincida con la cantidad del bien (en este ejemplo, se asume cantidad 1)
-        if (!bien.imeis || bien.imeis.length !== parseInt(bien.cantidad, 10)) {
-          message.error(`Debe ingresar el IMEI (y la foto) para el teléfono móvil en la posición ${i + 1}.`);
-          return;
-        }
-        // Validar que cada objeto de IMEI tenga un valor y una foto
-        const imeiObj = bien.imeis[0];
-        if (!imeiObj || !imeiObj.imei || imeiObj.imei.trim() === "") {
-          message.error(`Debe ingresar el IMEI para el teléfono móvil en la posición ${i + 1}.`);
-          return;
-        }
-        if (!imeiObj.foto) {
-          message.error(`Debe subir la foto para el teléfono móvil en la posición ${i + 1}.`);
-          return;
-        }
-      }
-    }
-  
-    // Validar que los IMEIS sean únicos entre todos los bienes de tipo "teléfono movil"
-    let todosImeis = [];
-    bienesAComprar.forEach((bien) => {
-      if (bien.tipo === "teléfono movil" && bien.imeis) {
-        todosImeis.push(bien.imeis[0].imei);
-      }
-    });
-    const imeisUnicos = new Set(todosImeis);
-    if (imeisUnicos.size !== todosImeis.length) {
-      message.error("No se pueden agregar teléfonos con el mismo IMEI.");
-      return;
-    }
-  
     try {
       const formData = new FormData();
+      setLoading(true);
   
-      formData.append("vendedorId", vendedorId);
-      formData.append("dniComprador", usuario.dni);
+      formData.append("vendedorId", empresaVendedoraUuid);
+  
+      const esEmpresaCompradora = usuario?.tipo === 'juridica' || usuario?.rolEmpresa === 'responsable';
+      const empresaUuid = usuario?.empresaUuid;
+  
+      const compradorData = esEmpresaCompradora && empresaUuid
+        ? { uuid: empresaUuid, tipo: 'empresa' }
+        : {
+            uuid: usuario?.uuid,
+            nombre: usuario?.nombre,
+            apellido: usuario?.apellido,
+            dni: usuario?.dni,
+            email: usuario?.email,
+            cuit: usuario?.cuit,
+            tipo: 'persona'
+          };
+  
+      formData.append("comprador", JSON.stringify(compradorData));
+      formData.append("dniComprador", usuario?.dni);
+  
+      const bienesJSON = bienesAComprar.map((bien) => ({
+        ...bien,
+        metodoPago: bien.metodoPago?.trim() || 'efectivo',
+      }));
+  
+      formData.append("bienes", JSON.stringify(bienesJSON));
   
       bienesAComprar.forEach((bien, i) => {
-        // Datos generales del bien
-        formData.append(`bienes[${i}][tipo]`, bien.tipo);
-        formData.append(`bienes[${i}][marca]`, bien.marca);
-        formData.append(`bienes[${i}][modelo]`, bien.modelo);
-        formData.append(`bienes[${i}][descripcion]`, bien.descripcion);
-        formData.append(`bienes[${i}][precio]`, bien.precio);
-        formData.append(`bienes[${i}][cantidad]`, bien.cantidad);
-        formData.append(`bienes[${i}][metodoPago]`, bien.metodoPago);
-      
         if (bien.tipo === "teléfono movil") {
-          // Para teléfonos móviles: enviar el IMEI y su foto
-          const imeiObj = bien.imeis[0];
-          formData.append(`bienes[${i}][imei]`, imeiObj.imei);
-          formData.append(`bienes[${i}][imeiFoto]`, imeiObj.foto);
-          console.log(`✅ IMEI asignado al bien ${i}: ${imeiObj.imei}`);
-          console.log(`📸 Foto asignada al bien ${i}: ${imeiObj.foto.name}`);
+          bien.imeis?.forEach((imeiItem, idx) => {
+            if (imeiItem.fotoOriginal instanceof File) {
+              formData.append(`bienes[${i}][imeiFoto_${idx}]`, imeiItem.fotoOriginal);
+            }
+          });
         } else {
-          // Para bienes sin IMEI: enviar las fotos generales
-          // Se asume que en handleFinishStep2 ya asignaste las fotos a la propiedad 'fotos'
-          if (bien.fotos && bien.fotos.length > 0) {
-            bien.fotos.forEach((foto, index) => {
-              if (foto.originFileObj) {
-                console.log(`📸 Añadiendo foto del bien al FormData: ${foto.name}`);
-                formData.append(`bienes[${i}][fotos][${index}]`, foto.originFileObj);
-              } else {
-                console.log(`📸 Añadiendo foto del bien (File directo) al FormData: ${foto.name}`);
-                formData.append(`bienes[${i}][fotos][${index}]`, foto);
-              }
-            });
-          }
+          (bien.fotos || []).forEach((foto, index) => {
+            const archivo = foto.originFileObj || foto;
+            if (archivo instanceof File) {
+              formData.append(`bienes[${i}][fotos][${index}]`, archivo);
+            }
+          });
         }
       });
-      
   
-      // Depuración: Imprimir el contenido del FormData (opcional)
-      for (const pair of formData.entries()) {
-        console.log(`📦 Enviando FormData -> ${pair[0]}:`, pair[1]);
-      }
+      // 👇 CAMBIO INCORPORADO ACÁ
+      await dispatch(registrarCompra(formData));
+      await dispatch(fetchBienesPorUsuario(usuario.uuid, true)); // 🔄 REFRESCA BIENES DEL COMPRADOR
   
-      // Enviar el FormData al backend
-      const response = await api.post('/transacciones/comprar', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-  
-      console.log("✅ Compra registrada con éxito:", response.data);
       message.success("Compra completada con éxito.");
       navigate("/user/dashboard");
     } catch (error) {
-      console.error("❌ Error en registrarCompra:", error);
-      message.error(error.message || "No se pudo registrar la compra. Verifique los datos e intente nuevamente.");
+      console.error("❌ Error al confirmar la compra:", error);
+      message.error(error.message || "No se pudo registrar la compra.");
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -580,6 +780,9 @@ const ComprarPage = () => {
   
   
   
+  
+  
+
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <Title level={2} style={{ textAlign: 'center', marginBottom: 20 }}>
@@ -622,157 +825,382 @@ const ComprarPage = () => {
           </div>
         </>
       )}
+{step === 1 && (
+  <Form layout="vertical" onFinish={handleFinishStep1} form={formStep1}>
+    <Form.Item
+      label="Tipo de Sujeto"
+      name="tipo"
+      rules={[{ required: true, message: 'Por favor, selecciona un tipo de sujeto.' }]}
+    >
+      <Select
+        onChange={(tipo) => {
+          formStep1.resetFields([
+            'dni',
+            'nombre',
+            'apellido',
+            'email',
+            'cuit',
+            'direccion',
+            'razonSocial',
+            'direccionEmpresa',
+            'dniResponsable',
+            'nombreResponsable',
+            'apellidoResponsable',
+            'cuitResponsable',
+            'domicilioResponsable',
+          ]);
+          setTipoDeSujeto(tipo);
+        }}
+      >
+        <Option value="fisica">Persona Humana</Option>
+        <Option value="juridica">Persona Jurídica</Option>
+      </Select>
+    </Form.Item>
 
-      {/* Formulario Paso 1 */}
-      {step === 1 && (
-        <Form layout="vertical" onFinish={handleFinishStep1} form={formStep1}>
-          {/* Selección del tipo de sujeto */}
-          <Form.Item
-            label="Tipo de Sujeto"
-            name="tipo"
-            rules={[{ required: true, message: 'Por favor, selecciona un tipo de sujeto.' }]}
-          >
-            <Select
-              onChange={(tipo) => {
-                formStep1.resetFields(['dni', 'nombre', 'apellido', 'email', 'cuit', 'direccion', 'razonSocial', 'direccionEmpresa']);
-                setTipoDeSujeto(tipo); // Estado para controlar el tipo seleccionado
-              }}
-            >
-              <Option value="persona">Persona Humana</Option>
-              <Option value="juridica">Persona Jurídica</Option>
-            </Select>
-          </Form.Item>
+    {tipoDeSujeto === 'juridica' && (
+      <>
+        <Form.Item
+          label="Razón Social"
+          name="razonSocial"
+          rules={[{ required: true, message: 'Por favor, ingresa la razón social.' }]}
+        >
+          <Input placeholder="Razón Social de la empresa" />
+        </Form.Item>
 
-          {tipoDeSujeto === 'juridica' && (
-            <>
-              {/* Razón Social */}
-              <Form.Item
-                label="Razón Social"
-                name="razonSocial"
-                rules={[{ required: true, message: 'Por favor, ingresa la razón social.' }]}
-              >
-                <Input placeholder="Razón Social de la empresa" />
-              </Form.Item>
+        <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>
+          Dirección de la Empresa
+        </Title>
+        <Form.Item
+          label="Calle"
+          name={['direccionEmpresa', 'calle']}
+          rules={[{ required: true, message: 'Por favor, ingresa la calle de la empresa.' }]}
+        >
+          <Input placeholder="Calle de la empresa" />
+        </Form.Item>
+        <Form.Item
+          label="Numeración"
+          name={['direccionEmpresa', 'altura']}
+          rules={[{ required: true, message: 'Por favor, ingresa la numeración de la empresa.' }]}
+        >
+          <Input placeholder="Numeración de la empresa" />
+        </Form.Item>
+        <Form.Item
+          label="Departamento"
+          name={['direccionEmpresa', 'departamento']}
+          rules={[{ required: true, message: 'Selecciona un departamento para la empresa.' }]}
+        >
+          <Select placeholder="Departamento">
+            {departments.map((d) => (
+              <Option key={d} value={d}>{d}</Option>
+            ))}
+          </Select>
+        </Form.Item>
 
-              {/* Dirección de la Empresa */}
-              <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>
-                Dirección de la Empresa
-              </Title>
-              <Form.Item
-                label="Calle"
-                name={['direccionEmpresa', 'calle']}
-                rules={[{ required: true, message: 'Por favor, ingresa la calle de la empresa.' }]}
-              >
-                <Input placeholder="Calle de la empresa" />
-              </Form.Item>
-              <Form.Item
-                label="Numeración"
-                name={['direccionEmpresa', 'altura']}
-                rules={[{ required: true, message: 'Por favor, ingresa la numeración de la empresa.' }]}
-              >
-                <Input placeholder=" Numeración de la empresa" />
-              </Form.Item>
-            </>
-          )}
+        <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>
+          Datos del Responsable
+        </Title>
 
-          {/* Campo de DNI */}
-          <Form.Item
-            label="DNI"
-            name="dni"
-            rules={[
-              { required: true, message: 'El DNI es obligatorio.' },
-              { pattern: /^\d{7,8}$/, message: 'El DNI debe tener 7 u 8 dígitos.' },
-            ]}
-          >
-            <Input
-              placeholder="Ingresa el DNI"
-              onBlur={(e) => validateDNIWithRenaper(e.target.value)}
-            />
-          </Form.Item>
+        <Form.Item
+          label="DNI del Responsable"
+          name="dniResponsable"
+          rules={[{ required: true, message: 'El DNI del responsable es obligatorio.' }]}
+        >
+          <Input placeholder="DNI del responsable" />
+        </Form.Item>
 
-          <Form.Item
-            label="Nombre"
-            name="nombre"
-            rules={[{ required: true, message: 'El nombre es obligatorio.' }]}
-          >
-            <Input placeholder="Nombre completo" />
-          </Form.Item>
+        <Form.Item
+          label="Nombre del Responsable"
+          name="nombreResponsable"
+          rules={[{ required: true, message: 'El nombre del responsable es obligatorio.' }]}
+        >
+          <Input placeholder="Nombre del responsable" />
+        </Form.Item>
 
-          <Form.Item
-            label="Apellido"
-            name="apellido"
-            rules={[{ required: true, message: 'El apellido es obligatorio.' }]}
-          >
-            <Input placeholder="Apellido completo" />
-          </Form.Item>
+        <Form.Item
+          label="Apellido del Responsable"
+          name="apellidoResponsable"
+          rules={[{ required: true, message: 'El apellido del responsable es obligatorio.' }]}
+        >
+          <Input placeholder="Apellido del responsable" />
+        </Form.Item>
 
-          <Form.Item
-            label="CUIT"
-            name="cuit"
-            rules={[{ required: true, message: 'Por favor, ingresa tu CUIT.' }]}
-          >
-            <Input placeholder="CUIT" />
-          </Form.Item>
+        <Form.Item
+          label="CUIT del Responsable"
+          name="cuitResponsable"
+          rules={[{ required: true, message: 'El CUIT del responsable es obligatorio.' }]}
+        >
+          <Input placeholder="CUIT del responsable" />
+        </Form.Item>
 
-          {/* Dirección de la Persona */}
-          <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>
-            Dirección de la Persona
-          </Title>
-          <Form.Item
-            label="Calle"
-            name={['direccion', 'calle']}
-            rules={[{ required: true, message: 'Por favor, ingresa la calle.' }]}
-          >
-            <Input placeholder="Calle" />
-          </Form.Item>
-          <Form.Item
-            label="Numeración"
-            name={['direccion', 'altura']}
-            rules={[{ required: true, message: 'Por favor, ingresa la numeracion.' }]}
-          >
-            <Input placeholder="Numeración" />
-          </Form.Item>
-          <Form.Item
-            label="Barrio"
-            name={['direccion', 'barrio']}
-          >
-            <Input placeholder="Barrio" />
-          </Form.Item>
-          <Form.Item
-            label="Departamento"
-            name={['direccion', 'departamento']}
-            rules={[{ required: true, message: 'Por favor, selecciona un departamento.' }]}
-          >
-            <Select>
-              {departments.map((department) => (
-                <Option key={department} value={department}>
-                  {department}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item
-            label="Correo Electrónico"
-            name="email"
-            rules={[
-              { required: true, message: 'Por favor, ingresa tu correo electrónico.' },
-              { type: 'email', message: 'Por favor, ingresa un correo electrónico válido.' },
-            ]}
-          >
-            <Input placeholder="Correo Electrónico" />
-          </Form.Item>
+        <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>
+          Domicilio del Responsable
+        </Title>
 
-          {/* Botón para continuar */}
-          <Button type="primary" htmlType="submit" block>
-            Siguiente
-          </Button>
-        </Form>
-      )}
+        <Form.Item
+          label="Calle"
+          name={['domicilioResponsable', 'calle']}
+          rules={[{ required: true, message: 'Calle obligatoria' }]}
+        >
+          <Input placeholder="Calle" />
+        </Form.Item>
+
+        <Form.Item
+          label="Altura"
+          name={['domicilioResponsable', 'altura']}
+          rules={[{ required: true, message: 'Altura obligatoria' }]}
+        >
+          <Input placeholder="Altura" />
+        </Form.Item>
+
+        <Form.Item
+          label="Departamento"
+          name={['domicilioResponsable', 'departamento']}
+          rules={[{ required: true, message: 'Departamento obligatorio' }]}
+        >
+          <Select placeholder="Departamento">
+            {departments.map((dep) => (
+              <Option key={dep} value={dep}>
+                {dep}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+      </>
+    )}
+
+    {/* Común a ambos tipos */}
+    <Form.Item
+      label="DNI"
+      name="dni"
+      rules={[
+        { required: true, message: 'El DNI es obligatorio.' },
+        { pattern: /^\d{7,8}$/, message: 'El DNI debe tener 7 u 8 dígitos.' },
+      ]}
+    >
+      <Input
+        placeholder="Ingresa el DNI"
+        onBlur={(e) => validateDNIWithRenaper(e.target.value)}
+      />
+    </Form.Item>
+
+    <Form.Item
+      label="Nombre"
+      name="nombre"
+      rules={[{ required: true, message: 'El nombre es obligatorio.' }]}
+    >
+      <Input placeholder="Nombre completo" />
+    </Form.Item>
+
+    <Form.Item
+      label="Apellido"
+      name="apellido"
+      rules={[{ required: true, message: 'El apellido es obligatorio.' }]}
+    >
+      <Input placeholder="Apellido completo" />
+    </Form.Item>
+
+    <Form.Item
+      label="CUIT"
+      name="cuit"
+      rules={[{ required: true, message: 'Por favor, ingresa tu CUIT.' }]}
+    >
+      <Input placeholder="CUIT" />
+    </Form.Item>
+
+    {/* Dirección de la Persona (si no es jurídica) */}
+    {tipoDeSujeto !== 'juridica' && (
+      <>
+        <Title level={5} style={{ marginBottom: 10, marginTop: 20 }}>
+          Dirección de la Persona
+        </Title>
+        <Form.Item
+          label="Calle"
+          name={['direccion', 'calle']}
+          rules={[{ required: true, message: 'Por favor, ingresa la calle.' }]}
+        >
+          <Input placeholder="Calle" />
+        </Form.Item>
+        <Form.Item
+          label="Numeración"
+          name={['direccion', 'altura']}
+          rules={[{ required: true, message: 'Por favor, ingresa la numeración.' }]}
+        >
+          <Input placeholder="Numeración" />
+        </Form.Item>
+        <Form.Item label="Barrio" name={['direccion', 'barrio']}>
+          <Input placeholder="Barrio" />
+        </Form.Item>
+        <Form.Item
+          label="Departamento"
+          name={['direccion', 'departamento']}
+          rules={[{ required: true, message: 'Por favor, selecciona un departamento.' }]}
+        >
+          <Select>
+            {departments.map((department) => (
+              <Option key={department} value={department}>
+                {department}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+      </>
+    )}
+
+    <Form.Item
+      label="Correo Electrónico"
+      name="email"
+      rules={[
+        { required: true, message: 'Por favor, ingresa tu correo electrónico.' },
+        { type: 'email', message: 'Por favor, ingresa un correo electrónico válido.' },
+      ]}
+    >
+      <Input placeholder="Correo Electrónico" />
+    </Form.Item>
+
+    <Button type="primary" htmlType="submit" block>
+      Siguiente
+    </Button>
+  </Form>
+)}
+
+{step === 2 && bienesDelVendedor.length > 0 && (
+
+<>
+  <Title level={4} style={{ marginTop: 20 }}>Bienes del Vendedor</Title>
+
+  <Input.Search
+    placeholder="Buscar por tipo, marca, modelo..."
+    value={searchBien}
+    onChange={(e) => setSearchBien(e.target.value)}
+    style={{ marginBottom: 16 }}
+  />
+
+  {/* Agrupamos y renderizamos */}
+  <Collapse accordion>
+    {Object.entries(
+     bienesDelVendedor
+     .filter(b => b.stock > 0) // ⛔️ Elimina los que tienen stock 0
+     .filter(b =>
+       (b.tipo?.toLowerCase().includes(searchBien.toLowerCase()) ||
+        b.marca?.toLowerCase().includes(searchBien.toLowerCase()) ||
+        b.modelo?.toLowerCase().includes(searchBien.toLowerCase()))
+     )
+   
+        .reduce((acc, bien) => {
+          if (!acc[bien.tipo]) acc[bien.tipo] = {};
+          if (!acc[bien.tipo][bien.marca]) acc[bien.tipo][bien.marca] = [];
+          acc[bien.tipo][bien.marca].push(bien);
+          return acc;
+        }, {})
+    ).map(([tipo, marcas]) => (
+      <Panel header={tipo.toUpperCase()} key={tipo}>
+        <Collapse accordion>
+          {Object.entries(marcas).map(([marca, bienesMarca]) => (
+            <Panel header={marca} key={marca}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' }}>
+                {bienesMarca.map((bien) => (
+                  <Card
+                    key={bien.uuid}
+                    hoverable
+                    onClick={() => {
+                      setSelectedBienDelVendedor(bien);
+                      formStep2.setFieldsValue({
+                        tipo: bien.tipo,
+                        marca: bien.marca,
+                        modelo: bien.modelo,
+                        bienDescripcion: bien.descripcion,
+                        bienPrecio: bien.precio,
+                        bienStock: bien.tipo === "teléfono movil" ? (bien.imeis?.length || 1) : (bien.stock ?? 1),
+                      });
+                      setTipoSeleccionado(bien.tipo);
+                      setImeis([]);
+                      message.success(`Bien seleccionado: ${bien.tipo} ${bien.marca} ${bien.modelo}`);
+                      scrollToStep2();
+                    }}
+                    style={{
+                      border: selectedBienDelVendedor?.uuid === bien.uuid ? '2px solid #1890ff' : undefined,
+                      transition: 'all 0.3s ease',
+                    }}
+                    cover={bien.fotos?.[0] ? (
+                      <img
+                        alt="Foto del bien"
+                        src={bien.fotos[0]}
+                        style={{ height: 200, objectFit: 'cover' }}
+                      />
+                    ) : null}
+                  >
+                    <Card.Meta
+                      title={`${bien.modelo}`}
+                      description={
+                        <>
+                          <p>{bien.descripcion}</p>
+                          <p><strong>Precio:</strong> ${bien.precio}</p>
+                          <p><strong>Stock:</strong> {bien.stock ?? 0}</p>
+
+                          {bien.tipo === 'teléfono movil' && bien.imeis && (
+                            <Checkbox.Group
+                              style={{ width: '100%', marginTop: 10 }}
+                              onChange={onChangeCheckbox}
+                              value={imeisSeleccionados}
+                            >
+                              <Row gutter={[8, 8]}>
+                                {bien.imeis.map((imeiItem) => (
+                                  <Col span={24} key={imeiItem.imei}>
+                                    <Checkbox value={imeiItem}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <img
+                                          src={imeiItem.fotoUrl}
+                                          alt="Foto IMEI"
+                                          width={50}
+                                          style={{ borderRadius: 4 }}
+                                        />
+                                        <div>{imeiItem.imei}</div>
+                                      </div>
+                                    </Checkbox>
+                                  </Col>
+                                ))}
+                              </Row>
+                            </Checkbox.Group>
+                          )}
+                        </>
+                      }
+                    />
+                  </Card>
+                ))}
+              </div>
+            </Panel>
+          ))}
+        </Collapse>
+      </Panel>
+    ))}
+  </Collapse>
+</>
+
+
+)}
+
+  
 
 {step === 2 && (
+    <div id="form-step-2-scroll">
+  <Title level={3} style={{ marginBottom: 10 }}>
+  Paso 2: Elegí un bien registrado o cargalo manualmente
+</Title>
+<div
+  style={{
+    backgroundColor: '#e6f7ff',
+    border: '1px solid #91d5ff',
+    borderRadius: '8px',
+    padding: '10px 15px',
+    marginBottom: 20,
+    fontSize: 14,
+    color: '#004a6f'
+  }}
+>
+  Seleccioná uno de los bienes ya registrados del vendedor. Si no encontrás el bien deseado, podés cargarlo manualmente completando el formulario inferior.
+</div>
   <Form layout="vertical" form={formStep2} onFinish={handleFinishStep2}>
 
-    <Title level={3}>Paso 2: Agregar Bien</Title>
 
     {/* Tipo de Bien */}
     <Form.Item label="Tipo de Bien" name="tipo" rules={[{ required: true, message: 'Selecciona un tipo de bien.' }]}>
@@ -805,7 +1233,9 @@ const ComprarPage = () => {
                 onChange={(e) => setNuevaMarca(e.target.value)}
                 placeholder="Nueva marca"
               />
-              <Button type="text" onClick={agregarNuevaMarca}>Agregar</Button>
+             <Button type="text" onClick={agregarNuevaMarca}>Agregar</Button>
+
+
             </div>
           </>
         )}
@@ -818,27 +1248,28 @@ const ComprarPage = () => {
 
     {/* Modelo */}
     <Form.Item label="Modelo" name="modelo" rules={[{ required: true, message: 'Selecciona un modelo.' }]}>
-      <Select
-        placeholder="Selecciona o agrega un nuevo modelo"
-        dropdownRender={(menu) => (
-          <>
-            {menu}
-            <div style={{ display: 'flex', padding: 8 }}>
-              <Input
-                value={nuevoModelo}
-                onChange={(e) => setNuevoModelo(e.target.value)}
-                placeholder="Nuevo modelo"
-              />
-              <Button type="text" onClick={agregarNuevoModelo}>Agregar</Button>
-            </div>
-          </>
-        )}
-      >
-        {modelos.map((modelo) => (
-          <Option key={modelo} value={modelo}>{modelo}</Option>
-        ))}
-      </Select>
-    </Form.Item>
+  <Select
+    placeholder="Selecciona o agrega un nuevo modelo"
+    dropdownRender={(menu) => (
+      <>
+        {menu}
+        <div style={{ display: 'flex', padding: 8 }}>
+          <Input
+            value={nuevoModelo}
+            onChange={(e) => setNuevoModelo(e.target.value)}
+            placeholder="Nuevo modelo"
+          />
+          <Button type="text" onClick={agregarNuevoModelo}>Agregar</Button>
+        </div>
+      </>
+    )}
+  >
+    {modelos.map((modelo) => (
+      <Option key={modelo} value={modelo}>{modelo}</Option>
+    ))}
+  </Select>
+</Form.Item>
+
 
     {/* Cantidad */}
     <Form.Item
@@ -863,11 +1294,9 @@ const ComprarPage = () => {
       listType="picture"
       fileList={fileList} // Asegúrate de que fileList esté definido en el state
       onChange={({ fileList: newFileList }) => {
-        console.log("📸 Archivos seleccionados en `fileList`:", newFileList);
         setFileList(newFileList);
       }}
       beforeUpload={(file) => {
-        console.log("📤 Foto seleccionada:", file);
         return false; // Evita la subida automática
       }}
     >
@@ -890,18 +1319,32 @@ const ComprarPage = () => {
     </Form.Item>
 
     <Form.Item label="Foto del teléfono">
-    <Upload
-  listType="picture"
-  beforeUpload={(file) => {
-    actualizarFotoImei(index, file);
-    return false; // Evita la subida automática
-  }}
-  showUploadList={true}
->
-  <Button>Subir Foto</Button>
-</Upload>
-
+  <Upload
+    listType="picture-card"
+    fileList={item.foto ? [{
+      uid: `foto-${index}`,
+      name: item.foto.name,
+      url: URL.createObjectURL(item.foto),
+    }] : []}
+    onPreview={() => Modal.info({
+      title: `Vista previa IMEI #${index + 1}`,
+      content: <img alt="Preview" style={{ width: '100%' }} src={URL.createObjectURL(item.foto)} />,
+      okText: 'Cerrar',
+    })}
+    beforeUpload={(file) => {
+      actualizarFotoImei(index, file);
+      return false; // 🔁 no subir automáticamente
+    }}
+    onRemove={() => actualizarFotoImei(index, null)}
+    showUploadList={{
+      showRemoveIcon: true,
+      showPreviewIcon: true,
+    }}
+  >
+    {!item.foto && <Button>Subir Foto</Button>}
+  </Upload>
 </Form.Item>
+
 
 
     <Button type="danger" onClick={() => eliminarImei(index)}>Eliminar</Button>
@@ -930,12 +1373,14 @@ const ComprarPage = () => {
 
     {/* Botón para agregar bien */}
     <Button
-      type="primary"
-      onClick={() => formStep2.submit()}
-      style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', marginBottom: '10px' }}
-    >
-      Agregar Bien
-    </Button>
+  type="primary"
+  onClick={() => formStep2.submit()}
+  loading={loading}
+  style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', marginBottom: '10px' }}
+>
+  Agregar Bien
+</Button>
+
 
     {/* Tabla de Bienes Agregados */}
     {bienesAComprar.length > 0 && (
@@ -959,8 +1404,28 @@ const ComprarPage = () => {
           ]}
           rowKey={(record, index) => index}
         />
+        {loading && (
+  <div
+    style={{
+      position: 'fixed',
+      top: 0, left: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: 'rgba(255,255,255,0.6)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+    }}
+  >
+    <Spin size="large" tip="Procesando..." />
+  </div>
+)}
+
       </div>
-    )}
+      
+
+)}
 
     {/* Botón Finalizar Compra */}
     <Button
@@ -970,9 +1435,13 @@ const ComprarPage = () => {
     >
       Finalizar Compra ({bienesAComprar.length} bienes)
     </Button>
-  </Form>
+    
+  </Form> 
+
+  
+  </div>
 )}
 </div>
 );
-}
+} 
 export default ComprarPage;

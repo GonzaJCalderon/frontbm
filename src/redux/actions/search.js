@@ -1,35 +1,37 @@
-
 import api from '../axiosConfig';
-import { SEARCH_REQUEST, SEARCH_SUCCESS, SEARCH_ERROR } from './actionTypes';  
+import { SEARCH_REQUEST, SEARCH_SUCCESS, SEARCH_ERROR } from './actionTypes';
 
-export const searchItems = (term, category) => async (dispatch) => {
-    dispatch({ type: SEARCH_REQUEST });
+// 🔍 Búsqueda inteligente: usuarios, bienes o ambos
+export const searchItems = (query, category = 'all') => async (dispatch) => {
+  // Para usuarios, 'query' puede ser un objeto con filtros
+  const isUserSearch = category === 'users';
+  const isGlobalSearch = !isUserSearch;
 
-    try {
-        const params = { [category]: term }; // ✅ Asegura que solo envía un campo relevante
-        console.log("🔍 Enviando búsqueda con params:", params); // 🔥 Verifica qué se envía al backend
+  // Validación mínima para global
+  if (isGlobalSearch && (!query || query.trim().length < 2)) return;
 
-        const response = await api.get('/search', { params });
+  dispatch({ type: SEARCH_REQUEST });
 
-        console.log("✅ Respuesta de la API:", response.data); // 🔥 Muestra qué devuelve el backend
+  try {
+    const endpoint = isUserSearch ? '/search/users' : '/search/all';
 
-        dispatch({
-            type: SEARCH_SUCCESS,
-            payload: {
-                usuarios: response.data.usuarios.results || [], 
-                bienes: response.data.bienes.results || [],
-            },
-        });
+    const { data } = await api.get(endpoint, {
+      params: isUserSearch ? query : { term: query, category }
+    });
 
-    } catch (error) {
-        console.error('❌ Error en la búsqueda:', error);
-        dispatch({
-            type: SEARCH_ERROR,
-            payload: error.message || 'Error al realizar la búsqueda',
-        });
-    }
+    dispatch({
+      type: SEARCH_SUCCESS,
+      payload: {
+        usuarios: data.usuarios?.rows || [],
+        bienes: data.bienes?.rows || [],
+      },
+    });
+  } catch (error) {
+    dispatch({
+      type: SEARCH_ERROR,
+      payload: error.message || 'Error desconocido',
+    });
+  }
 };
-
- 
 
 export default searchItems;

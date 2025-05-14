@@ -16,46 +16,51 @@ import {
   ASSIGN_MESSAGE_SUCCESS,
   ASSIGN_MESSAGE_FAIL,
   GET_UNREAD_MESSAGES,
+  
 } from './actionTypes';
 
 // Función para manejar errores en las solicitudes
 const handleRequestError = (error) => {
   if (error.response) {
-    console.error("❌ Error del servidor:", error.response.data);
     return error.response.data?.message || "Error en la solicitud al servidor.";
   } else if (error.request) {
-    console.error("❌ Error de red: No se recibió respuesta del servidor.");
     return "No se pudo conectar con el servidor.";
   } else {
-    console.error("❌ Error en configuración:", error.message);
     return "Error en la configuración de la solicitud.";
   }
 };
 
 
 // ✅ Enviar un mensaje
-export const sendMessage = ({ recipientUuid, content }) => async (dispatch) => {
+// Acción corregida
+export const sendMessage = ({ recipientUuid = null, content, isForAdmins = false }) => async (dispatch) => {
   dispatch({ type: SEND_MESSAGE_REQUEST });
 
   try {
     const userData = JSON.parse(localStorage.getItem('userData'));
     const senderUuid = userData?.uuid;
 
-    if (!senderUuid || !recipientUuid || !content) {
-      throw new Error("senderUuid, recipientUuid y content son obligatorios.");
+    if (!senderUuid || !content) {
+      throw new Error("senderUuid y content son obligatorios.");
     }
 
-    const response = await api.post('/messages/send', { senderUuid, recipientUuid, content });
+    const response = await api.post('/messages/send', {
+      senderUuid,
+      recipientUuid,
+      assignedAdminUuid: null, // explícitamente null (opcional pero recomendado)
+      isForAdmins,
+      content,
+    });
 
     dispatch({ type: SEND_MESSAGE_SUCCESS, payload: response.data });
-
-    dispatch(getUnreadMessages(senderUuid)); // 🔥 Actualizar mensajes no leídos
+    dispatch(getUnreadMessages(senderUuid));
 
     return response.data;
   } catch (error) {
     dispatch({ type: SEND_MESSAGE_FAIL, payload: handleRequestError(error) });
   }
 };
+
 
 // ✅ Obtener todos los mensajes
 export const getMessages = () => async (dispatch) => {  
@@ -65,11 +70,9 @@ export const getMessages = () => async (dispatch) => {
     // 🔥 Trae TODOS los mensajes (sin asignar y asignados)
     const response = await api.get(`/messages`);
 
-    console.log("📩 Todos los mensajes obtenidos:", response.data);
 
     dispatch({ type: GET_MESSAGES_SUCCESS, payload: response.data });
   } catch (error) {
-    console.error("❌ Error al obtener mensajes:", error.response?.data || error.message);
     dispatch({ type: GET_MESSAGES_FAIL, payload: error.message });
   }
 };
@@ -117,12 +120,10 @@ export const markMessagesAsRead = (userUuid) => async (dispatch) => {
     const token = localStorage.getItem("token");
 
     if (!userUuid || !adminUuid) {
-      console.warn("⚠️ No se puede marcar mensajes como leídos. userUuid o adminUuid faltan.");
       return;
     }
 
     if (!token) {
-      console.warn("⚠️ No se encontró token de autenticación.");
       return;
     }
 
@@ -132,7 +133,6 @@ export const markMessagesAsRead = (userUuid) => async (dispatch) => {
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    console.log("✅ Respuesta de marcar mensajes como leídos:", response.data);
 
     dispatch({ type: MARK_MESSAGES_AS_READ_SUCCESS, payload: { userUuid, adminUuid } });
 
@@ -140,7 +140,6 @@ export const markMessagesAsRead = (userUuid) => async (dispatch) => {
       dispatch(getUnreadMessages(userUuid));
     }, 500);
   } catch (error) {
-    console.error("❌ Error al marcar mensajes como leídos:", error.response?.data || error.message);
     dispatch({ type: MARK_MESSAGES_AS_READ_FAIL, payload: error.message });
   }
 };
@@ -161,9 +160,14 @@ export const getUnreadMessages = (userUuid) => async (dispatch) => {
     });
 
   } catch (error) {
-    console.error("Error al obtener mensajes no leídos:", error);
   }
 };
+
+export const clearUnreadMessages = () => ({
+  type: GET_UNREAD_MESSAGES,
+  payload: [],
+});
+
 
 
 
@@ -195,6 +199,43 @@ export const markUserMessagesAsRead = (userUuid, adminUuid) => async (dispatch) 
 
   } catch (error) {
     dispatch({ type: MARK_MESSAGES_AS_READ_FAIL, payload: handleRequestError(error) });
+  }
+};
+
+export const markAllAsRead = ({ from, to }) => async (dispatch) => {
+  try {
+    if (!from || !to) return;
+
+    // 🧠 Caso 1: el admin está leyendo mensajes del usuario
+    if (from !== to) {
+      await dispatch(markUserMessagesAsRead(from, to)); // from = user, to = admin
+    } 
+    // 🧠 Caso 2: el usuario está leyendo sus propios mensajes recibidos
+    else {
+      await dispatch(markMessagesAsRead(from));
+    }
+
+    dispatch(clearUnreadMessages()); // Limpieza inmediata del badge
+
+  } catch (error) {
+    console.error("❌ Error en markAllAsRead:", error);
+  }
+};
+
+export const sendReplyToUser = ({ recipientUuid, content }) => async () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    const response = await api.post('/messages/reply', {
+      recipientUuid,
+      content
+    }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error al enviar respuesta:", error);
   }
 };
 

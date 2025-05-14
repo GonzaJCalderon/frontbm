@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { getMessagesByUser, sendMessage, markMessagesAsRead, getMessages, assignMessageToAdmin } from '../redux/actions/messageActions';
-import { getUserByUuid } from '../redux/actions/usuarios'; // ✅ Importamos la nueva acción
+import {
+  getMessagesByUser,
+  sendReplyToUser,
+  assignMessageToAdmin,
+  getMessages,
+  markUserMessagesAsRead,
+} from '../redux/actions/messageActions';
+import { getUserByUuid } from '../redux/actions/usuarios';
 import { FaArrowLeft, FaPaperPlane } from 'react-icons/fa';
 
 const AdminMessages = () => {
@@ -11,50 +17,46 @@ const AdminMessages = () => {
   const { userUuid } = useParams();
   const chatContainerRef = useRef(null);
 
-  // Obtener el admin autenticado
   const adminData = JSON.parse(localStorage.getItem('userData')) || {};
   const adminUuid = adminData?.uuid;
 
-  // Estado para almacenar el nombre del usuario y mensajes
   const [userName, setUserName] = useState("Usuario");
   const [localMessages, setLocalMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
-  // Obtener mensajes desde Redux
   const { loading, messages, error } = useSelector((state) => state.messages.list);
 
   useEffect(() => {
     if (!userUuid || !adminUuid) return;
 
-    // ✅ 1. Obtener los mensajes del usuario
-    dispatch(getMessagesByUser(userUuid)).then((response) => {
-      if (response?.payload?.length > 0) {
-        setLocalMessages(response.payload);
+    dispatch(getMessagesByUser(userUuid)).then((res) => {
+      if (res?.payload?.length > 0) {
+        setLocalMessages(res.payload);
       }
     });
 
-    // ✅ 2. Obtener el usuario por su UUID y actualizar el nombre en la barra
+    dispatch(markUserMessagesAsRead(userUuid, adminUuid));
     dispatch(getUserByUuid(userUuid)).then((user) => {
-      if (user) {
+      if (user?.nombre) {
         setUserName(`${user.nombre} ${user.apellido}`);
       }
     });
-
-    dispatch(markMessagesAsRead(userUuid, adminUuid));
   }, [dispatch, userUuid, adminUuid]);
 
   useEffect(() => {
-    if (messages?.length > 0) {
-      setLocalMessages((prevMessages) => {
-        const mergedMessages = [...prevMessages, ...messages];
-        return mergedMessages.filter((msg, index, self) =>
-          index === self.findIndex((m) => m.uuid === msg.uuid) // ✅ Evita duplicados
-        );
-      });
-    }
+    if (!messages?.length) return;
+
+    setLocalMessages((prevMessages) => {
+      const realUuids = new Set(messages.map((m) => m.uuid));
+      const filteredPrev = prevMessages.filter(
+        (m) => !m.uuid.startsWith("temp-") || !realUuids.has(m.uuid.replace("temp-", ""))
+      );
+      const merged = [...filteredPrev, ...messages];
+      return merged.filter((msg, idx, self) => idx === self.findIndex((m) => m.uuid === msg.uuid));
+    });
   }, [messages]);
 
-  // Auto-scroll al final del chat
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -62,98 +64,112 @@ const AdminMessages = () => {
   }, [localMessages]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !userUuid || !adminUuid) return;
-  
-    const tempMessage = {
+    if (!newMessage.trim()) return;
+
+    const tempMsg = {
       uuid: `temp-${Date.now()}`,
       senderUuid: adminUuid,
       recipientUuid: userUuid,
       content: newMessage.trim(),
       createdAt: new Date().toISOString(),
     };
-  
-    // 🔥 Agregar el mensaje temporalmente para mejorar la experiencia de usuario
-    setLocalMessages((prevMessages) => [...prevMessages, tempMessage]);
-  
-    try {
-      // 🔥 Asignar el mensaje al admin actual (si otro admin lo tenía asignado)
-      await dispatch(assignMessageToAdmin({ messageUuid: userUuid, adminUuid }));
-  
-      // 🔥 Enviar el mensaje
-      await dispatch(sendMessage({
-        senderUuid: adminUuid,
-        recipientUuid: userUuid,
-        content: newMessage.trim(),
-      }));
-  
-      // 🔄 Recargar la conversación después de enviar el mensaje
-      await dispatch(getMessagesByUser(userUuid));
-      await dispatch(getMessages()); // 🔥 También actualizar la bandeja de mensajes
-  
-    } catch (error) {
-      console.error("❌ Error enviando mensaje:", error);
-    }
-  
+
+    setLocalMessages((prev) => [...prev, tempMsg]);
+    setIsSending(true);
     setNewMessage('');
+
+    try {
+      const lastUnassigned = localMessages
+        .filter(msg => msg.senderUuid === userUuid && !msg.assignedAdminUuid)
+        .pop();
+
+      if (lastUnassigned) {
+        await dispatch(assignMessageToAdmin({ messageUuid: lastUnassigned.uuid, adminUuid }));
+      }
+
+      await dispatch(sendReplyToUser({
+        recipientUuid: userUuid,
+        content: tempMsg.content
+      }));
+
+      await dispatch(getMessagesByUser(userUuid));
+      await dispatch(getMessages());
+    } catch (err) {
+      console.error("❌ Error enviando mensaje:", err);
+    }
+
+    setIsSending(false);
   };
-
-  
-
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* 🔥 Barra superior con el nombre real del usuario */}
-      <div className="flex items-center justify-between bg-blue-500 text-white p-4 rounded-t-lg shadow-md">
-        <button onClick={() => navigate(-1)} className="flex items-center">
+    <div className="max-w-4xl mx-auto p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between bg-blue-600 text-white p-4 rounded-t-lg shadow">
+        <button onClick={() => navigate(-1)} className="flex items-center text-sm hover:underline">
           <FaArrowLeft className="mr-2" /> Volver
         </button>
-        <h1 className="text-xl font-bold">{userName}</h1> {/* ✅ Nombre del usuario correcto */}
-        <div></div>
+        <h1 className="text-lg font-semibold">{userName}</h1>
+        <div />
       </div>
 
-      {/* 🔥 Lista de mensajes */}
-      <div ref={chatContainerRef} className="bg-gray-100 p-4 rounded-b-lg shadow-md h-96 overflow-y-auto">
+      {/* Chat container */}
+      <div
+        ref={chatContainerRef}
+        className="bg-gray-50 border border-gray-200 p-4 h-[400px] overflow-y-auto space-y-3"
+      >
         {loading ? (
-          <p>Cargando mensajes...</p>
+          <p className="text-gray-500">Cargando mensajes...</p>
         ) : error ? (
           <p className="text-red-600">{error}</p>
         ) : localMessages.length === 0 ? (
-          <p className="text-gray-600">No hay mensajes en esta conversación.</p>
+          <p className="text-gray-500">No hay mensajes en esta conversación.</p>
         ) : (
-          <ul className="space-y-3">
-            {localMessages
-              .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)) // ✅ Ordena cronológicamente
-              .map((msg) => (
-                <li key={msg.uuid} className={`flex ${msg.senderUuid === adminUuid ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`p-3 max-w-xs rounded-lg shadow-md text-sm ${
+          localMessages
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+            .map((msg) => (
+              <div
+                key={msg.uuid}
+                className={`flex ${msg.senderUuid === adminUuid ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-xs p-3 rounded-lg text-sm shadow ${
                     msg.senderUuid === adminUuid
-                      ? 'bg-blue-500 text-white'  // ✅ Mensaje del admin (azul)
-                      : 'bg-gray-300 text-gray-800'  // ✅ Mensaje del usuario (gris)
-                  }`}>
-                    <p className="font-medium">{msg.content}</p>
-                    <small className="block mt-1 text-xs text-gray-200">{formatDate(msg.createdAt)}</small>
-                  </div>
-                </li>
-              ))}
-          </ul>
+                      ? 'bg-blue-500 text-white rounded-br-none'
+                      : 'bg-gray-300 text-gray-900 rounded-bl-none'
+                  }`}
+                >
+                  <p className="whitespace-pre-line">{msg.content}</p>
+                  <small className="block mt-1 text-xs text-gray-100">
+                    {formatDate(msg.createdAt)}
+                  </small>
+                </div>
+              </div>
+            ))
         )}
       </div>
 
-      {/* 🔥 Enviar mensaje */}
+      {/* Input de envío */}
       <div className="flex mt-4">
         <input
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Escribe tu mensaje..."
-          className="flex-1 border px-3 py-2 rounded-l-lg"
+          className="flex-1 border px-3 py-2 rounded-l-md focus:outline-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSendMessage();
+          }}
         />
-        <button onClick={handleSendMessage} className="bg-blue-500 text-white px-4 py-2 rounded-r-lg">
+        <button
+          onClick={handleSendMessage}
+          disabled={isSending}
+          className={`bg-blue-600 text-white px-4 py-2 rounded-r-md hover:bg-blue-700 ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+        >
           <FaPaperPlane />
         </button>
       </div>

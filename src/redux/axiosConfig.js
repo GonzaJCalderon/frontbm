@@ -1,70 +1,74 @@
 import axios from 'axios';
 
-
-
-const baseURL = process.env.REACT_APP_ENV === 'remote'
-    ? process.env.REACT_APP_API_URL_LOCAL || 'http://localhost:5005'
-    : process.env.REACT_APP_API_URL_REMOTE || 'http://10.100.1.80:5005';
-
-console.log('Base URL configurada:', baseURL);
-
+const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
+console.log("🔥 API BASE URL:", baseURL);
 
 const api = axios.create({
-    baseURL: process.env.REACT_APP_ENV === 'remote'
-        ? process.env.REACT_APP_API_URL_LOCAL || 'http://localhost:5005'
-        : process.env.REACT_APP_API_URL_REMOTE || 'http://10.100.1.80:5005',
-    withCredentials: true, // PERMITIR ENVIAR COOKIES Y CREDENCIALES
+  baseURL,
+  withCredentials: true,
+  timeout: 30000, // ⏱️ 30 segundos de timeout para prevenir colgados eternos
 });
 
-
-// Interceptores
 api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 api.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-        if (error.response && error.response.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
+    if (error.code === 'ECONNABORTED') {
+      console.warn('⏰ Timeout de la petición:', originalRequest.url);
+      return Promise.reject({ message: 'Tiempo de espera agotado. Intenta nuevamente.' });
+    }
 
-            try {
-                const refreshToken = localStorage.getItem('refreshToken');
-                if (!refreshToken) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('refreshToken');
-                    window.location.href = '/home';
-                    return Promise.reject(error);
-                }
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
 
-                const response = await axios.post(`${baseURL}/refresh`, { refreshToken });
-                const newAccessToken = response.data.accessToken;
-
-                localStorage.setItem('token', newAccessToken);
-
-                originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
-
-                return api(originalRequest);
-            } catch (refreshError) {
-                console.error('Error al refrescar el token:', refreshError);
-                localStorage.removeItem('token');
-                localStorage.removeItem('refreshToken');
-                window.location.href = '/home';
-                return Promise.reject(refreshError);
-            }
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          console.warn('⚠️ No hay refresh token, no se puede renovar el acceso.');
+          return Promise.reject(error);
         }
 
-        return Promise.reject(error);
+        const response = await axios.post(`${baseURL}/refresh`, { refreshToken });
+        const newAccessToken = response.data.accessToken;
+
+        localStorage.setItem('authToken', newAccessToken);
+        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+
+        return api(originalRequest); // 🔁 RETRY
+      } catch (refreshError) {
+        console.error('❌ Falló el refresh del token:', refreshError);
+
+        if (
+          refreshError.response?.status === 401 || 
+          refreshError.response?.status === 403
+        ) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('userData');
+
+          window.location.href = '/home'; // o '/login'
+        }
+
+        return Promise.reject(refreshError);
+      }
     }
+
+    return Promise.reject(error);
+  }
 );
+
+
 
 export default api;

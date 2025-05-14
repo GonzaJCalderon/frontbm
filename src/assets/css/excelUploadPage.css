@@ -1,0 +1,112 @@
+.container {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.header-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.title, .description {
+    text-align: center;
+}
+
+.download-button-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.download-button {
+    background-color: #52c41a;
+    color: white;
+    border: none;
+}
+
+.upload-container {
+    background: linear-gradient(to right, #0048ff, #0066ff);
+    color: white;
+    padding: 30px;
+    text-align: center;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.upload-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+.file-upload-box {
+    background: white;
+    border: 2px dashed gray;
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    max-width: 400px;
+    margin: -40px auto 0;
+}
+
+.file-upload-text {
+    color: gray;
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+.file-upload-label {
+    color: #0048ff;
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.file-input {
+    display: none;
+}
+
+/* Estilo del resaltado amarillo */
+/* 🔹 Contenedor del mensaje destacado */
+.highlight {
+    background-color: #fff3cd; /* Fondo amarillo claro */
+    border: 1px solid #ffeeba; /* Borde sutil */
+    padding: 16px;
+    border-radius: 8px;
+    font-size: 16px;
+    text-align: center;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px; /* Espaciado entre el texto y el botón */
+    margin-bottom: 30px; /* Más separación de la caja azul */
+}
+
+/* 🔹 Botón lavanda */
+.download-button {
+    background-color: #b19cd9; /* Color lavanda */
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.download-button:hover {
+    background-color: #a48acb; /* Un poco más oscuro en hover */
+}
+
+/* 🔹 Separación de la caja azul */
+.upload-container {
+    background: linear-gradient(to right, #0048ff, #0066ff);
+    color: white;
+    padding: 30px;
+    text-align: center;
+    border-radius: 8px;
+    margin-top: 40px; /* Más separación del mensaje amarillo */
+}

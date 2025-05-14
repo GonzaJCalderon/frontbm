@@ -12,21 +12,31 @@ import {
   Upload,
   Table,
   Spin,
+  Steps,
+  Modal,
+  Checkbox,
+  Tag, 
+  Tooltip, 
 } from 'antd';
 import {
   ArrowLeftOutlined,
   LogoutOutlined,
   SearchOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
-import imagenPredeterminada from '../assets/27002.jpg'; // Ajusta la ruta si es necesario
+import imagenPredeterminada from '../assets/27002.jpg'; 
 import { v4 as uuidv4 } from 'uuid'; 
 
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch,  useSelector,  } from 'react-redux';
 
 // Acciones de Redux
-import { fetchBienes, registrarVenta, fetchAllBienes,addBien } from '../redux/actions/bienes';
-import { checkExistingUser, registerUsuarioPorTercero } from '../redux/actions/usuarios';
+import { fetchBienes,fetchBienesPorEmpresa, registrarVenta, fetchAllBienes,addBien } from '../redux/actions/bienes';
+import { checkExistingUser, registerUsuarioPorTercero,  fetchRenaperData } from '../redux/actions/usuarios';
+import imeiEjemplo from '../assets/imei-ejemplo.png';
+
+
+
 import api from '../redux/axiosConfig';
 
 const { Title, Text } = Typography;
@@ -39,11 +49,15 @@ const departments = [
 ];
 const tiposDeBienesIniciales = [
   'bicicleta','TV','equipo de audio','cámara fotográfica','notebook','tablet','teléfono movil'
-];
+]; 
 
+const { Step } = Steps;
 const VenderPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  const renaperState = useSelector(state => state.renaper || {});
+  const { loading: renaperLoading, error: renaperError } = renaperState;
 
   // Paso 1: Datos del comprador, Paso 2: Selección/registro de bienes, Paso 3: Confirmación de venta
   const [step, setStep] = useState(1);
@@ -63,7 +77,14 @@ const VenderPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGood, setSelectedGood] = useState(null);
   const [selectedGoods, setSelectedGoods] = useState([]);
+  const [imeisSeleccionadosExistente, setImeisSeleccionadosExistente] = useState([]);
   const [tipoNuevo, setTipoNuevo] = useState('');
+  const isFetchingDni = useRef(false);
+  const [emailComprador, setEmailComprador] = useState('');
+  const [modalImeiVisible, setModalImeiVisible] = useState(false);
+
+
+
 
 
 
@@ -73,12 +94,12 @@ const VenderPage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [loadingBienes, setLoadingBienes] = useState(false);
   const observer = useRef();
-  
+
+
 
   // Para bienes nuevos:
   // Fotos generales (para bienes sin IMEI)
   const [fileList, setFileList] = useState([]);
-  // Para bienes de tipo "teléfono movil": array de objetos { imei, foto }
   const [imeisNuevo, setImeisNuevo] = useState([]);
   const [tiposDeBienes] = useState(tiposDeBienesIniciales);
   const [marcas, setMarcas] = useState([]);
@@ -86,6 +107,7 @@ const VenderPage = () => {
   const [nuevaMarca, setNuevaMarca] = useState('');
   const [nuevoModelo, setNuevoModelo] = useState('');
   const [totalPrecioIndividual, setTotalPrecioIndividual] = useState(0);
+  const [cantidadVisual, setCantidadVisual] = useState(1);
 
 
   // Loading global
@@ -94,12 +116,20 @@ const VenderPage = () => {
   const [refreshFlag, setRefreshFlag] = useState(false);
 
 
+
+
   // Para mostrar formulario adicional en Paso 3
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Usuario vendedor obtenido del localStorage
   const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
-  const vendedorId = usuario?.uuid;
+
+  // 🔥 Determina si vende como empresa
+  const vendiendoComoEmpresa = Boolean(usuario?.empresaUuid);
+  
+  // Esto sigue igual:
+  const vendedorId = usuario?.empresaUuid || usuario?.uuid;
+  
   
   if (!vendedorId) {
     message.error('Debe iniciar sesión como vendedor.');
@@ -107,38 +137,54 @@ const VenderPage = () => {
   }
   
 
-
   useEffect(() => {
     if (selectedGood) {
-      console.log("🛠 Cargando datos en el formulario:", selectedGood);
-  
       formGood.setFieldsValue({
         tipo: selectedGood.tipo,
         marca: selectedGood.marca,
         modelo: selectedGood.modelo,
         descripcion: selectedGood.descripcion,
         precio: selectedGood.precio,
-        cantidad: 1, // Default: 1 unidad
+        cantidad: 1,
       });
   
-      console.log("📸 Fotos del bien seleccionado:", selectedGood.fotos);
+      // 📦 Mostrar stock disponible
+      const stockDisponible = selectedGood.tipo.toLowerCase() === "teléfono movil"
+        ? (selectedGood.identificadores?.filter(i => i.estado === 'disponible').length ?? 0)
+        : (selectedGood.stock ?? 0);
   
-      // Asegurar que `fotos` es un array válido
-      if (!selectedGood.fotos || !Array.isArray(selectedGood.fotos)) {
-        selectedGood.fotos = [];
-      }
+      message.info(`📦 Stock disponible: ${stockDisponible} unidad(es)`);
   
-      // Si es un teléfono móvil, carga los IMEIs existentes
       if (selectedGood.tipo.toLowerCase() === "teléfono movil") {
         const imeisCargados = (selectedGood.identificadores || []).map(det => ({
           imei: det.identificador_unico,
-          foto: null, // Las fotos las obtenemos de otro lado
-          precio: selectedGood.precio, // Precio unitario
+          foto: null,
+          precio: selectedGood.precio,
         }));
         setImeisNuevo(imeisCargados);
       }
     }
   }, [selectedGood, formGood]);
+  
+
+  useEffect(() => {
+    if (
+      selectedGood &&
+      selectedGood.tipo.toLowerCase() === "teléfono movil"
+    ) {
+      const nuevaCantidad = imeisSeleccionadosExistente.length;
+      setCantidadVisual(nuevaCantidad); // 🔥 Update visual
+      formGood.setFieldsValue({ cantidad: nuevaCantidad }); // Update formulario
+    }
+  }, [imeisSeleccionadosExistente, selectedGood]);
+  
+  useEffect(() => {
+    if (selectedGood) {
+      setImeisSeleccionadosExistente([]);
+    }
+  }, [selectedGood]);
+  
+  
   
 
   useEffect(() => {
@@ -150,56 +196,80 @@ const VenderPage = () => {
 
   // --- Paso 1: Registro/Identificación del comprador ---
   const handleFinishPaso1 = async (values) => {
-    console.log("📌 Valores recibidos del comprador:", values);
     const { nombre, apellido, dni, email, tipo, cuit, direccion, razonSocial } = values;
   
     try {
       setLoading(true);
   
-      // 1️⃣ Verificar si el usuario ya existe
-      const existingUserResponse = await dispatch(checkExistingUser({ dni, nombre, apellido }));
-      console.log("📌 Respuesta checkExistingUser:", existingUserResponse);
-  
-      if (existingUserResponse.existe) {
-        setCompradorId(existingUserResponse.usuario.uuid);
-        message.success("✅ Comprador identificado correctamente.");
-      } else {
-        // 2️⃣ Si el usuario NO existe, intentamos registrarlo
-        message.info("ℹ️ Comprador no encontrado. Registrando nuevo usuario...");
-  
-        try {
-          const newUserResponse = await dispatch(registerUsuarioPorTercero({
-            dni,
-            email,
-            nombre,
-            apellido,
-            tipo,
-            cuit,
-            direccion,
-            razonSocial: tipo === 'juridica' ? razonSocial : null,
-          }));
-  
-          if (newUserResponse?.uuid) {
-            setCompradorId(newUserResponse.uuid);
-            message.success("✅ Comprador registrado correctamente.");
-          } else {
-            throw new Error("❌ No se pudo registrar el comprador.");
-          }
-        } catch (registerError) {
-          console.error("❌ Error en registro de comprador:", registerError);
-          message.error(registerError.message || "Error al registrar el comprador.");
-          return; // No continuar si hay error en el registro
+      if (compradorId) {
+        // Ya tenemos comprador
+        if (!email) {
+          message.error("Debes ingresar el correo electrónico del comprador.");
+          return;
         }
+  
+        message.success("✅ Comprador listo para continuar.");
+        setStep(2);
+        return;
       }
   
-      setStep(2);
+      // Buscar en base de datos
+      const existingUserResponse = await dispatch(checkExistingUser({ dni, nombre, apellido }));
+  
+      if (existingUserResponse?.existe) {
+        const usuarioExistente = existingUserResponse.usuario;
+        setCompradorId(usuarioExistente.uuid);
+  
+        if (usuarioExistente.email) {
+          formBuyer.setFieldsValue({ email: usuarioExistente.email });
+          setEmailComprador(usuarioExistente.email);
+        } else if (!email) {
+          message.error("⚠️ El comprador no tiene email en la base. Debes ingresarlo manualmente.");
+          return;
+        }
+  
+        message.success("✅ Comprador encontrado en sistema.");
+        setStep(2); // Pasar al siguiente paso
+        return; // 🔥 NO registrar de nuevo
+      }
+  
+      // Si no existe, registrar
+      if (!email) {
+        message.error("Debes ingresar el correo electrónico para registrar al nuevo comprador.");
+        return;
+      }
+  
+      const newUserResponse = await dispatch(registerUsuarioPorTercero({
+        dni,
+        nombre,
+        apellido,
+        email,
+        tipo,
+        cuit,
+        direccion,
+        razonSocial: tipo === 'juridica' ? razonSocial : null,
+      }));
+  
+      if (newUserResponse?.uuid) {
+        setCompradorId(newUserResponse.uuid);
+        message.success("✅ Comprador registrado correctamente.");
+        setStep(2);
+      } else {
+        throw new Error("❌ No se pudo registrar el comprador.");
+      }
     } catch (error) {
-      console.error("❌ Error en Paso 1 (comprador):", error);
+      console.error(error);
       message.error(error.message || "Error al procesar el comprador.");
     } finally {
       setLoading(false);
     }
   };
+  
+  
+  
+  
+  
+  
   
   useEffect(() => {
     const total = imeisNuevo.reduce((acc, curr) => acc + (Number(curr.precio) || 0), 0);
@@ -213,13 +283,19 @@ const VenderPage = () => {
       const cargarBienes = async () => {
         setLoadingBienes(true);
         try {
-          console.log("📌 Llamando a fetchBienes con vendedorId:", vendedorId);
           if (!vendedorId) {
             message.error("❌ No se encontró el vendedor.");
             return;
           }
   
-          const response = await dispatch(fetchBienes(vendedorId));
+          const vendiendoComoEmpresa = Boolean(usuario?.empresaUuid);
+
+          const response = vendiendoComoEmpresa
+            ? await dispatch(fetchBienesPorEmpresa(usuario.empresaUuid))
+            : await dispatch(fetchBienes(usuario.uuid));
+          
+
+
   
           if (!response || typeof response !== 'object') {
             throw new Error("Respuesta de fetchBienes es inválida.");
@@ -229,12 +305,17 @@ const VenderPage = () => {
             throw new Error(response.message || "No se pudieron cargar bienes.");
           }
   
-          const bienesDisponibles = response.data.filter(bien => bien.stock > 0);
+          const bienesDisponibles = response.data.filter(bien => {
+            const esTelefono = bien.tipo?.toLowerCase().includes("teléfono movil");
+            if (esTelefono) {
+              return (bien.identificadores || []).some((i) => i.estado === 'disponible');
+            }
+            return bien.stock && bien.stock > 0;
+          });
           
-          console.log("✅ Bienes disponibles después del filtro:", bienesDisponibles);
+          
   
           if (bienesDisponibles.length === 0) {
-            console.warn("⚠️ No hay bienes con stock disponible.");
             message.warning("No hay bienes disponibles para vender.");
           }
   
@@ -246,13 +327,11 @@ const VenderPage = () => {
             setBienesFiltrados(prev => [...prev, ...bienesDisponibles]);
           }
   
-          console.log("📌 Estado de bienes actualizado:", bienesDisponibles);
   
           if (bienesDisponibles.length < pageSize) {
             setHasMore(false);
           }
         } catch (error) {
-          console.error("❌ Error al cargar bienes:", error);
           message.error(error.message || "Error al cargar bienes.");
         } finally {
           setLoadingBienes(false);
@@ -279,7 +358,6 @@ const VenderPage = () => {
       );
   
       if (filtered.length === 0) {
-        console.warn("⚠️ No hay bienes que coincidan con la búsqueda:", val);
       }
   
       setBienesFiltrados(filtered);
@@ -385,6 +463,20 @@ const VenderPage = () => {
       });
     }
   };
+
+  const iconoPorTipo = (tipo) => {
+  const map = {
+    'bicicleta': '🚲',
+    'tv': '📺',
+    'equipo de audio': '🔊',
+    'cámara fotográfica': '📷',
+    'notebook': '💻',
+    'tablet': '📱',
+    'teléfono movil': '📱'
+  };
+  return map[tipo?.toLowerCase()] || '📦';
+};
+
   
 // Actualizar el IMEI
 const actualizarImei = (index, value) => {
@@ -413,9 +505,9 @@ const actualizarPrecioImei = (index, value) => {
 
 // Actualizar la foto
 
+
 const actualizarFotoImei = (index, file) => {
   if (!file) {
-    console.error("❌ ERROR: `file` es undefined en actualizarFotoImei");
     return;
   }
 
@@ -439,7 +531,6 @@ const actualizarFotoImei = (index, file) => {
     return bien;
   }));
 
-  console.log("✅ IMEI actualizado correctamente:", index, file.originFileObj || file);
 };
 
 
@@ -458,6 +549,39 @@ const eliminarImei = (index) => {
 const agregarBienAVenta = (values) => {
   const bienesParaAgregar = [];
 
+  const tipo = values.tipo?.toLowerCase();
+  const esTelefono = tipo === "teléfono movil";
+  const marca = values.marca;
+  const modelo = values.modelo;
+  const descripcion = values.descripcion?.trim();
+
+  // 📌 Detectar duplicado en bienesAVender
+  const yaExiste = bienesAVender.some((bien) => {
+    const bienTipo = bien.tipo?.toLowerCase();
+    if (esTelefono) {
+      const nuevosImeis = imeisNuevo.map(i => i.imei?.trim()).filter(Boolean);
+      const existentesImeis = bien.imeis?.map(i => i.imei?.trim()) || [];
+      return (
+        bienTipo === tipo &&
+        bien.marca === marca &&
+        bien.modelo === modelo &&
+        nuevosImeis.some(imei => existentesImeis.includes(imei))
+      );
+    } else {
+      return (
+        bienTipo === tipo &&
+        bien.marca === marca &&
+        bien.modelo === modelo &&
+        bien.descripcion?.trim() === descripcion
+      );
+    }
+  });
+
+  if (yaExiste) {
+    message.warning("⚠️ Ya agregaste un bien similar a la venta.");
+    return;
+  }
+
   // 📌 SI EL BIEN ES NUEVO
   if (subStep2 === "nuevo") {
     const imeisFiltrados = imeisNuevo.filter(imei => imei.imei && imei.imei.trim());
@@ -468,48 +592,80 @@ const agregarBienAVenta = (values) => {
       marca: values.marca,
       modelo: values.modelo,
       descripcion: values.descripcion,
-      cantidad: values.tipo.toLowerCase() === "teléfono movil" ? imeisFiltrados.length : values.cantidad,
+      cantidad: esTelefono ? imeisFiltrados.length : values.cantidad,
       metodoPago: values.metodoPago || "efectivo",
       imeis: [],
       fotos: [],
     };
 
-    if (values.tipo.toLowerCase() === "teléfono movil") {
-      bienNuevo.imeis = imeisFiltrados.map((imeiObj) => ({
-        imei: imeiObj.imei,
-        precio: imeiObj.precio,
-        foto: imeiObj.foto ? imeiObj.foto.originFileObj || imeiObj.foto : null,
-      }));
-    } else {
-      bienNuevo.precio = values.precio;
-      bienNuevo.identificadores_unicos = values.identificadores || [];
-      bienNuevo.fotos = fileList.map(file => file.originFileObj);
-    }
+   if (esTelefono) {
+  bienNuevo.imeis = imeisFiltrados.map((imeiObj) => ({
+    imei: imeiObj.imei,
+    precio: imeiObj.precio,
+    foto: imeiObj.foto ? imeiObj.foto.originFileObj || imeiObj.foto : null,
+  }));
+
+  // 🔥 Agregá esto para asegurar que el campo `precio` esté definido (aunque no se use directamente)
+  bienNuevo.precio = totalPrecioIndividual;
+
+  // 🔥 Agregá esto si querés conservar fotos a nivel general (por ejemplo, del lote)
+  bienNuevo.fotos = imeisFiltrados.map(i => i.foto).filter(Boolean);
+}
+
 
     bienesParaAgregar.push(bienNuevo);
   }
 
-  // --- SI EL BIEN YA ESTÁ REGISTRADO ---
+  // 📌 SI EL BIEN YA ESTÁ REGISTRADO
   if (subStep2 === "existente") {
     if (!selectedGood) {
       message.warning("⚠️ No has seleccionado un bien existente.");
       return;
     }
+  
+    const tipo = selectedGood.tipo.toLowerCase();
+    const cantidadSolicitada = values.cantidad ?? 0;
+    
+    const stockDisponible = tipo === "teléfono movil"
+      ? (selectedGood.identificadores?.filter(i => i.estado === 'disponible').length ?? 0)
+      : (selectedGood.stock ?? 0);
+  
+    if (tipo !== "teléfono movil" && cantidadSolicitada > stockDisponible) {
+      message.error(`❌ No hay suficientes unidades disponibles para ${selectedGood.marca} ${selectedGood.modelo}. Se requieren ${cantidadSolicitada}, pero solo hay ${stockDisponible} disponibles.`);
+      return;
+    }
+  
+  
+    // 🟢 Validación IMEI para teléfonos ya está OK
+    if (
+      selectedGood.tipo.toLowerCase() === "teléfono movil" &&
+      imeisSeleccionadosExistente.length === 0
+    ) {
+      message.warning("⚠️ Debes seleccionar al menos un IMEI para este teléfono.");
+      return;
+    }
 
-    const bienExistente = {
-      uuid: selectedGood.uuid,
-      tipo: selectedGood.tipo,
-      marca: selectedGood.marca,
-      modelo: selectedGood.modelo,
-      descripcion: selectedGood.descripcion,
-      cantidad: values.cantidad,
+  
+let cantidadFinal = values.cantidad; 
+if (selectedGood.tipo.toLowerCase() === "teléfono movil") {
+  cantidadFinal = imeisSeleccionadosExistente.length;
+}
+
+const bienExistente = {
+  uuid: selectedGood.uuid,
+  tipo: selectedGood.tipo,
+  marca: selectedGood.marca,
+  modelo: selectedGood.modelo,
+  descripcion: selectedGood.descripcion,
+  cantidad: cantidadFinal, 
       metodoPago: values.metodoPago || "efectivo",
       precio: selectedGood.precio,
-      imeis: (selectedGood.identificadores || []).map((identificador) => ({
-        imei: identificador.identificador_unico,
+      imeis: imeisSeleccionadosExistente.map((imei) => ({
+        imei,
         precio: selectedGood.precio,
-        foto: null, // inicialmente sin foto, o puedes agregar lógica aquí si la tienes disponible
+        foto: null,
       })),
+      
       fotos: selectedGood.fotos || [],
     };
 
@@ -527,8 +683,6 @@ const agregarBienAVenta = (values) => {
   setImeisNuevo([]);
   setSelectedGoods([]);
   setSelectedGood(null);
-
-  console.log("✅ Estado actualizado de bienesAVender:", bienesAVender);
 };
 
 
@@ -539,122 +693,311 @@ const agregarBienAVenta = (values) => {
   };
 
   useEffect(() => {
-    console.log("Estado actualizado de bienesAVender:", bienesAVender);
   }, [bienesAVender]);
 
   // --- Función para confirmar la venta ---
-  const confirmarVenta = async () => {
-    setLoadingVenta(true);
-  
-    try {
-      const bienesProcesados = bienesAVender.map((bien) => ({
-        ...bien,
-        uuid: bien.uuid || null,
-        propietario_uuid: vendedorId,
-        imeis: bien.imeis?.map((imei) => ({
-          imei: imei.imei,
-          precio: imei.precio,
-          foto: imei.foto?.originFileObj || imei.foto || null, // 🔥 Verificamos `originFileObj`
-        })) || [],
-      }));
-  
-      console.log("📦 Bienes procesados antes de enviar:", bienesProcesados);
-  
-      const formData = new FormData();
-      formData.append("vendedorUuid", vendedorId);
-      formData.append("compradorId", compradorId);
-      formData.append("ventaData", JSON.stringify(bienesProcesados));
-  
-      // 🔄 **Adjuntar imágenes reales a FormData**
-      bienesAVender.forEach((bien, bienIndex) => {
-        bien.fotos?.forEach((foto, fotoIndex) => {
-          const archivo = foto.originFileObj || foto; // ✅ Obtener archivo real
-          if (archivo instanceof File) {
-            formData.append(`venta[${bienIndex}][fotos][${fotoIndex}]`, archivo);
-            console.log(`🖼️ Foto añadida: venta[${bienIndex}][fotos][${fotoIndex}]`, archivo);
-          } else {
-            console.warn(`⚠️ La foto ${fotoIndex} del bien ${bienIndex} NO es un archivo válido.`);
-          }
-        });
-  
-        if (bien.tipo.toLowerCase() === "teléfono movil" && bien.imeis) {
-          bien.imeis.forEach((imei, imeiIndex) => {
-            const imeiFoto = imei.foto?.originFileObj || imei.foto;
-            if (imeiFoto instanceof File) {
-              formData.append(`venta[${bienIndex}][imeis][${imeiIndex}][foto]`, imeiFoto);
-              console.log(`📱 Foto IMEI añadida: venta[${bienIndex}][imeis][${imeiIndex}][foto]`, imeiFoto);
-            } else {
-              console.warn(`⚠️ La foto del IMEI ${imeiIndex} en el bien ${bienIndex} NO es un archivo válido.`);
+const confirmarVenta = async () => {
+  setLoadingVenta(true);
+
+  try {
+    const ventaData = [];
+
+    for (let i = 0; i < bienesAVender.length; i++) {
+      const bien = bienesAVender[i];
+      let bienUuid = bien.uuid;
+
+      // 🧱 Si el bien NO existe todavía (es nuevo)
+      if (!bienUuid) {
+        const formDataBien = new FormData();
+        formDataBien.append('tipo', bien.tipo);
+        formDataBien.append('marca', bien.marca);
+        formDataBien.append('modelo', bien.modelo);
+        formDataBien.append('descripcion', bien.descripcion);
+        formDataBien.append('precio', bien.precio || 0);
+        formDataBien.append('stock', JSON.stringify({ cantidad: bien.cantidad }));
+        formDataBien.append('propietario_uuid', vendedorId);
+        formDataBien.append('registrado_por_uuid', vendedorId);
+
+        // 📱 Si es teléfono, procesamos IMEIs y sus fotos
+        if (bien.tipo.toLowerCase() === 'teléfono movil') {
+          const imeisFormateados = bien.imeis.map((i, idx) => ({
+            imei: i.imei,
+            precio: i.precio || 0,
+            fotoIndex: idx,
+          }));
+          formDataBien.append('imei', JSON.stringify(imeisFormateados));
+
+          bien.imeis.forEach((imeiObj, idx) => {
+            const archivo = imeiObj.foto instanceof File
+              ? imeiObj.foto
+              : imeiObj.foto?.originFileObj;
+            if (archivo) {
+              formDataBien.append(`imeiFotos[${idx}]`, archivo);
             }
           });
         }
+
+        // 📷 Agregar fotos generales (para bienes no telefónicos)
+        if (bien.fotos && Array.isArray(bien.fotos)) {
+          bien.fotos.forEach((foto, idx) => {
+            const archivo = foto.originFileObj || foto;
+            if (archivo instanceof File) {
+formDataBien.append(`venta[${i}][imeis][${idx}][foto]`, archivo);
+
+            }
+          });
+        }
+
+        // 👁️ Debug
+        console.log("🧪 FormData enviado al backend:");
+        for (let pair of formDataBien.entries()) {
+          console.log(pair[0], pair[1]);
+        }
+
+        // 🧾 Registrar el bien
+        const bienCreadoResponse = await dispatch(addBien(formDataBien));
+
+        if (!bienCreadoResponse?.bien?.uuid) {
+          throw new Error("❌ No se pudo registrar el bien.");
+        }
+
+        bienUuid = bienCreadoResponse.bien.uuid;
+
+        // 🕒 Esperamos a que aparezcan los identificadores
+        let retries = 10;
+        let bienConfirmado = false;
+        while (retries > 0 && !bienConfirmado) {
+          const r = await api.get(`/bienes/buscar/${bienUuid}`);
+          const detalles = r?.data?.bien?.identificadores || [];
+
+          if (r.status === 200 && detalles.length >= bien.cantidad) {
+            bienConfirmado = true;
+            break;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 800));
+          retries--;
+        }
+
+        if (!bienConfirmado) {
+          throw new Error(`❌ El bien ${bien.marca} ${bien.modelo} aún no está disponible con stock completo. Intenta nuevamente.`);
+        }
+
+        // 📲 Asociar IMEIs confirmados
+        const imeisInsertados = bienCreadoResponse.bien.imeis || [];
+        bien.imeis = imeisInsertados.map((d, idx) => ({
+          imei: d.imei,
+          precio: bien.imeis?.[idx]?.precio || 0,
+          foto: bien.imeis?.[idx]?.foto || null,
+        }));
+      }
+
+      // 📦 Agregar bien a la ventaData
+      const imeis = (bien.imeis || []).filter(i => i.imei?.trim());
+      ventaData.push({
+        uuid: bienUuid,
+        tipo: bien.tipo,
+        marca: bien.marca,
+        modelo: bien.modelo,
+        descripcion: bien.descripcion,
+        cantidad: bien.cantidad,
+        metodoPago: bien.metodoPago || "efectivo",
+        precio: bien.precio || 0,
+        imeis: imeis.map(i => ({
+          imei: i.imei.trim(),
+          precio: i.precio || 0,
+          foto: i.foto,
+        })),
+        fotos: bien.fotos || [],
       });
-  
-      // 📌 **Verificar `FormData` antes de enviarlo**
-      for (let pair of formData.entries()) {
-        console.log("🔍 FormData Entry:", pair[0], pair[1]);
-      }
-  
-      const response = await dispatch(registrarVenta(formData));
-  
-      console.log("✅ Respuesta del backend:", response);
-  
-      if (response?.success) {
-        message.success(`✅ ${response.message}`);
-        navigate("/user/dashboard");
-      } else {
-        throw new Error(response?.message || "❌ Error al registrar la venta.");
-      }
-    } catch (error) {
-      console.error("❌ Error en confirmarVenta:", error);
-      message.error(error.message || "Error al procesar la venta.");
-    } finally {
-      setLoadingVenta(false);
     }
-  };
-  
-  
+console.log("📦 ventaData antes de generar FormData:");
+console.log(JSON.stringify(ventaData, null, 2));
+    // 🧾 Final FormData de venta
+    const formDataVenta = new FormData();
+    formDataVenta.append("vendedorUuid", vendedorId);
+    formDataVenta.append("compradorId", compradorId);
+    formDataVenta.append("ventaData", JSON.stringify(ventaData));
+
+    // 📎 Adjuntar fotos generales e IMEI por venta
+    // 📎 Adjuntar fotos generales e IMEI por venta (CORREGIDO)
+ventaData.forEach((bien, i) => {
+  // ✅ FOTOS GENERALES del bien (fotos_bien_0_0, fotos_bien_0_1...)
+  if (bien.fotos && Array.isArray(bien.fotos)) {
+    bien.fotos.forEach((foto, j) => {
+      const archivo = foto.originFileObj || foto;
+      if (archivo instanceof File) {
+        formDataVenta.append(`fotos_bien_${i}_${j}`, archivo); // 💥 este nombre es el que espera tu backend
+      }
+    });
+  }
+
+  // ✅ Fotos por IMEI
+  bien.imeis?.forEach((imei, k) => {
+    const archivo = imei.foto?.originFileObj || imei.foto;
+    if (archivo instanceof File) {
+      formDataVenta.append(`imeiFoto_${k}`, archivo); // ya lo estás manejando en backend
+    }
+  });
+});
+
+console.log("🧪 CONTENIDO DE FormData antes de enviar:");
+
+for (let pair of formDataVenta.entries()) {
+  const valor = pair[1];
+
+  if (valor instanceof File) {
+    console.log(`🖼️ ${pair[0]} = File ->`, {
+      name: valor.name,
+      size: valor.size,
+      type: valor.type,
+    });
+  } else {
+    console.log(`📝 ${pair[0]} =`, valor);
+  }
+}
 
 
-  
-  
-  // --- Función para validar DNI con RENAPER ---
-  const validateDNIWithRenaper = async (dni) => {
-    try {
-      if (!dni) {
-        message.error("El DNI es obligatorio.");
-        return;
-      }
-      const { data } = await api.get(`/renaper/${dni}`);
-      if (data.success) {
-        const persona = data.data.persona;
-        formBuyer.setFieldsValue({
-          nombre: persona.nombres || "",
-          apellido: persona.apellidos || "",
-          email: persona.email || "",
-          cuit: persona.nroCuil || "",
-          direccion: {
-            calle: persona.domicilio?.calle || "",
-            altura: persona.domicilio?.nroCalle || "",
-            barrio: persona.domicilio?.barrio || "",
-            departamento: persona.domicilio?.localidad || "",
-          },
-        });
-        message.success("Datos cargados correctamente desde RENAPER.");
-      } else {
-        message.error(data.message || "Persona no encontrada en RENAPER.");
-      }
-    } catch (error) {
-      console.error("Error al validar el DNI con RENAPER:", error);
-      message.error("Error al validar el DNI.");
+
+    // 🚀 Enviar venta al backend
+    const response = await dispatch(registrarVenta(formDataVenta));
+    console.log("🔍 Resultado de registrarVenta:", response);
+
+    if (response?.success === true) {
+      message.success(response.message || "✅ Venta registrada.");
+      navigate("/user/dashboard");
+    } else {
+      throw new Error(response?.message || "❌ Error al registrar la venta.");
     }
-  };
+
+  } catch (error) {
+    console.error('❌ Error al confirmar venta:', error);
+    const mensajeError = error?.message || "❌ Error al registrar la venta.";
+    message.error(mensajeError);
+  } finally {
+    setLoadingVenta(false);
+  }
+};
+
+
+
+  
+  
+  const hayImeisDuplicados = imeisNuevo
+  .map((i) => i.imei?.trim())
+  .filter(Boolean)
+  .some((val, idx, arr) => arr.indexOf(val) !== idx);
+
+if (hayImeisDuplicados) {
+  return message.error("🚫 Hay IMEIs duplicados. Corrige antes de continuar.");
+}
+
+const validateDNIWithRenaper = async (dni) => {
+  if (isFetchingDni.current) return;
+
+  try {
+    if (!dni) {
+      message.error("El DNI es obligatorio.");
+      return;
+    }
+
+    isFetchingDni.current = true;
+
+    console.log('🔍 Buscando en RENAPER...');
+
+    // 1. Traemos datos de RENAPER primero
+    const persona = await dispatch(fetchRenaperData(dni));
+
+    console.log('🛂 Datos de RENAPER:', persona);
+
+    if (!persona) {
+      message.warning("⚠️ No se encontraron datos en RENAPER.");
+      return;
+    }
+
+    // 2. Rellenar campos del formulario
+    formBuyer.setFieldsValue({
+      nombre: persona.nombres || "",
+      apellido: persona.apellidos || "",
+      cuit: persona.nroCuil || "",
+      direccion: {
+        calle: persona.domicilio?.calle || "",
+        altura: persona.domicilio?.nroCalle || "",
+        barrio: persona.domicilio?.barrio || "",
+        departamento: persona.domicilio?.localidad || "",
+      },
+    });
+
+    // 3. Ahora que ya tenemos persona, podemos buscar si existe en el sistema
+    console.log('🔍 Buscando en sistema si el usuario ya existe...');
+    const checkUserResponse = await dispatch(checkExistingUser({
+      dni,
+      nombre: persona.nombres || '',
+      apellido: persona.apellidos || '',
+      email: persona.email || '',
+    }));
+
+    console.log('🗃️ Respuesta de checkExistingUser:', checkUserResponse);
+
+    if (checkUserResponse?.existe && checkUserResponse?.usuario) {
+      const usuarioExistente = checkUserResponse.usuario;
+
+      console.log('📨 Email recibido del usuario existente:', usuarioExistente.email);
+
+      if (usuarioExistente?.email) {
+        formBuyer.setFieldsValue({ email: usuarioExistente.email });
+        setEmailComprador(usuarioExistente.email);
+        message.info("📧 Email del comprador cargado automáticamente.");
+      } else {
+        formBuyer.setFieldsValue({ email: "" });
+        setEmailComprador('');
+        message.warning("⚠️ El comprador existe pero no tiene email registrado.");
+      }
+
+      setCompradorId(usuarioExistente.uuid);
+    } else {
+      formBuyer.setFieldsValue({ email: "" });
+      setEmailComprador('');
+      setCompradorId(null);
+
+      message.warning("⚠️ El comprador no está registrado. Completa el correo electrónico manualmente.");
+    }
+
+    message.success("✅ Datos cargados correctamente desde RENAPER.");
+  } catch (error) {
+    console.error('❌ Error validando DNI con RENAPER:', error);
+    message.error(error.message || "Error al validar el DNI.");
+  } finally {
+    isFetchingDni.current = false;
+  }
+};
+
+
+
+
+
+
+
 
   return (
     <div style={{ padding: 20, maxWidth: 1000, margin: '0 auto' }}>
-      <Title level={2} style={{ textAlign: 'center', marginBottom: 20 }}>
-        Formulario para Vender Múltiples Bienes
-      </Title>
+      <Steps current={step - 1} style={{ marginBottom: 24 }}>
+  <Step title="Datos del Comprador" />
+  <Step title="Registro de Bienes" />
+</Steps>
+<Title level={3}>
+  Registrando venta a nombre de:{' '}
+  {vendiendoComoEmpresa ? (
+    <Tag color="blue">{usuario.razonSocial || "Empresa"}</Tag>
+  ) : (
+    <Tag color="green">{`${usuario.nombre} ${usuario.apellido}`}</Tag>
+  )}
+</Title>
+
+
+
+  
+
       <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between' }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => {
           if (step === 1) navigate('/user/dashboard');
@@ -686,31 +1029,56 @@ const agregarBienAVenta = (values) => {
             </Text>
           </div>
           <Form layout="vertical" form={formBuyer} onFinish={handleFinishPaso1}>
-            <Form.Item label="Tipo de Persona" name="tipo" rules={[{ required: true, message: 'Selecciona el tipo de persona.' }]}>
-              <Select placeholder="Selecciona tipo">
-                <Option value="persona">Persona Humana</Option>
-                <Option value="juridica">Persona Jurídica</Option>
-              </Select>
-            </Form.Item>
+          <Form.Item
+  label="Tipo de Persona"
+  name="tipo"
+  rules={[{ required: true, message: 'Selecciona el tipo de persona.' }]}
+>
+  <Select placeholder="Selecciona tipo">
+    <Option value="fisica">Persona Humana</Option>     {/* ← CAMBIADO */}
+    <Option value="juridica">Persona Jurídica</Option> {/* ← CAMBIADO */}
+  </Select>
+</Form.Item>
+
             <Form.Item
-              label="DNI"
-              name="dni"
-              rules={[
-                { required: true, message: 'Ingresa el DNI.' },
-                { pattern: /^\d{7,8}$/, message: 'El DNI debe tener 7 u 8 dígitos.' },
-              ]}
-            >
-              <Input placeholder="DNI" onBlur={(e) => validateDNIWithRenaper(e.target.value)} />
-            </Form.Item>
+  label="DNI"
+  name="dni"
+  rules={[
+    { required: true, message: 'Ingresa el DNI.' },
+    { pattern: /^\d{7,8}$/, message: 'El DNI debe tener 7 u 8 dígitos.' },
+  ]}
+>
+  <Input
+    placeholder="DNI"
+    onBlur={(e) => validateDNIWithRenaper(e.target.value)}
+  />
+</Form.Item>
+
+{/* 🌀 Loader de RENAPER mientras carga */}
+{renaperLoading && (
+  <div style={{ textAlign: 'center', marginBottom: 10 }}>
+    <Spin tip="Consultando RENAPER..." />
+  </div>
+)}
+
+{/* ❌ Error si algo falla en la consulta */}
+{renaperError && (
+  <p style={{ color: 'red', textAlign: 'center', marginTop: 5 }}>
+    ⚠️ {renaperError}
+  </p>
+)}
+
+
             <Form.Item label="Nombre" name="nombre" rules={[{ required: true, message: 'Ingresa el nombre.' }]}>
               <Input placeholder="Nombre" />
             </Form.Item>
             <Form.Item label="Apellido" name="apellido" rules={[{ required: true, message: 'Ingresa el apellido.' }]}>
               <Input placeholder="Apellido" />
             </Form.Item>
-            <Form.Item label="Correo Electrónico" name="email" rules={[{ required: true, type: 'email', message: 'Ingresa un correo válido.' }]}>
-              <Input placeholder="Email" />
-            </Form.Item>
+
+
+
+
             <Form.Item label="CUIT" name="cuit" rules={[{ required: true, message: 'Ingresa el CUIT.' }]}>
               <Input placeholder="CUIT" />
             </Form.Item>
@@ -725,6 +1093,14 @@ const agregarBienAVenta = (values) => {
                 {departments.map(dep => <Option key={dep} value={dep}>{dep}</Option>)}
               </Select>
             </Form.Item>
+            <Form.Item
+  label="Correo Electrónico"
+  name="email"
+  rules={[{ required: true, type: 'email', message: 'Ingresa un correo válido.' }]}
+>
+  <Input placeholder="Correo Electrónico" />
+</Form.Item>
+
             <Button type="primary" htmlType="submit" block loading={loading}>
               Siguiente
             </Button>
@@ -767,48 +1143,157 @@ const agregarBienAVenta = (values) => {
     marginBottom: '16px'
   }}>
 {bienesFiltrados.map((bien, i) => {
-  // 🔥 Definir la imagen principal usando `fotos` correctamente
-  const fotoPrincipal = bien.fotos && bien.fotos.length > 0
-    ? bien.fotos[0] // Tomar la primera foto del array
-    : imagenPredeterminada; // Usar la imagen importada en vez del placeholder
+ const fotoPrincipal = Array.isArray(bien.fotos)
+ ? bien.fotos[0]
+ : typeof bien.fotos === 'string'
+   ? (() => {
+       try {
+         const fotos = JSON.parse(bien.fotos || '[]');
+         return Array.isArray(fotos) ? fotos[0] : imagenPredeterminada;
+       } catch {
+         return imagenPredeterminada;
+       }
+     })()
+   : imagenPredeterminada;
+
+
+  const stockDisponible = bien.tipo.toLowerCase() === "teléfono movil"
+    ? (bien.identificadores?.filter(i => i.estado === "disponible").length || 0)
+    : (bien.stock || 0);
+
+  const estaSeleccionado = selectedGood?.uuid === bien.uuid;
 
   return (
-    <Card
+    <Tooltip
       key={bien.uuid}
-      hoverable
-      onClick={() => {
-        if (bien.stock > 0) {
-          setSelectedGood(bien);
-          setSelectedGoods(prev => [...prev, bien]);
-          message.info(`Seleccionaste: ${bien.marca} ${bien.modelo}`);
-        } else {
-          message.warning("❌ Este bien no tiene stock disponible.");
+      title={
+        <>
+          <div><strong>Marca:</strong> {bien.marca}</div>
+          <div><strong>Modelo:</strong> {bien.modelo}</div>
+          <div><strong>Precio:</strong> ${bien.precio ?? '-'}</div>
+          <div><strong>Descripción:</strong> {bien.descripcion}</div>
+        </>
+      }
+    >
+      <Card
+        hoverable
+        onClick={() => {
+          if (stockDisponible > 0) {
+            setSelectedGood(bien);
+            setSelectedGoods(prev => [...prev, bien]);
+            setImeisSeleccionadosExistente([]);
+            message.info(`Seleccionaste: ${bien.marca} ${bien.modelo}`);
+            setTimeout(() => {
+              const formEl = document.getElementById('formCompletarDatos');
+              if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          } else {
+            message.warning("❌ Este bien no tiene stock disponible.");
+          }
+        }}
+        style={{
+          position: 'relative',
+          border: estaSeleccionado ? '2px solid #1890ff' : undefined,
+          boxShadow: '0px 2px 8px rgba(0,0,0,0.05)',
+          transition: 'all 0.3s ease-in-out',
+        }}
+        ref={i === bienesFiltrados.length - 1 ? lastBienElementRef : null}
+      >
+        {/* Tag de tipo de bien */}
+        <Tag color="blue" style={{ position: 'absolute', top: 8, left: 8, zIndex: 10 }}>
+          {iconoPorTipo(bien.tipo)} {bien.tipo}
+        </Tag>
+
+        {/* Icono check si está seleccionado */}
+        {estaSeleccionado && (
+          <CheckCircleOutlined
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              fontSize: 20,
+              color: '#1890ff',
+              zIndex: 10
+            }}
+          />
+        )}
+
+        {/* Imagen */}
+        <img
+          alt={bien.descripcion || 'Imagen del bien'}
+          src={fotoPrincipal}
+          style={{
+            width: '100%',
+            height: 140,
+            objectFit: 'contain',
+            backgroundColor: '#f9f9f9',
+            padding: 10,
+            borderRadius: 4,
+          }}
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = imagenPredeterminada;
+          }}
+        />
+
+        {/* Info */}
+        <div style={{ paddingTop: 10 }}>
+          <div style={{ fontWeight: 600, fontSize: 16 }}>{bien.marca} {bien.modelo}</div>
+          <div style={{ fontSize: 13, color: '#888', marginBottom: 6 }}>{bien.descripcion || bien.tipo}</div>
+
+          <Tag color={stockDisponible > 0 ? 'green' : 'red'}>
+            {stockDisponible > 0 ? `✔ Stock: ${stockDisponible}` : '❌ Sin stock'}
+          </Tag>
+
+    {/* ✅ Mostrar y seleccionar IMEIs si es un teléfono */}
+{bien.tipo.toLowerCase() === "teléfono movil" && (
+  <div style={{ marginTop: 8 }}>
+    <Text strong style={{ fontSize: 12 }}>Selecciona IMEIs a vender:</Text>
+    <Checkbox.Group
+      value={selectedGood?.uuid === bien.uuid ? imeisSeleccionadosExistente : []}
+      onChange={(seleccionados) => {
+        if (selectedGood?.uuid === bien.uuid) {
+          setImeisSeleccionadosExistente(seleccionados);
         }
       }}
-      style={{ cursor: 'pointer' }}
-      ref={i === bienesFiltrados.length - 1 ? lastBienElementRef : null}
     >
-      <img
-        alt={bien.descripcion || 'Imagen del bien'}
-        src={fotoPrincipal}
-        style={{ width: '100%', height: 150, objectFit: 'cover' }}
-        onError={(e) => {
-          e.target.onerror = null; // Evita bucles infinitos
-          e.target.src = imagenPredeterminada; // Usa la imagen predeterminada en caso de error
-        }}
-      />
-      <Card.Meta
-        title={`${bien.marca} ${bien.modelo}`}
-        description={bien.descripcion || bien.tipo}
-      />
-      {bien.tipo.toLowerCase().includes('teléfono') && bien.identificadores && (
-        <div style={{ marginTop: 8, fontSize: 12 }}>
-          {(bien.identificadores || []).map((det, idx) => (
-            <p key={idx}>IMEI: {det.identificador_unico}</p>
+      <div style={{ maxHeight: 100, overflowY: 'auto', paddingLeft: 4 }}>
+        {bien.identificadores
+          ?.filter(i => i.estado === 'disponible')
+          .map((imeiObj, idx) => (
+            <Checkbox key={idx} value={imeiObj.identificador_unico}>
+              <Tooltip title={`IMEI disponible`}>
+                <Tag color="blue" style={{ margin: 2 }}>
+                  {imeiObj.identificador_unico}
+                </Tag>
+              </Tooltip>
+            </Checkbox>
           ))}
+      </div>
+    </Checkbox.Group>
+  </div>
+)}
+
+
+
+          {/* Acción rápida */}
+          {!estaSeleccionado && stockDisponible > 0 && (
+            <Button
+              type="link"
+              style={{ padding: 0, marginTop: 8 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedGood(bien);
+                setImeisSeleccionadosExistente([]);
+                message.success("Bien seleccionado");
+              }}
+            >
+              Seleccionar
+            </Button>
+          )}
         </div>
-      )}
-    </Card>
+      </Card>
+    </Tooltip>
   );
 })}
 
@@ -820,6 +1305,19 @@ const agregarBienAVenta = (values) => {
               {selectedGood && (
                 <div id="formCompletarDatos" style={{ marginTop: 10 }}>
                   <p>Completa los datos para el bien seleccionado: {selectedGood.marca} {selectedGood.modelo}</p>
+                  {selectedGood && (
+  <div style={{ marginBottom: 10 }}>
+    <p>
+      <strong>Stock disponible:</strong>{' '}
+      {
+        selectedGood.tipo.toLowerCase() === "teléfono movil"
+          ? (selectedGood.identificadores?.filter(i => i.estado === 'disponible').length ?? 0)
+          : (selectedGood.stock ?? 0)
+      }
+    </p>
+  </div>
+)}
+
                  
                  <Form layout="vertical" form={formGood} onFinish={agregarBienAVenta}>
   <Form.Item
@@ -908,16 +1406,35 @@ const agregarBienAVenta = (values) => {
     <Input.TextArea rows={3} />
   </Form.Item>
 
+  {selectedGood?.tipo?.toLowerCase() === 'teléfono movil' ? (
+  <div style={{ marginBottom: 12 }}>
+    <Text strong>Cantidad seleccionada:</Text>{' '}
+    <Text type="success">{cantidadVisual}</Text>
+  </div>
+) : (
   <Form.Item
-    label="Cantidad"
-    name="cantidad"
-    rules={[
-      { required: true, message: 'Ingresa la cantidad.' },
-      { type: 'number', min: 1, message: 'La cantidad debe ser mayor a 0.' }
-    ]}
-  >
-    <InputNumber min={1} style={{ width: '100%' }} onChange={handleCantidadChange} />
-  </Form.Item>
+  label="Cantidad"
+  name="cantidad"
+  rules={[
+    { required: true, message: 'Ingresa la cantidad.' },
+    { type: 'number', min: 1, message: 'Debe ser al menos 1.' }
+  ]}
+>
+  <InputNumber
+    min={1}
+    max={selectedGood?.stock ?? 1} // ⛔️ Limita el máximo
+    style={{ width: '100%' }}
+    placeholder={`Máximo: ${selectedGood?.stock ?? 1}`}
+  />
+</Form.Item>
+
+)}
+
+
+
+
+
+
 
   {/* Si el bien NO es teléfono móvil, mostramos el precio global y las fotos */}
   {tipoNuevo?.toLowerCase() !== 'teléfono movil' && (
@@ -935,7 +1452,6 @@ const agregarBienAVenta = (values) => {
           listType="picture"
           fileList={fileList}
           onChange={({ fileList: newFileList }) => {
-            console.log("Fotos seleccionadas (bien nuevo):", newFileList);
             setFileList(newFileList);
           }}
           beforeUpload={() => false}
@@ -981,12 +1497,12 @@ const agregarBienAVenta = (values) => {
     name="imeiFoto"
     listType="picture"
     beforeUpload={(file) => {
-      console.log("📸 Foto seleccionada:", file); // 🔥 Esto debe mostrar un archivo real
+// 🔥 Esto debe mostrar un archivo real
       actualizarFotoImei(index, file);
       return false; // 🔥 Detiene la carga automática para manejarla manualmente
     }}
     onChange={(info) => {
-      console.log("📸 onChange recibido:", info.file); // 🔥 Debe mostrar un archivo real
+// 🔥 Debe mostrar un archivo real
       actualizarFotoImei(index, info.file);
     }}
     showUploadList={true}
@@ -1116,7 +1632,6 @@ const agregarBienAVenta = (values) => {
       listType="picture"
       fileList={fileList}
       onChange={({ fileList: newFileList }) => {
-        console.log("Fotos seleccionadas (bien nuevo):", newFileList);
         setFileList(newFileList);
       }}
       beforeUpload={() => false}
@@ -1127,6 +1642,14 @@ const agregarBienAVenta = (values) => {
 )}
 {formGood.getFieldValue('tipo')?.toLowerCase() === 'teléfono movil' && (
   <>
+  <Button
+  type="link"
+  style={{ paddingLeft: 0 }}
+  onClick={() => setModalImeiVisible(true)}
+>
+  ¿Cómo obtener el IMEI?
+</Button>
+
     <p>Ingresa los IMEIS, el precio y sube una foto para cada teléfono:</p>
     {imeisNuevo.map((item, index) => (
       <div
@@ -1189,25 +1712,40 @@ const agregarBienAVenta = (values) => {
           )}
           {/* Tabla de Bienes Agregados */}
           {bienesAVender.length > 0 && (
-            <div style={{ marginTop: 20 }}>
-              <Title level={4}>Bienes a Vender</Title>
-              <Table
-                dataSource={bienesAVender}
-                columns={[
-                  { title: 'Tipo', dataIndex: 'tipo', key: 'tipo' },
-                  { title: 'Marca', dataIndex: 'marca', key: 'marca' },
-                  { title: 'Modelo', dataIndex: 'modelo', key: 'modelo' },
-                  { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-                  {
-                    title: 'Acciones',
-                    key: 'acciones',
-                    render: (_, record, index) => (
-                      <Button type="danger" onClick={() => eliminarBienAVenta(index)}>Eliminar</Button>
-                    )
-                  }
-                ]}
-                rowKey={(record, index) => index.toString()}
-              />
+    <div style={{ marginTop: 20 }}>
+  <Title level={4}>
+    Bienes a Vender ({bienesAVender.length}) ✅
+  </Title>
+
+  <Table
+  dataSource={bienesAVender}
+  columns={[
+    { 
+      title: 'Tipo', 
+      dataIndex: 'tipo',
+      render: (text) => `${iconoPorTipo(text)} ${text}`
+    },
+    { title: 'Marca', dataIndex: 'marca' },
+    { title: 'Modelo', dataIndex: 'modelo' },
+    { title: 'Cantidad', dataIndex: 'cantidad' },
+    {
+      title: 'IMEIs',
+      dataIndex: 'imeis',
+      render: (imeis) => {
+        if (!imeis || imeis.length === 0) return '-';
+        return imeis.map(i => i.imei).join(', ');
+      }
+    },
+    {
+      title: 'Acciones',
+      render: (_, __, index) => (
+        <Button danger onClick={() => eliminarBienAVenta(index)}>Eliminar</Button>
+      )
+    }
+  ]}
+  pagination={false}
+  rowKey={(_, index) => index}
+/>
             </div>
           )}
      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1230,14 +1768,50 @@ const agregarBienAVenta = (values) => {
     ⚠️ No hay bienes agregados a la venta.
   </p>
 )}
-
 <Button
   type="primary"
-  onClick={confirmarVenta}
+  danger
+  icon={<CheckCircleOutlined />}
+  onClick={() => {
+    Modal.confirm({
+      title: '¿Confirmar venta?',
+      content: 'Estás a punto de registrar esta venta. ¿Deseás continuar?',
+      okText: 'Sí, vender',
+      cancelText: 'Cancelar',
+      onOk: () => confirmarVenta(),
+    });
+  }}
   disabled={bienesAVender.length === 0 || loadingVenta}
 >
   Confirmar Venta
 </Button>
+<Modal
+  open={modalImeiVisible}
+  onCancel={() => setModalImeiVisible(false)}
+  footer={null}
+  title="¿Cómo obtener el IMEI?"
+>
+  <p>
+    El <strong>IMEI</strong> (International Mobile Equipment Identity) es un número único que identifica a tu dispositivo móvil.
+  </p>
+  <ul>
+    <li>📞 Marcá <code>*#06#</code> y aparecerá automáticamente.</li>
+    <li>📦 También se encuentra en la caja o en la etiqueta detrás de la batería (si es removible).</li>
+    <li>⚙️ En Android: <strong>Ajustes &gt; Acerca del teléfono</strong>.</li>
+    <li>🍏 En iPhone: <strong>Ajustes &gt; General &gt; Información</strong>.</li>
+  </ul>
+
+  <div style={{ marginTop: 16, textAlign: 'center' }}>
+    <img
+      src={imeiEjemplo}
+      alt="Ejemplo de cómo ver IMEI en Android"
+      style={{ maxWidth: '100%', maxHeight: 350, borderRadius: 8 }}
+    />
+    <p style={{ fontSize: 12, color: '#666', marginTop: 8 }}>Ejemplo: IMEI visible en un teléfono Android</p>
+  </div>
+</Modal>
+
+
 
 </div>
 

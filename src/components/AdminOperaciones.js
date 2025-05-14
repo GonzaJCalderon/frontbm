@@ -1,200 +1,248 @@
-import React, { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchTransaccionesByAdmin, fetchUsuarios } from '../redux/actions/usuarios';
-import { Button, Table, Image, Space, Typography, Spin, Alert } from 'antd';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
+// ⚙️ Importaciones...
+import React, { useEffect, useState, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import {
+  Table, Typography, Button, Spin, Space, Alert, Modal, Image,
+} from 'antd';
+import { LeftOutlined } from '@ant-design/icons';
+import {
+  obtenerTransacciones,
+  getUserByUuid,
+  getEmpresaByUuid,
+} from '../redux/actions/usuarios';
 
 const { Title } = Typography;
 
 const AdminOperaciones = () => {
-    const { uuid } = useParams();
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
+  const { uuid } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const location = useLocation();
 
-    const { transacciones, loading, error, usuarios } = useSelector(state => state.usuarios || {});
+  const [usuario, setUsuario] = useState(null);
+  const [uuidConsulta, setUuidConsulta] = useState(null);
+  const [compras, setCompras] = useState([]);
+  const [ventas, setVentas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [paginaCompras, setPaginaCompras] = useState(1);
+  const [paginaVentas, setPaginaVentas] = useState(1);
+  const [totalCompras, setTotalCompras] = useState(0);
+  const [totalVentas, setTotalVentas] = useState(0);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewImages, setPreviewImages] = useState([]);
+  const transaccionesPorPagina = 10;
 
-    const [paginaCompras, setPaginaCompras] = useState(1);
-    const [paginaVentas, setPaginaVentas] = useState(1);
-    const transaccionesPorPagina = 10;
-
-    useEffect(() => {
-        if (uuid) {
-            dispatch(fetchUsuarios());
-            dispatch(fetchTransaccionesByAdmin(uuid));
-        }
-    }, [dispatch, uuid]);
-
-    const transaccionesArray = Array.isArray(transacciones) ? transacciones : [];
-
-    // Separar las transacciones en compras y ventas
-    const compras = transaccionesArray
-        .filter(transaccion => transaccion.comprador_uuid === uuid)
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-    
-    const ventas = transaccionesArray
-        .filter(transaccion => transaccion.vendedor_uuid === uuid)
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-
-    // Función para renderizar la dirección
-    const renderDireccion = (direccion) => {
-        return direccion ? `${direccion.calle}, ${direccion.altura}, ${direccion.barrio}, ${direccion.departamento}` : 'Sin dirección';
-    };
-
-    // Función auxiliar para detectar si es un Teléfono Móvil
-    const esTelefonoMovil = (tipo) => {
-        if (!tipo) return false;
-        const lower = tipo.toLowerCase();
-        return lower.includes('teléfono') && (lower.includes('móvil') || lower.includes('movil'));
-    };
-
-    // Función para renderizar las imágenes, incluyendo fotos de IMEIs si el bien es un teléfono móvil
-    const renderImagen = (text, record) => {
-        let fotos = record.bienTransaccion?.fotos || [];
-
-        if (esTelefonoMovil(record.bienTransaccion?.tipo) && record.bienTransaccion?.detalles) {
-            const fotosIMEIs = record.bienTransaccion.detalles
-                .map((det) => det.foto)
-                .filter((url) => url);
-            fotos = [...fotos, ...fotosIMEIs]; 
-        }
-
-        return fotos.length > 0 ? (
-            <Space>
-                {fotos.map((foto, index) => (
-                    <Image
-                        key={index}
-                        width={80}
-                        src={foto} 
-                        alt={`Imagen ${index + 1}`}
-                        onError={(e) => {
-                            e.target.src = '/images/placeholder.png'; 
-                        }}
-                    />
-                ))}
-            </Space>
-        ) : (
-            <span>Sin imagen</span>
-        );
-    };
-
-    // Configurar las columnas de las tablas
-    const columnsCompras = [
-        { title: 'Imagen', key: 'imagen', render: renderImagen },
-        { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
-        { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
-        { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
-        { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' },
-        { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        {
-            title: 'Vendedor',
-            render: (text, record) => (
-                <span>
-                    {record.vendedorTransaccion?.nombre} {record.vendedorTransaccion?.apellido} <br />
-                    DNI: {record.vendedorTransaccion?.dni} <br />
-                    CUIT: {record.vendedorTransaccion?.cuit} <br />
-                    Email: {record.vendedorTransaccion?.email} <br />
-                    Dirección: {renderDireccion(record.vendedorTransaccion?.direccion)}
-                </span>
-            ),
-            key: 'vendedor',
-        },
-        {
-            title: 'Fecha',
-            render: (text, record) => new Date(record.fecha).toLocaleString(),
-            key: 'fecha',
-        },
-    ];
-
-    const columnsVentas = [
-        { title: 'Imagen', key: 'imagen', render: renderImagen },
-        { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
-        { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
-        { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
-        { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' },
-        { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
-        {
-            title: 'Comprador',
-            render: (text, record) => (
-                <span>
-                    {record.compradorTransaccion?.nombre} {record.compradorTransaccion?.apellido} <br />
-                    DNI: {record.compradorTransaccion?.dni} <br />
-                    CUIT: {record.compradorTransaccion?.cuit} <br />
-                    Email: {record.compradorTransaccion?.email} <br />
-                    Dirección: {renderDireccion(record.compradorTransaccion?.direccion)}
-                </span>
-            ),
-            key: 'comprador',
-        },
-        {
-            title: 'Fecha',
-            render: (text, record) => new Date(record.fecha).toLocaleString(),
-            key: 'fecha',
-        },
-    ];
-
-    const usuario = usuarios.find(u => u.uuid === uuid);
-    const nombreCompleto = usuario
-        ? `${usuario.nombre || 'Sin nombre'} ${usuario.apellido || ''}`.trim()
-        : 'Sin nombre';
-
-    if (loading) {
-        return <Spin tip="Cargando..." />;
+  const fetchUsuario = useCallback(async () => {
+    const user = await getUserByUuid(uuid);
+    if (user.empresaUuid || user.empresa?.uuid) {
+      const empresa = await getEmpresaByUuid(user.empresaUuid || user.empresa?.uuid);
+      if (empresa) {
+        user.razonSocial = empresa.razonSocial;
+        user.empresa = empresa;
+      }
     }
+    setUsuario(user);
+  }, [uuid]);
 
-    if (error) {
-        return <Alert message="Error" description={error} type="error" />;
+  useEffect(() => {
+    const prepararUsuario = async () => {
+      const stateUser = location.state?.usuario;
+      if (stateUser) {
+        setUsuario(stateUser);
+      } else {
+        await fetchUsuario();
+      }
+    };
+    prepararUsuario();
+  }, [location.state, fetchUsuario]);
+
+  useEffect(() => {
+    if (!usuario) return;
+    const uuidFinal = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase())
+      ? usuario.empresa?.uuid || usuario.empresaUuid
+      : usuario.uuid;
+    setUuidConsulta(uuidFinal);
+  }, [usuario]);
+
+  useEffect(() => {
+    if (!uuidConsulta) return;
+    fetchCompras(uuidConsulta);
+    fetchVentas(uuidConsulta);
+  }, [uuidConsulta, paginaCompras, paginaVentas]);
+
+  const fetchCompras = useCallback(async (uuidToUse) => {
+    try {
+      setLoading(true);
+      const data = await obtenerTransacciones(uuidToUse, 'compra', paginaCompras, transaccionesPorPagina);
+      setCompras(data.data || []);
+      setTotalCompras(data.total || 0);
+    } finally {
+      setLoading(false);
     }
+  }, [paginaCompras]);
 
-    return (
-        <div className="p-6 bg-gray-100 min-h-screen">
-            <Space style={{ marginBottom: 16 }}>
-                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
-                <Button icon={<HomeOutlined />} onClick={() => navigate('/admin/dashboard')}>Inicio</Button>
-                <Button
-                    type="primary"
-                    icon={<LogoutOutlined />}
-                    onClick={() => {
-                        localStorage.removeItem('token');
-                        navigate('/home');
-                    }}
-                    danger
-                >
-                    Cerrar Sesión
-                </Button>
-            </Space>
+  const fetchVentas = useCallback(async (uuidToUse) => {
+    try {
+      setLoading(true);
+      const data = await obtenerTransacciones(uuidToUse, 'venta', paginaVentas, transaccionesPorPagina);
+      setVentas(data.data || []);
+      setTotalVentas(data.total || 0);
+    } finally {
+      setLoading(false);
+    }
+  }, [paginaVentas]);
 
-            <Title level={2}>Operaciones de {nombreCompleto}</Title>
+  const handlePreview = (fotos) => {
+    setPreviewImages(fotos);
+    setPreviewVisible(true);
+  };
 
-            <div>
-                <Title level={3}>Compras</Title>
-                <Table
-                    columns={columnsCompras}
-                    dataSource={compras}
-                    pagination={{
-                        current: paginaCompras,
-                        pageSize: transaccionesPorPagina,
-                        total: compras.length,
-                        onChange: (page) => setPaginaCompras(page),
-                    }}
-                    rowKey="uuid"
-                />
+  // ✅ COLUMNA COMPARTIDA: Trazabilidad
+  const columnaTrazabilidad = {
+    title: 'Trazabilidad',
+    key: 'trazabilidad',
+    render: (_, record) => {
+      const detalles = record.detallesVendidos || [];
+      if (!detalles.length) return 'Sin identificadores';
 
-                <Title level={3} style={{ marginTop: '32px' }}>Ventas</Title>
-                <Table
-                    columns={columnsVentas}
-                    dataSource={ventas}
-                    pagination={{
-                        current: paginaVentas,
-                        pageSize: transaccionesPorPagina,
-                        total: ventas.length,
-                        onChange: (page) => setPaginaVentas(page),
-                    }}
-                    rowKey="uuid"
-                />
+      return (
+        <Space direction="vertical">
+          {detalles.map((det, i) => (
+            <Button
+              key={i}
+              size="small"
+              type="link"
+              onClick={() => navigate(`/bienes/trazabilidad-identificador/${det.identificador_unico}`)}
+            >
+              {det.identificador_unico}
+            </Button>
+          ))}
+        </Space>
+      );
+    },
+  };
+
+  const columnasGenericas = [
+    { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' },
+    { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
+    { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
+    { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
+    {
+      title: 'Fotos',
+      key: 'fotos',
+      render: (_, record) => {
+        const fotos = record?.bienTransaccion?.fotos || [];
+        return fotos.length === 0
+          ? 'Sin fotos'
+          : (
+            <div style={{ display: 'flex', gap: '8px', cursor: 'pointer' }} onClick={() => handlePreview(fotos)}>
+              {fotos.slice(0, 3).map((foto, i) => (
+                <img key={i} src={foto} alt={`foto-${i}`} style={{ width: 60, height: 60, objectFit: 'cover' }} />
+              ))}
             </div>
-        </div>
-    );
+          );
+      },
+    },
+    {
+      title: 'Precio',
+      dataIndex: ['precio'],
+      key: 'precio',
+      render: (precio) => `$${precio?.toFixed(2) || 'N/A'}`,
+    },
+    { title: 'Cantidad', dataIndex: 'cantidad', key: 'cantidad' },
+    {
+      title: 'Fecha',
+      dataIndex: 'fecha',
+      key: 'fecha',
+      render: (fecha) => new Date(fecha).toLocaleString(),
+    },
+    columnaTrazabilidad,
+  ];
+
+  const columnasCompras = [
+    ...columnasGenericas,
+    {
+      title: 'Vendedor',
+      key: 'vendedor',
+      render: (_, record) => {
+        const v = record.vendedorTransaccion;
+        return record.empresaVendedora?.razonSocial || `${v?.nombre || ''} ${v?.apellido || ''}`;
+      },
+    },
+  ];
+
+  const columnasVentas = [
+    ...columnasGenericas,
+    {
+      title: 'Comprador',
+      key: 'comprador',
+      render: (_, record) => {
+        const c = record.compradorTransaccion;
+        return record.empresaCompradora?.razonSocial || `${c?.nombre || ''} ${c?.apellido || ''}`;
+      },
+    },
+  ];
+
+  return (
+    <div className="p-6 bg-gray-100 min-h-screen">
+      <Space style={{ marginBottom: 16 }}>
+        <Button icon={<LeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
+      </Space>
+
+      <Title level={2}>
+        {usuario?.razonSocial
+          ? `Operaciones de ${usuario.razonSocial} (operadas por ${usuario.nombre} ${usuario.apellido} como ${usuario.rolEmpresa})`
+          : usuario
+            ? `Operaciones de ${usuario.nombre} ${usuario.apellido}`
+            : 'Cargando datos del usuario...'}
+      </Title>
+
+      {loading ? <Spin tip="Cargando transacciones..." /> : (
+        <>
+          <Title level={3}>Compras</Title>
+          <Table
+            dataSource={compras}
+            columns={columnasCompras}
+            rowKey="uuid"
+            pagination={{
+              current: paginaCompras,
+              pageSize: transaccionesPorPagina,
+              total: totalCompras,
+              onChange: (page) => setPaginaCompras(page),
+            }}
+          />
+
+          <Title level={3} style={{ marginTop: 32 }}>Ventas</Title>
+          <Table
+            dataSource={ventas}
+            columns={columnasVentas}
+            rowKey="uuid"
+            pagination={{
+              current: paginaVentas,
+              pageSize: transaccionesPorPagina,
+              total: totalVentas,
+              onChange: (page) => setPaginaVentas(page),
+            }}
+          />
+        </>
+      )}
+
+      <Modal
+        open={previewVisible}
+        footer={null}
+        onCancel={() => setPreviewVisible(false)}
+        title="Vista previa del bien"
+        width={800}
+      >
+        <Image.PreviewGroup>
+          {previewImages.map((url, i) => (
+            <Image key={i} src={url} alt={`preview-${i}`} style={{ marginBottom: 10 }} />
+          ))}
+        </Image.PreviewGroup>
+      </Modal>
+    </div>
+  );
 };
 
 export default AdminOperaciones;

@@ -1,167 +1,356 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchAllBienes, deleteBien } from '../redux/actions/bienes';
+import { searchItems } from '../redux/actions/search';
 import { useNavigate } from 'react-router-dom';
-import { Table, Image, Button, Spin, notification, Modal, Space } from 'antd';
-import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
+import {
+  Image,
+  Button,
+  Spin,
+  Modal,
+  Space,
+  Input,
+  Tag,
+} from 'antd';
+import {
+  ArrowLeftOutlined,
+  LogoutOutlined,
+  DownOutlined,
+  UpOutlined,
+} from '@ant-design/icons';
+import '../assets/css/BienList.css';
 
 const BienList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { items: bienes, error } = useSelector((state) => state.bienes);
+  const { items: bienes, success } = useSelector((state) => state.bienes);
+
+  const searchState = useSelector((state) => state.search);
+
   const [isLoading, setIsLoading] = useState(true);
   const [filteredBienes, setFilteredBienes] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [refreshFlag, setRefreshFlag] = useState(false);
+  const [expandedFotoRows, setExpandedFotoRows] = useState({});
+  const [expandedIMEIRows, setExpandedIMEIRows] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [previewFoto, setPreviewFoto] = useState(null);
 
+  const itemsPerPage = 10;
   const userData = JSON.parse(localStorage.getItem('userData'));
-  const isAdmin = userData?.rolDefinitivo === 'admin';
+  const isAdmin = userData?.rol === 'admin';
 
-  const [refreshFlag, setRefreshFlag] = useState(false); // 🚀 Estado para controlar recargas
+
+  useEffect(() => setCurrentPage(1), [filteredBienes]);
 
   useEffect(() => {
     const loadBienes = async () => {
       setIsLoading(true);
       try {
         const response = await dispatch(fetchAllBienes());
-  
-        if (response && Array.isArray(response)) {
-          console.log("📌 Bienes recibidos (frontend):", response);
-  
-          const sortedBienes = response.map((bien) => ({
+        if (Array.isArray(response)) {
+          const sorted = response.map((bien) => ({
             ...bien,
-            stock: bien.detalles
-              ? bien.detalles.filter((det) => det.estado === "disponible").length
-              : bien.stock !== undefined && bien.stock !== null
-              ? bien.stock
-              : 0,
-            propietario: bien.propietario || "Desconocido",
-            fechaActualizacion: bien.fechaActualizacion || "Sin fecha",
-
+            stock: bien.stock ?? 0,
+            propietario: bien.propietario || 'Desconocido',
+            fechaActualizacion: bien.fechaActualizacion || 'Sin fecha',
+            detalles: bien.identificadores || [],
+            fotos: bien.todasLasFotos || [],
           }));
-  
-          sortedBienes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)); // 🔥 Asegurar que se ordenan bien
-          setFilteredBienes(sortedBienes);
-        } else {
-          console.error("⚠️ fetchAllBienes no devolvió un array:", response);
+          setFilteredBienes(sorted);
         }
       } catch (error) {
-        console.error("❌ Error al cargar los bienes:", error);
+        console.error('❌ Error al cargar bienes:', error);
       } finally {
         setIsLoading(false);
       }
     };
+
+    if (!searchTerm) loadBienes();
+  }, [dispatch, refreshFlag, searchTerm]);
+
+  const handleSearch = (value) => {
+    const term = value.trim();
+    setSearchTerm(term);
+    if (!term) return setFilteredBienes(bienes);
+    dispatch(searchItems(term, 'bienes'));
+  };
+
+  useEffect(() => {
+    if (searchTerm && Array.isArray(searchState.bienes)) {
+      const mapped = searchState.bienes.map((bien) => ({
+        ...bien,
+        stock: bien.stock ?? 0,
+        propietario: bien.propietario || 'Desconocido',
+        fechaActualizacion: bien.fechaActualizacion || 'Sin fecha',
+        detalles: bien.identificadores || [],
+        fotos: bien.fotos || [],
+      }));
+      setFilteredBienes(mapped);
+    }
+  }, [searchState.bienes]);
+
+  useEffect(() => {
+    if (success) {
+      setRefreshFlag((prev) => !prev);
   
-    loadBienes();
-  }, [dispatch, refreshFlag]); // 🔥 Se actualiza cuando cambia refreshFlag
-  
+      // Opcional: resetear success localmente (si no tenés acción para ello)
+      setTimeout(() => dispatch({ type: 'RESET_BIEN_SUCCESS' }), 300); 
+    }
+  }, [success]);
   
   
   
 
   const handleDelete = (bien) => {
     Modal.confirm({
-      title: '¿Estás seguro de que deseas eliminar este bien?',
-      content: `Tipo: ${bien.tipo}, Modelo: ${bien.modelo}`,
+      title: '¿Eliminar bien?',
+      content: `${bien.tipo} - ${bien.modelo}`,
       okText: 'Sí',
-      okType: 'danger',
       cancelText: 'No',
+      okType: 'danger',
       onOk: async () => {
         try {
           await dispatch(deleteBien(bien.uuid));
-        } catch (error) {
-          console.error('Error al eliminar el bien:', error);
+          setRefreshFlag((prev) => !prev);
+        } catch (err) {
+          console.error(err);
         }
       },
     });
   };
 
-  const columns = [
-    { title: 'Tipo', dataIndex: 'tipo', key: 'tipo' },
-    { title: 'Modelo', dataIndex: 'modelo', key: 'modelo' },
-    { title: 'Marca', dataIndex: 'marca', key: 'marca' },
-    { title: 'Descripción', dataIndex: 'descripcion', key: 'descripcion' },
-    {
-      title: 'Propietario', // ✅ Mostrar correctamente el propietario
-      dataIndex: 'propietario',
-      key: 'propietario',
-      render: (propietario, record) => propietario ?? "Sin propietario",
-    },
-    { title: "Fecha", 
-      dataIndex: "fechaActualizacion", 
-      key: "fechaActualizacion" },
+  const toggleFotoExpand = (idx) => {
+    setExpandedFotoRows((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
 
-    {
-      title: 'Fotos',
-      dataIndex: 'todasLasFotos',
-      render: (fotos) => {
-        if (!fotos || fotos.length === 0) {
-          return 'Sin fotos';
-        }
-        return (
-          <Space>
-            {fotos.map((foto, index) => (
-              <Image
-                key={index}
-                width={80}
-                src={foto}
-                alt={`Foto ${index + 1}`}
-                onError={(e) => { e.target.src = '/images/placeholder.png'; }}
-              />
-            ))}
-          </Space>
-        );
-      }
-    },
-    {
-      title: 'Stock',
-      key: 'stock',
-      render: (_, record) => (record.stock > 0 ? record.stock : 'Sin stock'),
-    },
-    {
-      title: 'Acción',
-      key: 'action',
-      render: (_, bien) => (
-        <div className="flex space-x-2">
-          <Button type="primary" onClick={() => navigate(`/bienes/trazabilidad/${bien.uuid}`)}>
-            Ver Trazabilidad
-          </Button>
-          {isAdmin && (
-            <>
-              <Button
-                onClick={() => navigate(`/bienes/edit/${bien.uuid}`)}
-                style={{ background: '#ffc107', borderColor: '#ffc107', color: '#000' }}
-              >
-                Editar
-              </Button>
-              <Button danger onClick={() => handleDelete(bien)}>
-                Eliminar
-              </Button>
-            </>
-          )}
-        </div>
-      ),
-    },
-  ];
-  
+  const totalPages = Math.ceil(filteredBienes.length / itemsPerPage);
+  const currentBienes = filteredBienes.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Spin size="large" />
-        <p className="mt-4 text-xl text-gray-700">Cargando bienes, por favor espera...</p>
+        <p className="mt-4 text-xl text-gray-700">Cargando bienes...</p>
       </div>
     );
   }
 
   return (
-    <div className="container flex-grow p-4">
-      <div className="flex justify-between mb-4">
+    <div className="container-bienes">
+      <div className="header-actions">
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
-        <Button icon={<LogoutOutlined />} onClick={() => { localStorage.clear(); navigate('/login'); }} danger>Cerrar Sesión</Button>
+        <Button icon={<LogoutOutlined />} danger onClick={() => {
+          localStorage.clear();
+          navigate('/home');
+        }}>
+          Cerrar Sesión
+        </Button>
       </div>
+
+      <Input.Search
+        placeholder="Buscar IMEI, tipo, marca o modelo"
+        allowClear
+        enterButton
+        value={searchTerm}
+        onChange={(e) => handleSearch(e.target.value)}
+        onSearch={handleSearch}
+        className="search-input"
+      />
 
       <h2 className="text-2xl font-bold mb-4">Lista de Bienes</h2>
 
-      <Table dataSource={filteredBienes} columns={columns} rowKey="uuid" pagination={{ pageSize: 10 }} />
+      <div className="custom-table-container">
+        <table className="custom-table">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Modelo</th>
+              <th>Marca</th>
+              <th>Descripción</th>
+              <th>Precio</th>
+              <th>Propietario</th>
+              <th>Fecha</th>
+              <th>IMEIs</th>
+              <th>Stock</th>
+              <th>Fotos</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentBienes.map((bien, idx) => {
+              const {
+                uuid, tipo, modelo, marca, descripcion, precio,
+                propietario, fechaActualizacion, detalles, stock, fotos,
+              } = bien;
+
+              const indexGlobal = (currentPage - 1) * itemsPerPage + idx;
+              const expandido = expandedFotoRows[indexGlobal] || false;
+              const fotosAMostrar = expandido ? fotos : fotos.slice(0, 3);
+
+              return (
+                <tr key={`${uuid}-${idx}`}>
+                  <td>{tipo}</td>
+                  <td>{modelo}</td>
+                  <td>{marca}</td>
+                  <td>{descripcion}</td>
+                  <td>{precio ? `$${Number(precio).toFixed(2)}` : 'No disponible'}</td>
+                  <td>{propietario}</td>
+                  <td>{fechaActualizacion}</td>
+                  <td>
+                  {detalles.length > 0 ? (
+  <div>
+    <p style={{ marginBottom: 4 }}>
+      <strong>{detalles[0].identificador_unico}</strong>{' '}
+      <Tag color={detalles[0].estado === 'disponible' ? 'green' : 'red'}>
+        {detalles[0].estado}
+      </Tag>
+      <Button
+        size="small"
+        type="link"
+        onClick={() => navigate(`/bienes/trazabilidad-identificador/${detalles[0].identificador_unico}`)}
+        style={{ marginLeft: 4 }}
+      >
+        📈 Trazabilidad
+      </Button>
+    </p>
+    {detalles.length > 1 && (
+      <Button
+        type="link"
+        size="small"
+        style={{ padding: 0 }}
+        onClick={() =>
+          setExpandedIMEIRows((prev) => ({
+            ...prev,
+            [uuid]: !prev[uuid],
+          }))
+        }
+      >
+        {expandedIMEIRows[uuid] ? 'Ver menos' : `Ver más (${detalles.length - 1})`}
+      </Button>
+    )}
+    {expandedIMEIRows[uuid] &&
+      detalles.slice(1).map((d) => (
+        <p key={`${d.identificador_unico}-${idx}`} style={{ marginBottom: 4 }}>
+          <strong>{d.identificador_unico}</strong>{' '}
+          <Tag color={d.estado === 'disponible' ? 'green' : 'red'}>
+            {d.estado}
+          </Tag>
+          <Button
+            size="small"
+            type="link"
+            onClick={() => navigate(`/bienes/trazabilidad-identificador/${d.identificador_unico}`)}
+            style={{ marginLeft: 4 }}
+          >
+            📈 Trazabilidad
+          </Button>
+        </p>
+      ))}
+  </div>
+) : (
+  'Sin identificadores'
+)}
+
+                  </td>
+                  <td>
+                    {stock > 0 ? (
+                      <span style={{ fontWeight: 600 }}>{stock} unidades</span>
+                    ) : (
+                      <span style={{ color: 'gray' }}>Sin stock</span>
+                    )}
+                  </td>
+                  <td>
+                    {fotos.length === 0 ? (
+                      'Sin fotos'
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <Space wrap>
+                          {fotosAMostrar.map((foto, i) => (
+                            <Image
+                              key={i}
+                              width={80}
+                              src={foto}
+                              alt={`Foto ${i + 1}`}
+                              style={{ cursor: 'pointer' }}
+                              fallback="/images/placeholder.png"
+                              onClick={() => setPreviewFoto(foto)}
+                              preview={false}
+                            />
+                          ))}
+                        </Space>
+                        {fotos.length > 3 && (
+                          <Button type="link" onClick={() => toggleFotoExpand(indexGlobal)}>
+                            {expandido ? <><UpOutlined /> Ver menos</> : <><DownOutlined /> Ver más</>}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <Space wrap>
+                      <Button
+                        type="primary"
+                        onClick={() => navigate(`/bienes/trazabilidad/${uuid}`)}
+                      >
+                        Trazabilidad
+                      </Button>
+                      {isAdmin && (
+                        <>
+                          <Button
+                            style={{
+                              backgroundColor: '#ffc107',
+                              borderColor: '#ffc107',
+                              color: '#000',
+                            }}
+                            onClick={() => navigate(`/bienes/edit/${uuid}`)}
+                          >
+                            Editar
+                          </Button>
+                          <Button danger onClick={() => handleDelete(bien)}>
+                            Eliminar
+                          </Button>
+                        </>
+                      )}
+                    </Space>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="pagination-footer">
+        <Button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+        >
+          Anterior
+        </Button>
+        <span>Página {currentPage} de {totalPages}</span>
+        <Button
+          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+          disabled={currentPage === totalPages}
+        >
+          Siguiente
+        </Button>
+      </div>
+
+      <Modal
+        open={!!previewFoto}
+        footer={null}
+        onCancel={() => setPreviewFoto(null)}
+        centered
+      >
+        <img
+          alt="Vista previa"
+          style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+          src={previewFoto}
+        />
+      </Modal>
     </div>
   );
 };

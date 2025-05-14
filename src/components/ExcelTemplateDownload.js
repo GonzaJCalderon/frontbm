@@ -1,98 +1,100 @@
-import React, { useState } from 'react';
-import * as XLSX from 'xlsx';
+import React from 'react';
+import ExcelJS from 'exceljs';
+
+const tiposPermitidos = [
+    'Bicicleta',
+    'TV',
+    'Equipo de Audio',
+    'Cámara Fotográfica',
+    'Notebook',
+    'Tablet',
+    'Teléfono Móvil'
+];
 
 const ExcelTemplateDownload = () => {
-    const [previewData, setPreviewData] = useState([]);
+    const handleDownloadTemplate = async () => {
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Plantilla');
 
-    const handleDownloadTemplate = () => {
-        const data = [
-            [
-                'Tipo', 
-                'Descripción', 
-                'Precio', 
-                'Marca', 
-                'Modelo', 
-                'Cantidad en inventario'
-            ],
-            [
-                'Ejemplo: Notebook, Teléfono Móvil, Bicicleta, Tablet, TV, Equipo de Audio o Camara Fotografica.', 
-                'Descripción breve del producto (ejemplo: Bicicleta de montaña color negro mate, rodado 29, con cuadro de aluminio resistente. Cuenta con suspensión delantera para absorber golpes en caminos irregulares y frenos a disco hidráulicos, que brindan un frenado seguro y firme. Tiene transmisión 1x10, lo que facilita el cambio de velocidades en subidas y bajadas. El asiento está en muy buenas condiciones, y el manubrio ancho aporta mayor control y estabilidad. Ideal para quienes buscan una bici confiable para salir a pedalear por senderos o caminos de tierra.)', 
-                'Precio del bien (ejemplo: 1,500.00)', 
-                'Marca del producto (ejemplo: Dell, Apple)', 
-                'Modelo específico (ejemplo: XPS 15, 14 Pro)', 
-                'Cantidad en inventario inicial (ejemplo: 10)'
-            ],
-            ['', '', '', '', '', '']
+        worksheet.columns = [
+            { header: 'Tipo', key: 'tipo', width: 25 },
+            { header: 'Descripción', key: 'descripcion', width: 50 },
+            { header: 'Precio General', key: 'precio', width: 15 },
+            { header: 'Marca', key: 'marca', width: 20 },
+            { header: 'Modelo', key: 'modelo', width: 20 },
+            { header: 'Cantidad en Inventario', key: 'cantidad', width: 25 },
+            { header: 'IMEI', key: 'imei', width: 35 }, // 📌 Nueva columna para IMEIs
+            { header: 'Precio por IMEI', key: 'precio_imei', width: 35 } // 📌 Nueva columna para precios individuales
         ];
-    
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Plantilla');
-        XLSX.writeFile(wb, 'plantilla_inventario.xlsx');
-    };
-    
 
-    const handleFileUpload = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                setPreviewData(jsonData); // Guarda los datos para previsualización
+        // Agregar fila de ejemplo para Notebook (sin IMEI)
+        worksheet.addRow([
+            'Notebook', 
+            'Notebook con procesador Intel i7 y 16GB RAM', 
+            120000, 
+            'Dell', 
+            'XPS 15', 
+            5,
+            '', // Sin IMEI
+            ''  // Sin precio por IMEI
+        ]);
+
+        // Agregar fila de ejemplo para Teléfono Móvil con múltiples IMEIs y precios
+        worksheet.addRow([
+            'Teléfono Móvil', 
+            'Teléfono con pantalla AMOLED y 128GB', 
+            65000, 
+            'Xiaomi', 
+            'Redmi Note 10', 
+            2,
+            '123456789012345,987654321098765', // 📌 IMEIs separados por coma
+            '65000,62000' // 📌 Precios individuales separados por coma
+        ]);
+
+        // Agregar fila de ejemplo para TV (sin IMEI)
+        worksheet.addRow([
+            'TV', 
+            'Smart TV 50 pulgadas 4K UHD', 
+            45000, 
+            'Samsung', 
+            'Series 7', 
+            1,
+            '', // Sin IMEI
+            ''  // Sin precio por IMEI
+        ]);
+
+        // Aplicar validación de dropdown en la columna "Tipo" desde la fila 2 hasta la 100
+        for (let i = 2; i <= 100; i++) {
+            worksheet.getCell(`A${i}`).dataValidation = {
+                type: 'list',
+                allowBlank: false,
+                formulae: [`"${tiposPermitidos.join(',')}"`],
+                showErrorMessage: true,
+                errorTitle: 'Valor no permitido',
+                error: 'Seleccione un tipo de bien válido desde la lista desplegable.',
             };
-            reader.readAsArrayBuffer(file);
         }
+
+        // Descargar el archivo Excel
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'plantilla_inventario.xlsx';
+        link.click();
+        window.URL.revokeObjectURL(url);
     };
 
     return (
         <div className="flex flex-col items-center mb-4">
             <h2 className="mb-2 text-lg font-semibold">Descarga y carga planilla de ejemplo</h2>
-            <p className="mb-4 text-gray-600">
-                Descarga una planilla de ejemplo, complétala y súbela para previsualizarla antes de enviarla.
-            </p>
             <button
-                onClick={handleDownload}
+                onClick={handleDownloadTemplate}
                 className="bg-blue-500 text-white rounded px-4 py-2 hover:bg-blue-600 mb-4"
             >
-                Descargar planilla de ejemplo ⬇️
+                Descargar Planilla de Ejemplo ⬇️
             </button>
-            <input
-                type="file"
-                accept=".xlsx"
-                onChange={handleFileUpload}
-                className="mb-4"
-            />
-            {previewData.length > 0 && (
-                <div className="w-full overflow-x-auto">
-                    <h3 className="text-lg font-semibold mb-2">Previsualización de la planilla:</h3>
-                    <table className="table-auto border-collapse border border-gray-200 w-full">
-                        <thead>
-                            <tr>
-                                {previewData[0].map((header, index) => (
-                                    <th key={index} className="border border-gray-300 px-4 py-2">
-                                        {header}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {previewData.slice(1).map((row, rowIndex) => (
-                                <tr key={rowIndex}>
-                                    {row.map((cell, cellIndex) => (
-                                        <td key={cellIndex} className="border border-gray-300 px-4 py-2">
-                                            {cell || ''}
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
         </div>
     );
 };

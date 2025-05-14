@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchApprovedUsers, fetchRejectedUsers, fetchPendingRegistrations, deleteUsuario, denyRegistration, approveUser} from '../redux/actions/usuarios';
-import { fetchBienes } from '../redux/actions/bienes';
+import { fetchBienes, fetchBienesPorPropietario  } from '../redux/actions/bienes';
 import { useNavigate } from 'react-router-dom';
-import { notification, Button, Table, Modal, Input, Spin } from 'antd';
+import { notification, Button, Table, Modal, Input, Spin, Divider } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 
 
@@ -30,19 +30,21 @@ const UsuarioList = () => {
 
 
   const userData = JSON.parse(localStorage.getItem('userData')) || {};
-  console.log("Datos del usuario cargados desde localStorage:", userData);
+  console.log('🔐 Usuario desde localStorage:', userData);
   
-  const isAdmin = userData?.role?.toLowerCase() === 'admin';
+  const userRol = (userData?.rol || '').toLowerCase(); // Siempre seguro
+  const isAdmin = userRol === 'admin';
+  
+
   
 
 
   useEffect(() => {
     dispatch(fetchApprovedUsers())
       .then((response) => {
-        console.log("Usuarios aprobados cargados:", response); // 🔹 Verifica qué datos devuelve la API
+// 🔹 Verifica qué datos devuelve la API
       })
       .catch((error) => {
-        console.error("Error al cargar usuarios aprobados:", error);
       });
   }, [dispatch]);
   
@@ -186,41 +188,50 @@ const UsuarioList = () => {
     });
   };
   
-  
   const handleViewBienes = (usuario) => {
-    if (!usuario || !usuario.uuid) {
-        notification.error({
-            message: 'Error',
-            description: 'El usuario seleccionado no tiene un identificador válido.',
-        });
-        return;
+    const esDelegadoResponsable = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase());
+    const propietarioUuid = esDelegadoResponsable && usuario.empresa?.uuid
+      ? usuario.empresa.uuid
+      : usuario.uuid;
+  
+    if (!propietarioUuid) {
+      notification.error({
+        message: 'UUID inválido',
+        description: 'El usuario no tiene un identificador válido ni empresa asociada.',
+      });
+      return;
     }
-
-    console.log("🔎 Solicitando bienes del usuario:", usuario.uuid);
-    
-    dispatch(fetchBienes(usuario.uuid))
-        .then((response) => {
-            if (response.success) {
-                console.log("📌 Bienes obtenidos:", response.data);
-                setBienes(response.data);
-                
-                // 🔥 Redirigir después de obtener los bienes
-                navigate(`/bienes-usuario/${usuario.uuid}`);
-            } else {
-                notification.info({
-                    message: 'Sin bienes',
-                    description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes.`,
-                });
-            }
-        })
-        .catch((error) => {
-            console.error("❌ Error al obtener bienes:", error);
-            notification.error({
-                message: 'Error',
-                description: `No se pudieron obtener los bienes del usuario. Detalle: ${error.message || 'Error desconocido'}`,
+  
+    dispatch(fetchBienesPorPropietario(propietarioUuid))
+      .then((response) => {
+        if (response.success && Array.isArray(response.data)) {
+          if (response.data.length > 0) {
+            // 🔥 Guardamos los bienes en localStorage para poder mostrarlos en la otra pantalla
+            localStorage.setItem('bienesUsuarioSeleccionado', JSON.stringify(response.data));
+            // 🔥 Guardamos el nombre también si querés mostrarlo en la otra pantalla
+            localStorage.setItem('nombreUsuarioSeleccionado', `${usuario.nombre} ${usuario.apellido}`);
+            navigate(`/bienes-usuario/${usuario.uuid}`);
+          } else {
+            notification.info({
+              message: 'Sin bienes',
+              description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes registrados.`,
             });
+          }
+        } else {
+          notification.info({
+            message: 'Sin bienes',
+            description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes registrados.`,
+          });
+        }
+      })
+      .catch((error) => {
+        notification.error({
+          message: 'Error al obtener bienes',
+          description: error.message || 'Ocurrió un error inesperado al consultar los bienes.',
         });
-};
+      });
+  };
+  
 
   
 
@@ -251,6 +262,25 @@ const UsuarioList = () => {
       dataIndex: 'email',
       key: 'email',
     },
+
+    {
+      title: 'Rol en Empresa',
+      key: 'rolEmpresa',
+      render: (usuario) =>
+        usuario.rolEmpresa
+          ? usuario.rolEmpresa.charAt(0).toUpperCase() + usuario.rolEmpresa.slice(1)
+          : usuario.tipo === 'juridica'
+          ? 'Responsable'
+          : 'Sin rol',
+    },
+    
+    {
+      title: 'Empresa',
+      key: 'empresa',
+      render: (usuario) =>
+        usuario.empresa?.razonSocial ||
+        (usuario.tipo === 'juridica' ? 'Empresa propia' : 'No asignada'),
+    },
     {
       title: 'Aprobado Por',
       dataIndex: 'aprobadoPor',
@@ -268,79 +298,119 @@ const UsuarioList = () => {
       key: 'acciones',
       render: (text, usuario) => (
         <div className="flex flex-wrap gap-2">
-          <div className="flex gap-2">
-            <Button size="small" onClick={() => handleViewDetails(usuario.uuid)} className="bg-blue-500 text-white rounded">
-              Ver Detalles
-            </Button>
-            <Button size="small" onClick={() => navigate(`/admin/operaciones/${usuario.uuid}`)} className="bg-green-500 text-white rounded">
-              Operaciones
-            </Button>
-          </div>
-          <div className="flex gap-2">
+          <Button
+            size="small"
+            onClick={() => handleViewDetails(usuario.uuid)}
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded shadow"
+          >
+            Ver Detalles
+          </Button>
           <Button
   size="small"
-  onClick={() => handleViewBienes(usuario)}
-  className="bg-purple-500 text-white rounded"
+  onClick={() => {
+    const esDelegadoResponsable = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase());
+    const targetUuid = esDelegadoResponsable && usuario.empresa?.uuid
+      ? usuario.empresa.uuid
+      : usuario.uuid;
+
+    navigate(`/admin/operaciones/${targetUuid}`, {
+      state: { usuario },
+    });
+  }}
+  className="bg-green-500 hover:bg-green-600 text-white rounded shadow"
 >
-  Bienes
+  Operaciones
 </Button>
 
 
-            <Button size="small" onClick={() => navigate(`/admin/historial-cambios/${usuario.uuid}`)} className="bg-blue-500 text-white rounded">
-              Historial de Cambios
-            </Button>
-          </div>
-          {isAdmin ? (
-  <div className="flex gap-2">
-    <Button size="small" onClick={() => navigate(`/usuarios/${usuario.uuid}/edit`)} className="bg-yellow-500 text-white rounded">
+
+
+    
+          <Button
+            size="small"
+            onClick={() => handleViewBienes(usuario)}
+            className="bg-purple-500 hover:bg-purple-600 text-white rounded shadow"
+          >
+            Bienes
+          </Button>
+    
+          <Button
+            size="small"
+            onClick={() => navigate(`/admin/historial-cambios/${usuario.uuid}`)}
+            className="bg-sky-500 hover:bg-sky-600 text-white rounded shadow"
+          >
+            Historial
+          </Button>
+    
+          {isAdmin && (
+  <>
+    <Divider type="horizontal" className="my-2" />
+    <Button
+      size="small"
+      onClick={() => navigate(`/usuarios/${usuario.uuid}/edit`)}
+      className="bg-yellow-500 hover:bg-yellow-600 text-white rounded shadow"
+    >
       Editar
     </Button>
-    <Button size="small" onClick={() => handleReject(usuario)} className="bg-orange-500 text-white rounded">
+    <Button
+      size="small"
+      onClick={() => handleReject(usuario)}
+      className="bg-orange-500 hover:bg-orange-600 text-white rounded shadow"
+    >
       Rechazar
     </Button>
-    <Button size="small" onClick={() => handleDelete(usuario)} className="bg-red-500 text-white rounded">
+    <Button
+      size="small"
+      onClick={() => handleDelete(usuario)}
+      className="bg-red-500 hover:bg-red-600 text-white rounded shadow"
+    >
       Eliminar
     </Button>
-  </div>
-) : null}
+  </>
+)}
 
         </div>
       ),
-    },
+    }
+    ,
   ];
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       {/* Modal del Spinner */}
       <Modal
-  visible={isLoadingAction}
+  open={isLoadingAction}
   footer={null}
   closable={false}
   centered
-  className="flex justify-center items-center"
+  className="text-center"
+  width={300}
 >
-  <div className="text-center">
-    <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-yellow-500 mx-auto"></div>
-    <h2 className="text-zinc-900 mt-4">Espere un momento...</h2>
-    <p className="text-zinc-600">Estamos procesando su solicitud.</p>
-  </div>
+  <Spin size="large" />
+  <h2 className="mt-4 text-gray-800 font-semibold">Espere un momento...</h2>
+  <p className="text-gray-500 text-sm">Procesando solicitud</p>
 </Modal>
+
 
   
       {/* Modal de Motivo de Rechazo */}
       <Modal
-        title={`Rechazar Usuario: ${currentUserName}`}
-        visible={isModalVisible}
-        onOk={handleRejectSubmit}
-        onCancel={() => setIsModalVisible(false)}
-      >
-        <Input.TextArea
-          rows={4}
-          placeholder="Motivo del rechazo"
-          value={rejectionReason}
-          onChange={(e) => setRejectionReason(e.target.value)}
-        />
-      </Modal>
+  title={`Motivo de rechazo para ${currentUserName}`}
+  open={isModalVisible}
+  onOk={handleRejectSubmit}
+  onCancel={() => setIsModalVisible(false)}
+  okText="Rechazar"
+  cancelText="Cancelar"
+>
+  <p className="text-sm text-gray-600 mb-2">Escribe el motivo por el cual estás rechazando al usuario:</p>
+  <Input.TextArea
+    rows={4}
+    placeholder="Motivo del rechazo..."
+    value={rejectionReason}
+    onChange={(e) => setRejectionReason(e.target.value)}
+  />
+</Modal>
+
   
       {/* Botones de Navegación */}
       <div className="flex justify-between items-center mb-4">

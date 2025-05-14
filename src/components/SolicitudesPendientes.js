@@ -1,288 +1,313 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchPendingRegistrations, approveUser, denyRegistration,fetchRejectedUsers } from '../redux/actions/usuarios';
-import { notification, Modal, Input, Button, Table } from 'antd';
+import {
+  fetchPendingRegistrations,
+  approveUser,
+  denyRegistration,
+} from '../redux/actions/usuarios';
+import {
+  notification,
+  Modal,
+  Input,
+  Button,
+  Table,
+} from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined, LogoutOutlined, HomeOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined,
+  LogoutOutlined,
+  HomeOutlined,
+} from '@ant-design/icons';
 
 const SolicitudesPendientes = () => {
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-    const { pendingRegistrations, loading, error } = useSelector((state) => state.usuarios);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { pendingRegistrations, loading, error } = useSelector((state) => state.usuarios);
 
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [rejectionReason, setRejectionReason] = useState('');
-    const [selectedUserUuid, setSelectedUserUuid] = useState(null);
-    const [filteredRegistrations, setFilteredRegistrations] = useState([]);
-    const [filters, setFilters] = useState({});
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [selectedUserUuid, setSelectedUserUuid] = useState(null);
+  const [filteredRegistrations, setFilteredRegistrations] = useState([]);
+  const [filters, setFilters] = useState({});
+  const [loadingUuid, setLoadingUuid] = useState(null);
 
-    const storedData = localStorage.getItem('userData');
-    const currentUser = storedData ? JSON.parse(storedData) : null;
-    const isAdmin = currentUser?.role === 'admin'; // Asegúrate de usar la clave correcta
+  const userData = JSON.parse(localStorage.getItem('userData'));
 
-    const isModerator = currentUser?.rolDefinitivo === 'moderador';
-  
-    const userData = JSON.parse(localStorage.getItem('userData'));
+  useEffect(() => {
+    dispatch(fetchPendingRegistrations());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (pendingRegistrations?.length > 0) {
+      const sorted = [...pendingRegistrations].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+      setFilteredRegistrations(sorted);
+    }
+  }, [pendingRegistrations]);
+
+  const handleSearch = (newFilters) => {
+    setFilters((prev) => {
+      const updated = { ...prev, ...newFilters };
+      const filtered = pendingRegistrations.filter((u) => {
+        const matchNombre = updated.nombre
+          ? u.nombre?.toLowerCase().includes(updated.nombre.toLowerCase())
+          : true;
+        const matchApellido = updated.apellido
+          ? u.apellido?.toLowerCase().includes(updated.apellido.toLowerCase())
+          : true;
+        const matchDni = updated.dni
+          ? u.dni?.includes(updated.dni)
+          : true;
+        const matchEmail = updated.email
+          ? u.email?.toLowerCase().includes(updated.email.toLowerCase())
+          : true;
+        return matchNombre && matchApellido && matchDni && matchEmail;
+      });
+      setFilteredRegistrations(filtered);
+      return updated;
+    });
+  };
+
+  const handleApprove = async (uuid) => {
+    setLoadingUuid(uuid);
+    const fechaAprobacion = new Date().toISOString();
+    const aprobadoPor = userData.uuid;
+    const aprobadoPorNombre = `${userData.nombre} ${userData.apellido}`;
+    try {
+      await dispatch(approveUser(uuid, {
+        estado: 'aprobado',
+        fechaAprobacion,
+        aprobadoPor,
+        aprobadoPorNombre,
+      }));
+      notification.success({ message: 'Usuario aprobado ✅' });
+      setFilteredRegistrations((prev) => prev.filter((u) => u.uuid !== uuid));
+      await dispatch(fetchPendingRegistrations());
+    } catch (err) {
+      notification.error({ message: 'Error al aprobar usuario ❌' });
+    } finally {
+      setLoadingUuid(null);
+    }
+  };
+
+  const showModal = (uuid) => {
+    const user = filteredRegistrations.find((u) => u.uuid === uuid);
+    if (user?.estado === 'rechazado') {
+      notification.warning({ message: 'Ya fue rechazado' });
+      return;
+    }
+    setSelectedUserUuid(uuid);
+    setIsModalVisible(true);
+  };
+
+  const handleDeny = async () => {
+    if (!rejectionReason.trim()) {
+      notification.warning({ message: 'Motivo requerido ⚠️' });
+      return;
+    }
+    setLoadingUuid(selectedUserUuid);
+    try {
+      await dispatch(denyRegistration(selectedUserUuid, {
+        estado: 'rechazado',
+        motivoRechazo: rejectionReason,
+        fechaRechazo: new Date().toISOString(),
+        rechazadoPor: userData.uuid,
+      }));
+      notification.success({ message: 'Usuario rechazado ❌' });
+      setFilteredRegistrations((prev) => prev.filter((u) => u.uuid !== selectedUserUuid));
+      await dispatch(fetchPendingRegistrations());
+      setIsModalVisible(false);
+      setRejectionReason('');
+    } catch (err) {
+      notification.error({ message: 'Error al rechazar usuario ❌' });
+    } finally {
+      setLoadingUuid(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsModalVisible(false);
+    setRejectionReason('');
+  };
+
+  const columns = [
+    {
+      title: 'Tipo',
+      dataIndex: 'tipo',
+      key: 'tipo',
+      render: (tipo) => tipo === 'juridica' ? 'Empresa' : 'Persona Física',
+    }, 
+    {
+      title: 'Rol en Empresa',
+      key: 'rolEmpresa',
+      render: (usuario) =>
+        usuario.rolEmpresa
+          ? usuario.rolEmpresa.charAt(0).toUpperCase() + usuario.rolEmpresa.slice(1)
+          : usuario.tipo === 'juridica'
+          ? 'Responsable'
+          : 'Sin rol',
+    },
     
-    // Obtener las solicitudes pendientes al cargar
-    useEffect(() => {
-        dispatch(fetchPendingRegistrations());
-    }, [dispatch]);
-
-    // Ordenar y filtrar la lista de solicitudes
-    useEffect(() => {
-        if (pendingRegistrations && pendingRegistrations.length > 0) {
-            const sortedRegistrations = [...pendingRegistrations].sort((a, b) => {
-                const dateA = new Date(a.createdAt);
-                const dateB = new Date(b.createdAt);
-                return dateB - dateA; // Orden descendente por fecha
-            });
-            setFilteredRegistrations(sortedRegistrations);
-        }
-    }, [pendingRegistrations]);
-
-    // Manejo de búsqueda
-    const handleSearch = (newFilters) => {
-        setFilters((prevFilters) => {
-            const updatedFilters = { ...prevFilters, ...newFilters };
-            const filtered = pendingRegistrations.filter((usuario) => {
-                const matchesNombre = updatedFilters.nombre ? usuario.nombre?.toLowerCase().includes(updatedFilters.nombre.toLowerCase()) : true;
-                const matchesApellido = updatedFilters.apellido ? usuario.apellido?.toLowerCase().includes(updatedFilters.apellido.toLowerCase()) : true;
-                const matchesDni = updatedFilters.dni ? usuario.dni?.includes(updatedFilters.dni) : true;
-                const matchesEmail = updatedFilters.email ? usuario.email?.toLowerCase().includes(updatedFilters.email.toLowerCase()) : true;
-
-                return matchesNombre && matchesApellido && matchesDni && matchesEmail;
-            });
-            setFilteredRegistrations(filtered);
-            return updatedFilters;
-        });
-    };
-
-    // Manejo de aprobación de usuarios
-    const handleApprove = (userUuid) => {
-        console.log(`Intentando aprobar al usuario con UUID: ${userUuid}`);
+    {
+      title: 'Empresa',
+      key: 'empresa',
+      render: (usuario) =>
+        usuario.empresa?.razonSocial ||
+        (usuario.tipo === 'juridica' ? 'Empresa propia' : 'No asignada'),
+    },
+    {
+      title: 'Nombre / Razón Social',
+      key: 'razonSocial',
+      render: (user) =>
+        user.tipo === 'juridica'
+          ? user.razonSocial || 'N/A'
+          : `${user.nombre || ''} ${user.apellido || ''}`,
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
+    },
+    {
+      title: 'DNI',
+      dataIndex: 'dni',
+      key: 'dni',
+      render: (dni) => dni || 'N/A',
+    },
+    {
+      title: 'CUIT',
+      dataIndex: 'cuit',
+      key: 'cuit',
+      render: (cuit) => cuit || 'N/A',
+    },
+    {
+      title: 'Dirección',
+      dataIndex: 'direccion',
+      key: 'direccion',
+      render: (direccion) =>
+        direccion
+          ? [
+              direccion.calle,
+              direccion.altura,
+              direccion.barrio,
+              direccion.departamento,
+            ]
+              .filter(Boolean)
+              .join(', ')
+          : 'Sin Dirección',
+    },
     
-        const fechaAprobacion = new Date().toISOString();
-        const aprobadoPor = userData.uuid;
-        const aprobadoPorNombre = `${userData.nombre} ${userData.apellido}`;
-        const estado = 'aprobado';
+    {
+      title: 'Empresa',
+      key: 'empresa',
+      render: (usuario) =>
+        usuario.empresa?.razonSocial ||
+        (usuario.tipo === 'juridica' ? 'Empresa propia' : 'No asignada'),
+    },
     
-        dispatch(approveUser(userUuid, { estado, fechaAprobacion, aprobadoPor, aprobadoPorNombre }))
-            .then(() => {
-                notification.success({
-                    message: 'Usuario aprobado',
-                    description: `El usuario con UUID ${userUuid} ha sido aprobado correctamente.`,
-                });
-    
-                // Actualizar la lista eliminando el usuario aprobado
-                setFilteredRegistrations((prev) => prev.filter((user) => user.uuid !== userUuid));
-    
-                // Volver a cargar la lista de pendientes
-                dispatch(fetchPendingRegistrations());
-            })
-            .catch((error) => {
-                notification.error({
-                    message: 'Error al aprobar usuario',
-                    description: error.message || 'Ocurrió un error inesperado.',
-                });
-            });
-    };
-    
-    
-    
-      
-
-    // Mostrar modal de rechazo
-    const showModal = (uuid) => {
-        setSelectedUserUuid(uuid);
-        setIsModalVisible(true);
-    };
-
-    // Manejo de rechazo de usuarios
-    const handleDeny = async () => {
-        if (!rejectionReason.trim()) {
-            notification.warning({
-                message: 'Motivo requerido',
-                description: 'Por favor, ingresa un motivo para la denegación.',
-            });
-            return;
-        }
-    
-        try {
-            const payload = {
-                estado: 'rechazado',
-                motivoRechazo: rejectionReason,
-                fechaRechazo: new Date().toISOString(),
-                rechazadoPor: currentUser.uuid,
-            };
-    
-            await dispatch(denyRegistration(selectedUserUuid, payload));
-    
-            notification.success({
-                message: 'Registro denegado',
-                description: 'El usuario ha sido rechazado correctamente.',
-            });
-    
-            // Actualizar la lista eliminando el usuario rechazado
-            setFilteredRegistrations((prev) => prev.filter((user) => user.uuid !== selectedUserUuid));
-    
-            // Volver a cargar la lista de pendientes
-            dispatch(fetchPendingRegistrations());
-    
-            setIsModalVisible(false);
-            setRejectionReason('');
-        } catch (error) {
-            notification.error({
-                message: 'Error',
-                description: 'No se pudo rechazar al usuario.',
-            });
-        }
-    };
-    
-
-    // Cerrar modal de rechazo
-    const handleCancel = () => {
-        setIsModalVisible(false);
-        setRejectionReason('');
-    };
-
-    const columns = [
-        {
-            title: 'Nombre',
-            dataIndex: 'nombre',
-            key: 'nombre',
-        },
-        {
-            title: 'Apellido',
-            dataIndex: 'apellido',
-            key: 'apellido',
-        },
-        {
-            title: 'Email',
-            dataIndex: 'email',
-            key: 'email',
-        },
-        {
-            title: 'DNI',
-            dataIndex: 'dni',
-            key: 'dni',
-        },
-        {
-            title: 'CUIT',
-            dataIndex: 'cuit',
-            key: 'cuit',
-            render: (cuit) => cuit || 'N/A',
-        },
-        {
-            title: 'Dirección',
-            dataIndex: 'direccion',
-            key: 'direccion',
-            render: (direccion) => 
-                direccion
-                    ? `${direccion.calle}, ${direccion.altura}, ${direccion.departamento}`
-                    : 'Sin Dirección',
-        },
-        {
-            title: 'Fecha de Solicitud',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            render: (createdAt) => new Date(createdAt).toLocaleString(),
-        },
-        {
-            title: 'Acciones',
-            key: 'acciones',
-            render: (_, user) => (
-                <div>
-                    <Button
-                        onClick={() => handleApprove(user.uuid)}
-                        className="bg-green-600 text-white rounded mr-2"
-                    >
-                        Aprobar
-                    </Button>
-                    <Button
-                        onClick={() => showModal(user.uuid)}
-                        className="bg-red-600 text-white rounded"
-                    >
-                        Denegar
-                    </Button>
-                </div>
-            ),
-        },
-    ];
-
-    return (
-        <div className="p-6 bg-gray-100 min-h-screen">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-4">
-                <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/dashboard')}>
-                    Volver
-                </Button>
-                <div className="flex space-x-4 mt-2 md:mt-0">
-                    <Button
-                        type="default"
-                        icon={<HomeOutlined />}
-                        onClick={() => navigate('/admin/dashboard')}
-                    >
-                        Inicio
-                    </Button>
-                    <Button type="primary" icon={<LogoutOutlined />} onClick={() => navigate('/home')}>
-                        Cerrar Sesión
-                    </Button>
-                </div>
-            </div>
-
-            <h2 className="text-2xl font-bold mb-4">Solicitudes de Registro Pendientes</h2>
-
-            <div className="grid grid-cols-4 gap-4 mb-4">
-                <Input
-                    placeholder="Nombre"
-                    onChange={(e) => handleSearch({ nombre: e.target.value })}
-                    allowClear
-                />
-                <Input
-                    placeholder="Apellido"
-                    onChange={(e) => handleSearch({ apellido: e.target.value })}
-                    allowClear
-                />
-                <Input
-                    placeholder="DNI"
-                    onChange={(e) => handleSearch({ dni: e.target.value })}
-                    allowClear
-                />
-                <Input
-                    placeholder="Correo Electrónico"
-                    onChange={(e) => handleSearch({ email: e.target.value })}
-                    allowClear
-                />
-            </div>
-
-            {loading ? (
-                <p>Cargando solicitudes...</p>
-            ) : (
-                <Table
-                    dataSource={filteredRegistrations}
-                    columns={columns}
-                    rowKey="uuid"
-                    pagination={{ pageSize: 10 }}
-                />
-            )}
-
-            {error && <p className="text-red-500">Error al cargar solicitudes: {error}</p>}
-
-            <Modal
-                title="Motivo de Rechazo"
-                open={isModalVisible}
-                onOk={handleDeny}
-                onCancel={handleCancel}
-            >
-                <Input.TextArea
-                    rows={4}
-                    placeholder="Ingresa el motivo para rechazar"
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                />
-            </Modal>
+    {
+      title: 'Fecha de Solicitud',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      sorter: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+      render: (createdAt) => new Date(createdAt).toLocaleString(),
+    },
+    {
+      title: 'Acciones',
+      key: 'acciones',
+      render: (_, user) => (
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleApprove(user.uuid)}
+            className="bg-green-600 text-white"
+            loading={loadingUuid === user.uuid}
+            disabled={loadingUuid === user.uuid}
+          >
+            Aprobar
+          </Button>
+          <Button
+            onClick={() => showModal(user.uuid)}
+            className="bg-red-600 text-white"
+            disabled={loadingUuid === user.uuid}
+          >
+            Denegar
+          </Button>
         </div>
-    );
+      ),
+    },
+  ];
+
+  return (
+    <div className="p-6 bg-gray-100 min-h-screen">
+      <div className="flex justify-between items-center mb-4">
+        <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/dashboard')}>
+          Volver
+        </Button>
+        <div className="flex space-x-4">
+          <Button icon={<HomeOutlined />} onClick={() => navigate('/admin/dashboard')}>
+            Inicio
+          </Button>
+          <Button icon={<LogoutOutlined />} onClick={() => navigate('/home')}>
+            Cerrar Sesión
+          </Button>
+        </div>
+      </div>
+
+      <h2 className="text-2xl font-bold mb-4">Solicitudes de Registro Pendientes</h2>
+
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <Input
+          placeholder="Nombre"
+          onChange={(e) => handleSearch({ nombre: e.target.value })}
+          allowClear
+        />
+        <Input
+          placeholder="Apellido"
+          onChange={(e) => handleSearch({ apellido: e.target.value })}
+          allowClear
+        />
+        <Input
+          placeholder="DNI"
+          onChange={(e) => handleSearch({ dni: e.target.value })}
+          allowClear
+        />
+        <Input
+          placeholder="Correo Electrónico"
+          onChange={(e) => handleSearch({ email: e.target.value })}
+          allowClear
+        />
+      </div>
+
+      {loading ? (
+        <p>Cargando solicitudes...</p>
+      ) : (
+        <Table
+          locale={{ emptyText: 'No se encontraron solicitudes con los filtros aplicados.' }}
+          dataSource={filteredRegistrations}
+          columns={columns}
+          rowKey="uuid"
+          pagination={{ pageSize: 10 }}
+        />
+      )}
+
+      {error && <p className="text-red-500">Error al cargar solicitudes: {error}</p>}
+
+      <Modal
+        title="Motivo de Rechazo"
+        open={isModalVisible}
+        onOk={handleDeny}
+        onCancel={handleCancel}
+      >
+        <Input.TextArea
+          rows={4}
+          placeholder="Ingresa el motivo para rechazar"
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+        />
+      </Modal>
+    </div>
+  );
 };
 
 export default SolicitudesPendientes;
