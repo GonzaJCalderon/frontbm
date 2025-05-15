@@ -72,9 +72,10 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
                     console.log('🧾 Datos completos del usuario:', usuario);
                   
                     // Redirigir según el rol
-                    if (usuario.rolDefinitivo === 'admin') {
-                        navigate('/admin/dashboard');
-                      } else if (usuario.rolEmpresa === 'delegado') {
+                   if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {
+  navigate('/admin/dashboard');
+}
+ else if (usuario.rolEmpresa === 'delegado') {
                         // ✅ aunque no tenga empresaUuid, si es delegado, lo mandamos al dashboard
                         navigate('/user/dashboard');
                       } else if (usuario.tipo === 'juridica') {

@@ -59,7 +59,7 @@ const VenderPage = () => {
   const renaperState = useSelector(state => state.renaper || {});
   const { loading: renaperLoading, error: renaperError } = renaperState;
 
-  // Paso 1: Datos del comprador, Paso 2: Selección/registro de bienes, Paso 3: Confirmación de venta
+  // Paso 1: Datos del comprador, Paso 2: Selección/registro de bienes, Paso 3: Confirimación de venta
   const [step, setStep] = useState(1);
 
   // Paso 1: Formulario de comprador
@@ -915,18 +915,18 @@ const validateDNIWithRenaper = async (dni) => {
       return;
     }
 
-    // 2. Rellenar campos del formulario
-    formBuyer.setFieldsValue({
-      nombre: persona.nombres || "",
-      apellido: persona.apellidos || "",
-      cuit: persona.nroCuil || "",
-      direccion: {
-        calle: persona.domicilio?.calle || "",
-        altura: persona.domicilio?.nroCalle || "",
-        barrio: persona.domicilio?.barrio || "",
-        departamento: persona.domicilio?.localidad || "",
-      },
-    });
+   formBuyer.setFieldsValue({
+  nombre: persona.nombres || "",
+  apellido: persona.apellidos || "",
+  cuit: persona.nroCuil || "",
+  direccion: {
+    calle: persona.domicilio?.calle || "",
+    altura: persona.domicilio?.nroCalle || "0", // <- 👈 forzamos altura = "0" si no vino
+    barrio: persona.domicilio?.barrio || "",
+    departamento: persona.domicilio?.localidad || "",
+  },
+});
+
 
     // 3. Ahora que ya tenemos persona, podemos buscar si existe en el sistema
     console.log('🔍 Buscando en sistema si el usuario ya existe...');

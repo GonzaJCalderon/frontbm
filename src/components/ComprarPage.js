@@ -247,17 +247,25 @@ const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
       }
   
       // Rellenar con datos del Renaper
-      formStep1.setFieldsValue({
-        nombre: persona.nombres,
-        apellido: persona.apellidos,
-        cuit: persona.nroCuil,
-        direccion: {
-          calle: persona.domicilio.calle || '',
-          altura: persona.domicilio.nroCalle || '',
-          barrio: persona.domicilio.barrio || '',
-          departamento: persona.domicilio.localidad || '',
-        },
-      });
+     // 📌 Si no hay numeración, forzamos "0"
+const alturaRenaper = persona.domicilio.nroCalle || "0";
+
+formStep1.setFieldsValue({
+  nombre: persona.nombres,
+  apellido: persona.apellidos,
+  cuit: persona.nroCuil,
+  direccion: {
+    calle: persona.domicilio.calle || '',
+    altura: alturaRenaper,
+    barrio: persona.domicilio.barrio || '',
+    departamento: persona.domicilio.localidad || '',
+  },
+});
+
+if (!persona.domicilio.nroCalle) {
+  message.info("📍 RENAPER no devolvió numeración. Se completó con '0' por defecto.");
+}
+
   
       // 💡 EXTRA: Consultar si ya está registrado en el sistema
       const checkUserResponse = await dispatch(checkExistingUser({
