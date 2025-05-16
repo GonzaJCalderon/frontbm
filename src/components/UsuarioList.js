@@ -189,48 +189,47 @@ const UsuarioList = () => {
   };
   
   const handleViewBienes = (usuario) => {
-    const esDelegadoResponsable = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase());
-    const propietarioUuid = esDelegadoResponsable && usuario.empresa?.uuid
-      ? usuario.empresa.uuid
-      : usuario.uuid;
-  
-    if (!propietarioUuid) {
-      notification.error({
-        message: 'UUID inválido',
-        description: 'El usuario no tiene un identificador válido ni empresa asociada.',
-      });
-      return;
-    }
-  
-    dispatch(fetchBienesPorPropietario(propietarioUuid))
-      .then((response) => {
-        if (response.success && Array.isArray(response.data)) {
-          if (response.data.length > 0) {
-            // 🔥 Guardamos los bienes en localStorage para poder mostrarlos en la otra pantalla
-            localStorage.setItem('bienesUsuarioSeleccionado', JSON.stringify(response.data));
-            // 🔥 Guardamos el nombre también si querés mostrarlo en la otra pantalla
-            localStorage.setItem('nombreUsuarioSeleccionado', `${usuario.nombre} ${usuario.apellido}`);
-            navigate(`/bienes-usuario/${usuario.uuid}`);
-          } else {
-            notification.info({
-              message: 'Sin bienes',
-              description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes registrados.`,
-            });
-          }
+  const esDelegadoResponsable = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase());
+  const propietarioUuid = esDelegadoResponsable && usuario.empresa?.uuid
+    ? usuario.empresa.uuid
+    : usuario.uuid;
+
+  if (!propietarioUuid || typeof propietarioUuid !== 'string' || propietarioUuid.length !== 36) {
+    notification.error({
+      message: 'UUID inválido',
+      description: 'El usuario no tiene un identificador válido ni empresa asociada.',
+    });
+    return;
+  }
+
+  dispatch(fetchBienesPorPropietario(propietarioUuid))
+    .then((response) => {
+      if (response.success && Array.isArray(response.data)) {
+        if (response.data.length > 0) {
+          localStorage.setItem('bienesUsuarioSeleccionado', JSON.stringify(response.data));
+          localStorage.setItem('nombreUsuarioSeleccionado', `${usuario.nombre} ${usuario.apellido}`);
+          navigate(`/bienes-usuario/${usuario.uuid}`);
         } else {
           notification.info({
             message: 'Sin bienes',
             description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes registrados.`,
           });
         }
-      })
-      .catch((error) => {
-        notification.error({
-          message: 'Error al obtener bienes',
-          description: error.message || 'Ocurrió un error inesperado al consultar los bienes.',
+      } else {
+        notification.info({
+          message: 'Sin bienes',
+          description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes registrados.`,
         });
+      }
+    })
+    .catch((error) => {
+      notification.error({
+        message: 'Error al obtener bienes',
+        description: error.message || 'Ocurrió un error inesperado al consultar los bienes.',
       });
-  };
+    });
+};
+
   
 
   

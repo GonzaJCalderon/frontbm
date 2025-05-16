@@ -89,7 +89,6 @@ export const fetchAllBienes = () => async (dispatch) => {
 
 
 // Acción para obtener los bienes del usuario 
-// Acción unificada que detecta si es empresa o usuario individual
 export const fetchBienes = () => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_REQUEST });
 
@@ -105,10 +104,24 @@ export const fetchBienes = () => async (dispatch) => {
       return { success: false, message: "Datos de autenticación incompletos." };
     }
 
-    const isEmpresa = Boolean(userData.empresaUuid);
-    const url = isEmpresa
-      ? `/bienes/empresa/${userData.empresaUuid}`
-      : `/bienes/usuario/${userData.uuid}?incluirDelegados=true`;
+    const empresaUuid = userData?.empresaUuid;
+    const usuarioUuid = userData?.uuid;
+
+    if (!usuarioUuid) {
+      dispatch({
+        type: FETCH_BIENES_ERROR,
+        payload: "Falta el UUID del usuario.",
+      });
+      return { success: false, message: "Falta el UUID del usuario." };
+    }
+
+    let url;
+
+    if (empresaUuid && typeof empresaUuid === 'string' && empresaUuid.length === 36) {
+      url = `/bienes/empresa/${empresaUuid}`;
+    } else {
+      url = `/bienes/usuario/${usuarioUuid}?incluirDelegados=true`;
+    }
 
     const response = await axios.get(url, {
       headers: {
@@ -116,10 +129,7 @@ export const fetchBienes = () => async (dispatch) => {
       },
     });
 
-    // ✅ Verificamos que la respuesta tenga bienes
-    const bienesRaw = isEmpresa
-      ? response.data
-      : response.data?.data;
+    const bienesRaw = empresaUuid ? response.data : response.data?.data;
 
     if (!Array.isArray(bienesRaw)) {
       throw new Error("La respuesta del servidor no contiene una lista válida de bienes.");
@@ -127,26 +137,20 @@ export const fetchBienes = () => async (dispatch) => {
 
     const bienesNormalizados = bienesRaw.map((bien) => {
       const esTelefonoMovil = bien.tipo?.toLowerCase().includes("teléfono movil");
-    
+
       let stockCalculado = 0;
-    
+
       if (esTelefonoMovil && Array.isArray(bien.identificadores)) {
         stockCalculado = bien.identificadores.filter((i) => i.estado === 'disponible').length;
       } else if (typeof bien.stock === 'number') {
         stockCalculado = bien.stock;
-      } else {
-        // 🚨 ANTES asumías 1; AHORA no mostramos como disponible
-        stockCalculado = 0;
       }
-    
-      // 🔍 Alternativa: si bien.stock es un objeto → filtralo por propietario
-      // stockCalculado = bien.stock?.cantidad || 0;
-    
+
       const fotosCombinadas = [
         ...(bien.fotos || []),
         ...(bien.identificadores?.map((d) => d.foto).filter(Boolean) || []),
       ];
-    
+
       return {
         uuid: bien.uuid,
         tipo: bien.tipo,
@@ -160,7 +164,6 @@ export const fetchBienes = () => async (dispatch) => {
         createdAt: bien.createdAt ? new Date(bien.createdAt) : new Date(),
       };
     });
-    
 
     dispatch({
       type: FETCH_BIENES_SUCCESS,
