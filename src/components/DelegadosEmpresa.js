@@ -226,7 +226,7 @@ const columns = [
           <Form.Item name="calle" label="Calle">
             <Input />
           </Form.Item>
-          <Form.Item name="altura" label="Altura">
+          <Form.Item name="altura" label="Numeración">
             <Input />
           </Form.Item>
           <Form.Item name="departamento" label="Departamento">

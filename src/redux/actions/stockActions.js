@@ -69,15 +69,12 @@ export const registrarCompra = (formData) => async (dispatch, getState) => {
 };
 
 /** 📦 Finalizar creación de bienes desde Excel + imágenes */
+/** 📦 Finalizar creación de bienes desde Excel + imágenes */
 export const finalizarCreacionBienes = (bienes) => async (dispatch) => {
   dispatch({ type: FINALIZAR_CREACION_REQUEST });
 
   try {
-    const propietario_uuid = localStorage.getItem('userUuid');
-    if (!propietario_uuid) throw new Error("El usuario no está autenticado.");
-
-    const response = await api.post('/excel/finalizar-creacion', { bienes, propietario_uuid });
-
+    const response = await api.post('/excel/finalizar-creacion', { bienes }); // ✅ Correcto
     dispatch({ type: FINALIZAR_CREACION_SUCCESS, payload: response.data });
     return response.data;
   } catch (error) {
@@ -85,9 +82,15 @@ export const finalizarCreacionBienes = (bienes) => async (dispatch) => {
       type: FINALIZAR_CREACION_FAILURE,
       payload: error.response?.data?.message || error.message || 'Error al crear los bienes.',
     });
-    return Promise.reject(error);
+   return {
+  success: false,
+  message: error.response?.data?.message || error.message || 'Error al registrar los bienes.',
+};
+
   }
 };
+
+
 
 /** 📤 Subir archivo Excel con stock */
 export const uploadStockExcel = (file, propietario_uuid) => async (dispatch) => {

@@ -171,7 +171,7 @@ const RegistrarDelegado = () => {
                 <Input style={{ width: '25%' }} placeholder="Calle" />
               </Form.Item>
               <Form.Item name={['direccion', 'altura']} noStyle>
-                <Input style={{ width: '15%' }} placeholder="Altura" />
+                <Input style={{ width: '15%' }} placeholder="Numeración" />
               </Form.Item>
               <Form.Item name={['direccion', 'barrio']} noStyle>
                 <Input style={{ width: '30%' }} placeholder="Barrio" />

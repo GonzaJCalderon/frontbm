@@ -29,6 +29,9 @@ import {
   GET_BIENES_PROPIETARIO_FAILURE,
   GET_BIENES_PROPIETARIO_REQUEST,
   RESET_BIEN_SUCCESS,
+  FINALIZAR_CREACION_REQUEST,
+  FINALIZAR_CREACION_SUCCESS,
+  FINALIZAR_CREACION_FAILURE,
 } from '../actions/actionTypes';
 
 const initialState = {
@@ -319,6 +322,30 @@ case FETCH_BIENES_EMPRESA_ERROR:
       case RESET_BIEN_SUCCESS:
         return { ...state, success: false };
       
+case FINALIZAR_CREACION_REQUEST:
+  return {
+    ...state,
+    loading: true,
+    success: false,
+    error: null,
+  };
+
+case FINALIZAR_CREACION_SUCCESS:
+  return {
+    ...state,
+    loading: false,
+    success: true,
+    mensaje: action.payload?.message || 'Bienes registrados correctamente.',
+    items: [...state.items, ...(action.payload?.bienesCreados || [])],
+  };
+
+case FINALIZAR_CREACION_FAILURE:
+  return {
+    ...state,
+    loading: false,
+    success: false,
+    error: action.payload || 'Error al finalizar la creación de bienes.',
+  };
 
 
     default:
