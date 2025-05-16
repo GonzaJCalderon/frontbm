@@ -502,7 +502,7 @@ columns={[
                   beforeUpload={(file) => handleImageUpload(file, rowIndex, imeiValue)}
                   showUploadList={false}
                 >
-                  <Button icon={<UploadOutlined />}>Subir</Button>
+                  <Button icon={<UploadOutlined />}>Subir Imagen</Button>
                 </Upload>
               )}
             </div>
