@@ -218,9 +218,19 @@ const BienesPorUsuario = () => {
               <Button onClick={() => navigate(`/bienes/trazabilidad/${bien.uuid}`)}>
                 Trazabilidad
               </Button>
-              <Button type="primary" onClick={() => navigate(`/bienes/edit/${bien.uuid}`)}>
-                Editar
-              </Button>
+             <Button
+  type="primary"
+  onClick={() =>
+    navigate(`/bienes/edit/${bien.uuid}`, {
+      state: {
+        fromUserUuid: usuarioActual?.uuid || '',
+      },
+    })
+  }
+>
+  Editar
+</Button>
+
               <Button danger onClick={() => handleDeleteBien(bien.uuid)}>
                 Eliminar
               </Button>

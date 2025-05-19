@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchAllBienes, deleteBien } from '../redux/actions/bienes';
 import { searchItems } from '../redux/actions/search';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+
 import {
   Image,
   Button,
@@ -23,8 +24,9 @@ import '../assets/css/BienList.css';
 const BienList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { items: bienes, success } = useSelector((state) => state.bienes);
+  const location = useLocation(); // ✅ CORRECTO
 
+  const { items: bienes, success } = useSelector((state) => state.bienes);
   const searchState = useSelector((state) => state.search);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -40,8 +42,15 @@ const BienList = () => {
   const userData = JSON.parse(localStorage.getItem('userData'));
   const isAdmin = userData?.rol === 'admin';
 
-
   useEffect(() => setCurrentPage(1), [filteredBienes]);
+
+  // ✅ USO CORRECTO DEL LOCATION
+  useEffect(() => {
+    if (location.state?.justUpdated) {
+      setRefreshFlag((prev) => !prev);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const loadBienes = async () => {
@@ -93,14 +102,9 @@ const BienList = () => {
   useEffect(() => {
     if (success) {
       setRefreshFlag((prev) => !prev);
-  
-      // Opcional: resetear success localmente (si no tenés acción para ello)
-      setTimeout(() => dispatch({ type: 'RESET_BIEN_SUCCESS' }), 300); 
+      setTimeout(() => dispatch({ type: 'RESET_BIEN_SUCCESS' }), 300);
     }
   }, [success]);
-  
-  
-  
 
   const handleDelete = (bien) => {
     Modal.confirm({
@@ -201,59 +205,58 @@ const BienList = () => {
                   <td>{propietario}</td>
                   <td>{fechaActualizacion}</td>
                   <td>
-                  {detalles.length > 0 ? (
-  <div>
-    <p style={{ marginBottom: 4 }}>
-      <strong>{detalles[0].identificador_unico}</strong>{' '}
-      <Tag color={detalles[0].estado === 'disponible' ? 'green' : 'red'}>
-        {detalles[0].estado}
-      </Tag>
-      <Button
-        size="small"
-        type="link"
-        onClick={() => navigate(`/bienes/trazabilidad-identificador/${detalles[0].identificador_unico}`)}
-        style={{ marginLeft: 4 }}
-      >
-        📈 Trazabilidad
-      </Button>
-    </p>
-    {detalles.length > 1 && (
-      <Button
-        type="link"
-        size="small"
-        style={{ padding: 0 }}
-        onClick={() =>
-          setExpandedIMEIRows((prev) => ({
-            ...prev,
-            [uuid]: !prev[uuid],
-          }))
-        }
-      >
-        {expandedIMEIRows[uuid] ? 'Ver menos' : `Ver más (${detalles.length - 1})`}
-      </Button>
-    )}
-    {expandedIMEIRows[uuid] &&
-      detalles.slice(1).map((d) => (
-        <p key={`${d.identificador_unico}-${idx}`} style={{ marginBottom: 4 }}>
-          <strong>{d.identificador_unico}</strong>{' '}
-          <Tag color={d.estado === 'disponible' ? 'green' : 'red'}>
-            {d.estado}
-          </Tag>
-          <Button
-            size="small"
-            type="link"
-            onClick={() => navigate(`/bienes/trazabilidad-identificador/${d.identificador_unico}`)}
-            style={{ marginLeft: 4 }}
-          >
-            📈 Trazabilidad
-          </Button>
-        </p>
-      ))}
-  </div>
-) : (
-  'Sin identificadores'
-)}
-
+                    {detalles.length > 0 ? (
+                      <div>
+                        <p style={{ marginBottom: 4 }}>
+                          <strong>{detalles[0].identificador_unico}</strong>{' '}
+                          <Tag color={detalles[0].estado === 'disponible' ? 'green' : 'red'}>
+                            {detalles[0].estado}
+                          </Tag>
+                          <Button
+                            size="small"
+                            type="link"
+                            onClick={() => navigate(`/bienes/trazabilidad-identificador/${detalles[0].identificador_unico}`)}
+                            style={{ marginLeft: 4 }}
+                          >
+                            📈 Trazabilidad
+                          </Button>
+                        </p>
+                        {detalles.length > 1 && (
+                          <Button
+                            type="link"
+                            size="small"
+                            style={{ padding: 0 }}
+                            onClick={() =>
+                              setExpandedIMEIRows((prev) => ({
+                                ...prev,
+                                [uuid]: !prev[uuid],
+                              }))
+                            }
+                          >
+                            {expandedIMEIRows[uuid] ? 'Ver menos' : `Ver más (${detalles.length - 1})`}
+                          </Button>
+                        )}
+                        {expandedIMEIRows[uuid] &&
+                          detalles.slice(1).map((d) => (
+                            <p key={`${d.identificador_unico}-${idx}`} style={{ marginBottom: 4 }}>
+                              <strong>{d.identificador_unico}</strong>{' '}
+                              <Tag color={d.estado === 'disponible' ? 'green' : 'red'}>
+                                {d.estado}
+                              </Tag>
+                              <Button
+                                size="small"
+                                type="link"
+                                onClick={() => navigate(`/bienes/trazabilidad-identificador/${d.identificador_unico}`)}
+                                style={{ marginLeft: 4 }}
+                              >
+                                📈 Trazabilidad
+                              </Button>
+                            </p>
+                          ))}
+                      </div>
+                    ) : (
+                      'Sin identificadores'
+                    )}
                   </td>
                   <td>
                     {stock > 0 ? (
@@ -305,7 +308,9 @@ const BienList = () => {
                               borderColor: '#ffc107',
                               color: '#000',
                             }}
-                            onClick={() => navigate(`/bienes/edit/${uuid}`)}
+                            onClick={() => navigate(`/bienes/edit/${uuid}`, {
+                              state: { fromBienList: true }
+                            })}
                           >
                             Editar
                           </Button>

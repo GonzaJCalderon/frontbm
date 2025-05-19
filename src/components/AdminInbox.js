@@ -46,7 +46,6 @@ const AdminMailbox = () => {
 
   userMessages.forEach((msg) => {
     const senderId = msg.senderUuid;
-
     messageCounts[senderId] = (messageCounts[senderId] || 0) + 1;
 
     if (
@@ -58,7 +57,6 @@ const AdminMailbox = () => {
   });
 
   const groupedMessages = Array.from(groupedMessagesMap.values());
-
   const assignedMessages = groupedMessages.filter((msg) => msg.assignedAdminUuid);
   const unreadMessages = groupedMessages.filter((msg) => !msg.isRead);
   const readMessages = groupedMessages.filter((msg) => msg.isRead);
@@ -82,24 +80,31 @@ const AdminMailbox = () => {
   const totalPages = Math.ceil(visibleMessages.length / pageSize);
 
   const handleOpenChat = async (messageUuid, senderUuid, assignedAdminUuid) => {
-    if (!assignedAdminUuid) {
-      await dispatch(assignMessageToAdmin({ messageUuid, adminUuid }));
+    try {
+      if (!assignedAdminUuid) {
+        await dispatch(assignMessageToAdmin({ messageUuid, adminUuid }));
+      }
+
+      await dispatch(markMessagesAsRead(senderUuid));
+      await dispatch(getMessages());
+
+      navigate(`/admin/chat/${senderUuid}`);
+    } catch (err) {
+      console.error("❌ Error al abrir el chat:", err);
     }
-
-    setTimeout(() => {
-      dispatch(markMessagesAsRead(senderUuid));
-    }, 500);
-
-    dispatch(getMessages());
-    navigate(`/admin/chat/${senderUuid}`);
   };
 
   const handleSendMessage = async (recipientUuid) => {
     if (!newMessage.trim()) return;
-    await dispatch(sendReplyToUser({ recipientUuid, content: newMessage.trim() }));
-    dispatch(getMessages());
-    setNewMessage('');
-    setSelectedUser(null);
+
+    try {
+      await dispatch(sendReplyToUser({ recipientUuid, content: newMessage.trim() }));
+      dispatch(getMessages());
+      setNewMessage('');
+      setSelectedUser(null);
+    } catch (err) {
+      console.error("❌ Error al enviar mensaje:", err);
+    }
   };
 
   const handleSearchUsers = (e) => {

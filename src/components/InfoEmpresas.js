@@ -141,16 +141,28 @@ const InfoEmpresas = () => {
     { title: 'Razón Social', dataIndex: 'razonSocial', key: 'razonSocial' },
     { title: 'CUIT', dataIndex: 'cuit', key: 'cuit' },
     { title: 'Correo Electrónico', dataIndex: 'email', key: 'email' },
-    {
-      title: 'Responsable',
-      key: 'responsable',
-      render: (_, empresa) => {
-        const responsable = empresa.delegados?.find(d => d.rolEmpresa === 'responsable');
-        return responsable
-          ? `${responsable.nombre} ${responsable.apellido}`
-          : 'No asignado';
-      }
-    },
+{
+  title: 'Responsable',
+  key: 'responsable',
+  render: (_, empresa) => {
+    const responsable = empresa.delegados?.find(d => d.rolEmpresa === 'responsable');
+
+    if (!responsable) return 'No asignado';
+
+    const estaActivo = responsable.activo !== false; // 👈 Por defecto es true si es undefined
+
+    return (
+      <Space direction="vertical" size={0}>
+        <span>{responsable.nombre} {responsable.apellido}</span>
+        <Tag color={estaActivo ? 'green' : 'red'}>
+          {estaActivo ? 'Activo' : 'Inactivo'}
+        </Tag>
+      </Space>
+    );
+  }
+},
+
+
     {
       title: 'Dirección',
       dataIndex: 'direccion',

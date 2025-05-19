@@ -110,39 +110,49 @@ export const deleteConversation = (userUuid) => async (dispatch) => {
   }
 };
 
-// ✅ Marcar mensajes como leídos
+
+// ✅ Opcional: helper para autenticación
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('authToken');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export const markMessagesAsRead = (userUuid) => async (dispatch) => {
   dispatch({ type: MARK_MESSAGES_AS_READ_REQUEST });
 
   try {
     const userData = JSON.parse(localStorage.getItem('userData'));
     const adminUuid = userData?.uuid;
-    const token = localStorage.getItem("token");
 
     if (!userUuid || !adminUuid) {
-      return;
-    }
-
-    if (!token) {
-      return;
+      throw new Error("Faltan UUIDs de usuario o administrador.");
     }
 
     const response = await api.put(
       `/messages/mark-as-read/${userUuid}`,
       { adminUuid },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: getAuthHeaders() }
     );
 
+    dispatch({
+      type: MARK_MESSAGES_AS_READ_SUCCESS,
+      payload: { userUuid, adminUuid },
+    });
 
-    dispatch({ type: MARK_MESSAGES_AS_READ_SUCCESS, payload: { userUuid, adminUuid } });
-
+    // 🔄 Opcional: actualizar mensajes no leídos con delay
     setTimeout(() => {
       dispatch(getUnreadMessages(userUuid));
     }, 500);
+
+    return response.data; // ✅ Si lo querés usar luego
   } catch (error) {
-    dispatch({ type: MARK_MESSAGES_AS_READ_FAIL, payload: error.message });
+    const message =
+      error?.response?.data?.message || error.message || 'Error al marcar como leídos.';
+    dispatch({ type: MARK_MESSAGES_AS_READ_FAIL, payload: message });
+    throw error; // ✅ Por si lo querés manejar en el componente
   }
 };
+
 
 
 
@@ -222,7 +232,7 @@ export const markAllAsRead = ({ from, to }) => async (dispatch) => {
   }
 };
 
-export const sendReplyToUser = ({ recipientUuid, content }) => async () => {
+export const sendReplyToUser = ({ recipientUuid, content }) => async (dispatch) => {
   try {
     const token = localStorage.getItem("token");
 
@@ -233,9 +243,21 @@ export const sendReplyToUser = ({ recipientUuid, content }) => async () => {
       headers: { Authorization: `Bearer ${token}` }
     });
 
+    dispatch({
+      type: SEND_MESSAGE_SUCCESS,
+      payload: response.data,
+    });
+
+    dispatch(getMessages()); // 🔄 actualiza lista si es necesario
+
     return response.data;
   } catch (error) {
     console.error("❌ Error al enviar respuesta:", error);
+    dispatch({
+      type: SEND_MESSAGE_FAIL,
+      payload: error.message || 'Error al enviar respuesta',
+    });
+    throw error;
   }
 };
 

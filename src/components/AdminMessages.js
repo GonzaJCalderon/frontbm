@@ -27,22 +27,42 @@ const AdminMessages = () => {
 
   const { loading, messages, error } = useSelector((state) => state.messages.list);
 
-  useEffect(() => {
-    if (!userUuid || !adminUuid) return;
+useEffect(() => {
+  if (!userUuid || !adminUuid) return;
 
-    dispatch(getMessagesByUser(userUuid)).then((res) => {
-      if (res?.payload?.length > 0) {
-        setLocalMessages(res.payload);
-      }
-    });
+  dispatch(getMessagesByUser(userUuid)).then((res) => {
+    if (res?.payload?.length > 0) {
+      setLocalMessages(res.payload);
+    }
+  });
 
-    dispatch(markUserMessagesAsRead(userUuid, adminUuid));
-    dispatch(getUserByUuid(userUuid)).then((user) => {
-      if (user?.nombre) {
-        setUserName(`${user.nombre} ${user.apellido}`);
+  dispatch(markUserMessagesAsRead(userUuid, adminUuid));
+
+getUserByUuid(userUuid)
+  .then((user) => {
+    console.log("🧪 Usuario cargado:", user);
+    if (user?.nombre && user?.apellido) {
+      const rol = user.rol || 'desconocido';
+      const empresaName = user.empresa?.razonSocial;
+
+      let empresaText = '';
+      if (rol && empresaName) {
+        empresaText = ` (${rol} en ${empresaName})`;
+      } else if (rol) {
+        empresaText = ` (${rol})`;
       }
+
+      setUserName(`${user.nombre} ${user.apellido}${empresaText}`);
+    } else {
+      setUserName("Usuario desconocido");
+    }
+    })
+    .catch((err) => {
+      console.error("❌ Error al obtener el usuario:", err);
+      setUserName("Usuario desconocido");
     });
-  }, [dispatch, userUuid, adminUuid]);
+}, [dispatch, userUuid, adminUuid]);
+
 
   useEffect(() => {
     if (!messages?.length) return;

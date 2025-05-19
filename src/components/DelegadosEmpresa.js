@@ -133,11 +133,22 @@ const columns = [
         : 'No disponible',
   },
   {
-    title: 'Estado',
-    dataIndex: 'estado',
-    key: 'estado',
-    render: (estado) => estado?.charAt(0).toUpperCase() + estado?.slice(1),
-  },
+  title: 'Estado',
+  dataIndex: 'estado',
+  key: 'estado',
+  render: (estado) => estado?.charAt(0).toUpperCase() + estado?.slice(1),
+},
+{
+  title: 'Activo',
+  dataIndex: 'activo',
+  key: 'activo',
+  render: (activo) => (
+    <Tag color={activo ? 'green' : 'red'}>
+      {activo ? 'Activo' : 'Inactivo'}
+    </Tag>
+  ),
+},
+
   {
     title: 'Fecha Alta',
     dataIndex: 'createdAt',

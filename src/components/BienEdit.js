@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { fetchBienDetails, updateBien } from '../redux/actions/bienes';
 import {
@@ -20,6 +20,7 @@ const { Title } = Typography;
 const BienEdit = () => {
   const { uuid } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const [form] = Form.useForm();
 
@@ -27,6 +28,8 @@ const BienEdit = () => {
   const [error, setError] = useState(null);
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
+
+  const fromUserUuid = location.state?.fromUserUuid || null;
 
   const handleLogout = () => {
     localStorage.clear();
@@ -68,8 +71,8 @@ const BienEdit = () => {
     });
 
     formData.append('existingImages', JSON.stringify(existingImages));
-    newImages.forEach((file) => {
-      formData.append('fotos', file.originFileObj || file);
+    newImages.forEach((file, index) => {
+      formData.append(`fotos_bien_0_${index}`, file.originFileObj || file);
     });
 
     try {
@@ -78,8 +81,16 @@ const BienEdit = () => {
         message: 'Actualización exitosa',
         description: 'El bien fue actualizado correctamente.'
       });
-      navigate('/lista-bienes');
+
+      // Redirige al lugar de origen
+      if (fromUserUuid) {
+        navigate(`/bienes-usuario/${fromUserUuid}`, { state: { justUpdated: true } });
+      } else {
+        navigate('/lista-bienes', { state: { justUpdated: true } });
+      }
+
     } catch (err) {
+      console.error('❌ Error actualizando bien:', err);
       notification.error({
         message: 'Error',
         description: 'No se pudo actualizar el bien.'
@@ -211,7 +222,7 @@ const BienEdit = () => {
         </Form.Item>
 
         <div className="flex justify-between mt-6">
-          <Button onClick={() => navigate('/lista-bienes')}>Cancelar</Button>
+          <Button onClick={() => navigate(-1)}>Cancelar</Button>
           <Button type="primary" htmlType="submit">
             Guardar Cambios
           </Button>
