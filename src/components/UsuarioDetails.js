@@ -25,13 +25,8 @@ const UsuarioDetails = () => {
       });
   }, [dispatch, id]);
 
-  if (error) {
-    return <div className="text-red-500 text-center">{error}</div>;
-  }
-
-  if (!usuario) {
-    return <div className="text-center">Cargando datos del usuario...</div>;
-  }
+  if (error) return <div className="text-red-500 text-center">{error}</div>;
+  if (!usuario) return <div className="text-center">Cargando datos del usuario...</div>;
 
   const {
     nombre,
@@ -43,19 +38,22 @@ const UsuarioDetails = () => {
     razonSocial,
     fechaAprobacion,
     empresa,
-    rolEmpresa
-  } = usuario || {};
+    rolEmpresa,
+  } = usuario;
 
   const { calle, altura, barrio, departamento } = direccion || {};
   const addressString = `${calle || ''} ${altura || ''}, ${barrio || ''}, ${departamento || ''}`;
   const googleMapsURL = `https://www.google.com/maps?q=${encodeURIComponent(addressString)}&output=embed`;
 
-  // Empresa address
+  // Dirección empresa
   const empresaDireccion = empresa?.direccion || {};
   const empresaAddressString = `${empresaDireccion.calle || ''} ${empresaDireccion.altura || ''}, ${empresaDireccion.departamento || ''}`;
   const empresaMapsURL = empresaAddressString
     ? `https://www.google.com/maps?q=${encodeURIComponent(empresaAddressString)}&output=embed`
     : null;
+
+  // Mostrar correctamente Razón Social (si tiene propia o de empresa asociada)
+  const razonSocialFinal = razonSocial || empresa?.razonSocial || null;
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
@@ -76,7 +74,11 @@ const UsuarioDetails = () => {
         <p><strong>Email:</strong> {email || 'No disponible'}</p>
         <p><strong>DNI:</strong> {dni || 'No disponible'}</p>
         <p><strong>Rol:</strong> {rolDefinitivo || 'No disponible'}</p>
-        <p><strong>Razón Social:</strong> {razonSocial || 'No disponible'}</p>
+        <p><strong>Rol en Empresa:</strong> {rolEmpresa || 'No aplica'}</p>
+        <p><strong>Razón Social:</strong> {razonSocialFinal || 'No disponible'}</p>
+        {rolEmpresa && empresa?.razonSocial && (
+          <p><strong>{rolEmpresa.charAt(0).toUpperCase() + rolEmpresa.slice(1)} de:</strong> {empresa.razonSocial}</p>
+        )}
         <p>
           <strong>Dirección:</strong>{' '}
           {direccion ? (
@@ -87,9 +89,7 @@ const UsuarioDetails = () => {
             >
               {addressString}
             </a>
-          ) : (
-            'No disponible'
-          )}
+          ) : 'No disponible'}
         </p>
         <p>
           <strong>Fecha de Aprobación:</strong>{' '}
