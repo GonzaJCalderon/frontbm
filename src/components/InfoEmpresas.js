@@ -12,10 +12,12 @@ import {
   Input,
   Select,
   Dropdown,
-  Menu
+  Menu,
+  notification, 
 } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { getEmpresas } from '../redux/actions/usuarios';
+import { fetchBienesPorPropietario } from '../redux/actions/bienes';
 import { useNavigate } from 'react-router-dom';
 import api from '../redux/axiosConfig';
 import { DownOutlined, SearchOutlined } from '@ant-design/icons';
@@ -56,6 +58,49 @@ const InfoEmpresas = () => {
       message.error('❌ Error al aprobar la empresa');
     }
   };
+
+const handleViewBienesEmpresa = (empresa) => {
+  if (!empresa || !empresa.uuid) {
+    notification.error({
+      message: 'UUID inválido',
+      description: 'La empresa no tiene un identificador válido.',
+    });
+    return;
+  }
+
+  dispatch(fetchBienesPorPropietario(empresa.uuid))
+    .then((response) => {
+      if (response.success && Array.isArray(response.data)) {
+        if (response.data.length > 0) {
+          localStorage.setItem('bienesUsuarioSeleccionado', JSON.stringify(response.data));
+          localStorage.setItem('nombreUsuarioSeleccionado', empresa.razonSocial);
+     navigate(`/bienes-usuario/${empresa.uuid}`, {
+  state: {
+    nombreEmpresa: empresa.razonSocial,
+    desdeInfoEmpresas: true
+  }
+});
+        } else {
+          notification.info({
+            message: 'Sin bienes',
+            description: `La empresa ${empresa.razonSocial} no posee bienes registrados.`,
+          });
+        }
+      } else {
+        notification.info({
+          message: 'Sin bienes',
+          description: `La empresa ${empresa.razonSocial} no posee bienes registrados.`,
+        });
+      }
+    })
+    .catch((error) => {
+      notification.error({
+        message: 'Error al obtener bienes',
+        description: error.message || 'Ocurrió un error inesperado al consultar los bienes.',
+      });
+    });
+};
+
 
   const handleEliminar = async (uuid) => {
     try {
@@ -185,44 +230,50 @@ const InfoEmpresas = () => {
       render: (createdAt) => new Date(createdAt).toLocaleDateString(),
     },
     {
-      title: 'Acciones',
-      key: 'acciones',
-      render: (_, empresa) => {
-        const menu = (
-          <Menu>
-            <Menu.Item key="delegados" onClick={() => navigate(`/empresa/${empresa.uuid}/delegados`)}>
-              Ver Delegados
-            </Menu.Item>
-            <Menu.Item key="editar" onClick={() => handleEditar(empresa)}>
-              Editar
-            </Menu.Item>
-            {empresa.estado === 'pendiente' && (
-              <Menu.Item key="aprobar" onClick={() => handleAprobar(empresa.uuid)}>
-                Aprobar Empresa
-              </Menu.Item>
-            )}
-            <Menu.Item key="eliminar">
-              <Popconfirm
-                title="¿Eliminar esta empresa?"
-                onConfirm={() => handleEliminar(empresa.uuid)}
-                okText="Eliminar"
-                cancelText="Cancelar"
-              >
-                <span style={{ color: 'red' }}>Eliminar</span>
-              </Popconfirm>
-            </Menu.Item>
-          </Menu>
-        );
+  title: 'Acciones',
+  key: 'acciones',
+  render: (_, empresa) => {
+    const menu = (
+      <Menu>
+        <Menu.Item key="delegados" onClick={() => navigate(`/empresa/${empresa.uuid}/delegados`)}>
+          Ver Delegados
+        </Menu.Item>
+        <Menu.Item key="editar" onClick={() => handleEditar(empresa)}>
+          Editar
+        </Menu.Item>
+        {empresa.estado === 'pendiente' && (
+          <Menu.Item key="aprobar" onClick={() => handleAprobar(empresa.uuid)}>
+            Aprobar Empresa
+          </Menu.Item>
+        )}
+        <Menu.Item key="operaciones" onClick={() => navigate(`/admin/operaciones/${empresa.uuid}`)}>
+          Ver Operaciones
+        </Menu.Item>
+        <Menu.Item key="bienes" onClick={() => handleViewBienesEmpresa(empresa)}>
+          Ver Bienes
+        </Menu.Item>
+        <Menu.Item key="eliminar">
+          <Popconfirm
+            title="¿Eliminar esta empresa?"
+            onConfirm={() => handleEliminar(empresa.uuid)}
+            okText="Eliminar"
+            cancelText="Cancelar"
+          >
+            <span style={{ color: 'red' }}>Eliminar</span>
+          </Popconfirm>
+        </Menu.Item>
+      </Menu>
+    );
 
-        return (
-          <Dropdown overlay={menu}>
-            <Button>
-              Acciones <DownOutlined />
-            </Button>
-          </Dropdown>
-        );
-      }
-    },
+    return (
+      <Dropdown overlay={menu}>
+        <Button>
+          Acciones <DownOutlined />
+        </Button>
+      </Dropdown>
+    );
+  }
+},
   ];
 
   return (

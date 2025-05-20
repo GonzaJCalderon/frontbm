@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation  } from 'react-router-dom';
 import {
   fetchBienesPorUsuario,
   fetchBienesPorEmpresa,
@@ -29,6 +29,10 @@ const BienesPorUsuario = () => {
   const { uuid } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const location = useLocation();
+const nombreEmpresaDesdeState = location.state?.nombreEmpresa;
+const desdeInfoEmpresas = location.state?.desdeInfoEmpresas;
+
 
   const [expandedFotoRows, setExpandedFotoRows] = useState({});
   const [expandedIMEIRows, setExpandedIMEIRows] = useState({});
@@ -247,14 +251,15 @@ const BienesPorUsuario = () => {
         <Button icon={<LogoutOutlined />} danger onClick={() => navigate('/home')}>Cerrar sesión</Button>
       </div>
 
-      <h1 className="text-2xl font-bold mb-4 text-center">
-        Bienes de{' '}
-        {usuarioActual
-          ? (usuarioActual.rolEmpresa === 'responsable' || usuarioActual.rolEmpresa === 'delegado')
-            ? usuarioActual.empresa?.razonSocial || 'Empresa'
-            : `${usuarioActual.nombre} ${usuarioActual.apellido}`
-          : 'Usuario/Empresa'}
-      </h1>
+    <h1 className="text-2xl font-bold mb-4 text-center">
+  {desdeInfoEmpresas
+    ? `Bienes de la empresa: ${nombreEmpresaDesdeState || localStorage.getItem('nombreUsuarioSeleccionado')}`
+    : usuarioActual?.rolEmpresa === 'responsable' || usuarioActual?.rolEmpresa === 'delegado'
+      ? `Bienes de la empresa: ${usuarioActual?.empresa?.razonSocial || localStorage.getItem('nombreUsuarioSeleccionado') || 'Empresa no identificada'}`
+      : `Bienes del usuario: ${usuarioActual?.nombre} ${usuarioActual?.apellido}`}
+</h1>
+
+
 
       <Input.Search
         placeholder="Buscar por tipo, marca, modelo, descripción..."

@@ -1,15 +1,13 @@
-// ⚙️ Importaciones...
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
 import {
-  Table, Typography, Button, Spin, Space, Alert, Modal, Image,
+  Table, Typography, Button, Spin, Space, Modal, Image,
 } from 'antd';
 import { LeftOutlined } from '@ant-design/icons';
 import {
-  obtenerTransacciones,
   getUserByUuid,
   getEmpresaByUuid,
+  obtenerTodasLasTransacciones
 } from '../redux/actions/usuarios';
 
 const { Title } = Typography;
@@ -17,11 +15,11 @@ const { Title } = Typography;
 const AdminOperaciones = () => {
   const { uuid } = useParams();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const location = useLocation();
 
   const [usuario, setUsuario] = useState(null);
   const [uuidConsulta, setUuidConsulta] = useState(null);
+  const [modo, setModo] = useState('usuario');
   const [compras, setCompras] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,81 +29,92 @@ const AdminOperaciones = () => {
   const [totalVentas, setTotalVentas] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImages, setPreviewImages] = useState([]);
+
   const transaccionesPorPagina = 10;
 
-  const fetchUsuario = useCallback(async () => {
-    const user = await getUserByUuid(uuid);
-    if (user.empresaUuid || user.empresa?.uuid) {
-      const empresa = await getEmpresaByUuid(user.empresaUuid || user.empresa?.uuid);
+  // ✅ Obtiene el usuario ya sea desde la navegación o desde la API
+useEffect(() => {
+  const cargarDatos = async () => {
+    let user = location.state?.usuario;
+
+    if (!user) {
+      // ✅ Primero intentamos cargar como empresa
+      const empresa = await getEmpresaByUuid(uuid);
       if (empresa) {
-        user.razonSocial = empresa.razonSocial;
-        user.empresa = empresa;
+        user = {
+          uuid: empresa.uuid,
+          razonSocial: empresa.razonSocial,
+          tipo: 'empresa',
+        };
+        setModo('empresa');
+        setUsuario(user);
+        setUuidConsulta(empresa.uuid);
+        return;
       }
+
+      // ⚠️ Si no es empresa, intentamos como usuario
+      user = await getUserByUuid(uuid);
+
+      const esEmpresa = ['responsable', 'delegado'].includes(user.rolEmpresa?.toLowerCase());
+      if (esEmpresa) {
+        const empresa = await getEmpresaByUuid(user.empresaUuid || user.empresa?.uuid);
+        if (empresa) {
+          user.empresa = empresa;
+          user.razonSocial = empresa.razonSocial;
+        }
+      }
+
+      setModo(esEmpresa ? 'empresa' : 'usuario');
+      setUuidConsulta(esEmpresa ? user.empresa?.uuid : user.uuid);
+      setUsuario(user);
+    } else {
+      const esEmpresa = ['responsable', 'delegado'].includes(user.rolEmpresa?.toLowerCase());
+      setModo(esEmpresa ? 'empresa' : 'usuario');
+      setUuidConsulta(esEmpresa ? user.empresa?.uuid : user.uuid);
+      setUsuario(user);
     }
-    setUsuario(user);
-  }, [uuid]);
+  };
 
-  useEffect(() => {
-    const prepararUsuario = async () => {
-      const stateUser = location.state?.usuario;
-      if (stateUser) {
-        setUsuario(stateUser);
-      } else {
-        await fetchUsuario();
-      }
-    };
-    prepararUsuario();
-  }, [location.state, fetchUsuario]);
+  cargarDatos();
+}, [uuid, location.state]);
 
-  useEffect(() => {
-    if (!usuario) return;
-    const uuidFinal = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase())
-      ? usuario.empresa?.uuid || usuario.empresaUuid
-      : usuario.uuid;
-    setUuidConsulta(uuidFinal);
-  }, [usuario]);
 
   useEffect(() => {
     if (!uuidConsulta) return;
-    fetchCompras(uuidConsulta);
-    fetchVentas(uuidConsulta);
+    fetchTransacciones();
   }, [uuidConsulta, paginaCompras, paginaVentas]);
 
-  const fetchCompras = useCallback(async (uuidToUse) => {
+  const fetchTransacciones = async () => {
     try {
       setLoading(true);
-      const data = await obtenerTransacciones(uuidToUse, 'compra', paginaCompras, transaccionesPorPagina);
-      setCompras(data.data || []);
-      setTotalCompras(data.total || 0);
-    } finally {
-      setLoading(false);
-    }
-  }, [paginaCompras]);
+      const [resCompras, resVentas] = await Promise.all([
+        obtenerTodasLasTransacciones(uuidConsulta, modo, paginaCompras, 'compra'),
+        obtenerTodasLasTransacciones(uuidConsulta, modo, paginaVentas, 'venta'),
+      ]);
 
-  const fetchVentas = useCallback(async (uuidToUse) => {
-    try {
-      setLoading(true);
-      const data = await obtenerTransacciones(uuidToUse, 'venta', paginaVentas, transaccionesPorPagina);
-      setVentas(data.data || []);
-      setTotalVentas(data.total || 0);
+      setCompras(resCompras.data || []);
+      setTotalCompras(resCompras.total || 0);
+
+      setVentas(resVentas.data || []);
+      setTotalVentas(resVentas.total || 0);
+    } catch (err) {
+      console.error('❌ Error al cargar transacciones:', err.message);
     } finally {
       setLoading(false);
     }
-  }, [paginaVentas]);
+  };
 
   const handlePreview = (fotos) => {
     setPreviewImages(fotos);
     setPreviewVisible(true);
   };
 
-  // ✅ COLUMNA COMPARTIDA: Trazabilidad
   const columnaTrazabilidad = {
     title: 'Trazabilidad',
     key: 'trazabilidad',
     render: (_, record) => {
       const detalles = record.detallesVendidos || [];
       if (!detalles.length) return 'Sin identificadores';
-
       return (
         <Space direction="vertical">
           {detalles.map((det, i) => (
@@ -190,13 +199,14 @@ const AdminOperaciones = () => {
         <Button icon={<LeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
       </Space>
 
-      <Title level={2}>
-        {usuario?.razonSocial
-          ? `Operaciones de ${usuario.razonSocial} (operadas por ${usuario.nombre} ${usuario.apellido} como ${usuario.rolEmpresa})`
-          : usuario
-            ? `Operaciones de ${usuario.nombre} ${usuario.apellido}`
-            : 'Cargando datos del usuario...'}
-      </Title>
+<Title level={2}>
+  {usuario?.razonSocial
+    ? `Operaciones de ${usuario.razonSocial}`
+    : usuario
+      ? `Operaciones de ${usuario.nombre} ${usuario.apellido}`
+      : 'Cargando datos...'}
+</Title>
+
 
       {loading ? <Spin tip="Cargando transacciones..." /> : (
         <>
@@ -209,7 +219,7 @@ const AdminOperaciones = () => {
               current: paginaCompras,
               pageSize: transaccionesPorPagina,
               total: totalCompras,
-              onChange: (page) => setPaginaCompras(page),
+              onChange: (page) => setPaginaCompras(Number(page)),
             }}
           />
 
@@ -222,7 +232,7 @@ const AdminOperaciones = () => {
               current: paginaVentas,
               pageSize: transaccionesPorPagina,
               total: totalVentas,
-              onChange: (page) => setPaginaVentas(page),
+              onChange: (page) => setPaginaVentas(Number(page)),
             }}
           />
         </>
