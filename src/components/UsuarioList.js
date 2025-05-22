@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchApprovedUsers, fetchRejectedUsers, fetchPendingRegistrations, deleteUsuario, denyRegistration, approveUser} from '../redux/actions/usuarios';
 import { fetchBienes, fetchBienesPorPropietario  } from '../redux/actions/bienes';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { notification, Button, Table, Modal, Input, Spin, Divider } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 
@@ -10,6 +10,10 @@ import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 const UsuarioList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+const location = useLocation();
+const shouldReload = location.state?.reload === true;
+
+
   const { approvedUsers = [], loading, error } = useSelector(state => ({
     approvedUsers: Array.isArray(state.usuarios.approvedUsers) ? state.usuarios.approvedUsers : [],
     loading: state.usuarios.loading || false,
@@ -26,6 +30,7 @@ const UsuarioList = () => {
   const [filters, setFilters] = useState({});
   const [isLoadingAction, setIsLoadingAction] = useState(false);
   const [bienes, setBienes] = useState([]);
+  
 
 
 
@@ -36,17 +41,18 @@ const UsuarioList = () => {
   const isAdmin = userRol === 'admin';
   
 
-  
+useEffect(() => {
+  if (shouldReload) {
+    dispatch(fetchApprovedUsers()).then(() => {
+      // 🧽 Limpiar el state de navegación para evitar recargas futuras no deseadas
+      navigate(location.pathname, { replace: true, state: {} });
+    });
+  } else if (approvedUsers.length === 0) {
+    dispatch(fetchApprovedUsers());
+  }
+}, [dispatch, shouldReload, location.pathname, navigate]);
 
 
-  useEffect(() => {
-    dispatch(fetchApprovedUsers())
-      .then((response) => {
-// 🔹 Verifica qué datos devuelve la API
-      })
-      .catch((error) => {
-      });
-  }, [dispatch]);
   
 
   useEffect(() => {
@@ -373,6 +379,21 @@ const UsuarioList = () => {
     }
     ,
   ];
+
+  useEffect(() => {
+  if (shouldReload) {
+    dispatch(fetchApprovedUsers()).then(() => {
+      // 💥 Limpiar el parámetro de la URL después de recargar
+      const params = new URLSearchParams(location.search);
+      params.delete('reload');
+      const newUrl = `${location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', newUrl);
+    });
+  } else if (approvedUsers.length === 0) {
+    dispatch(fetchApprovedUsers());
+  }
+}, [dispatch, shouldReload, location]);
+
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">

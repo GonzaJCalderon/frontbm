@@ -44,25 +44,33 @@ const App = () => {
   // ⏱ Refrescar token cada 25 minutos si hay sesión activa
 useEffect(() => {
   const intentarRefreshInicial = async () => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
+    const authToken = localStorage.getItem('authToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+
+    // 🔐 Validación doble: ambos tokens deben estar presentes
+    if (authToken && refreshToken) {
       const success = await refreshAuthToken();
       if (!success) {
         console.warn('⛔ No se pudo refrescar el token inicial. Cerrando sesión.');
         localStorage.clear();
         navigate('/login');
       }
+    } else {
+      console.warn('⛔ Tokens faltantes. Cerrando sesión.');
+      localStorage.clear();
+      navigate('/login');
     }
   };
 
-  intentarRefreshInicial(); // 🔁 Esto se ejecuta una vez al montar
+  intentarRefreshInicial(); // Ejecuta una vez al cargar
 
   const interval = setInterval(() => {
     refreshAuthToken();
-  }, 25 * 60 * 1000); // cada 25 minutos
+  }, 25 * 60 * 1000);
 
   return () => clearInterval(interval);
 }, [navigate]);
+
 
 
   return (

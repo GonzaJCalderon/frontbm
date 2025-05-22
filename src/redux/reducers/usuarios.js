@@ -80,6 +80,9 @@ import {
     FETCH_TRANSACCIONES_EMPRESA_SUCCESS,
     FETCH_TRANSACCIONES_EMPRESA_ERROR,
     FETCH_TRANSACCIONES_EMPRESA_REQUEST,
+    CREATE_EMPRESA_REQUEST,
+    CREATE_EMPRESA_SUCCESS ,
+     CREATE_EMPRESA_ERROR ,
 } from '../actions/actionTypes';
 
 const initialState = {
@@ -98,6 +101,10 @@ const initialState = {
     delegados: [],
     delegadosLoading: false,
     delegadosError: null,
+    empresaCreando: false,
+empresaCreada: null,
+empresaError: null,
+
     pendingRegistrations: [],
     comprasVentas: {
         bienesComprados: [],
@@ -600,6 +607,31 @@ case REGISTER_DELEGADO_REQUEST:
       loading: false,
       error: action.error,
     };
+
+    case CREATE_EMPRESA_REQUEST:
+  return {
+    ...state,
+    empresaCreando: true,
+    empresaCreada: null,
+    empresaError: null,
+  };
+
+case CREATE_EMPRESA_SUCCESS:
+  return {
+    ...state,
+    empresaCreando: false,
+    empresaCreada: action.payload,
+    empresaError: null,
+    empresas: [...(state.empresas || []), action.payload], // agrega a la lista si querés
+  };
+
+case CREATE_EMPRESA_ERROR:
+  return {
+    ...state,
+    empresaCreando: false,
+    empresaError: action.payload,
+  };
+
   
 
               

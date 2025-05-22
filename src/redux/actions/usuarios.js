@@ -87,6 +87,7 @@ import {
    REGISTER_DELEGADO_REQUEST,
   REGISTER_DELEGADO_SUCCESS,
   REGISTER_DELEGADO_ERROR,
+  CREATE_EMPRESA_SUCCESS,
     
 } from './actionTypes';
 
@@ -811,6 +812,47 @@ export const registerDelegado = (delegadoData) => async (dispatch) => {
 };
 
 
+// Acción combinada para registrar usuario por tercero y luego asociarlo como delegado
+export const registrarYAsociarDelegado = (usuarioData, empresaUuid) => async (dispatch) => {
+  dispatch({ type: REGISTER_DELEGADO_REQUEST });
+
+  try {
+    let usuarioCreado;
+
+    if (usuarioData.uuidExistente) {
+      usuarioCreado = { uuid: usuarioData.uuidExistente };
+    } else {
+      usuarioCreado = await dispatch(registerUsuarioPorTercero(usuarioData));
+    }
+
+    await api.post(`/empresas/${empresaUuid}/asociar-delegado`, {
+      usuarioUuid: usuarioCreado.uuid,
+    });
+
+    dispatch({
+      type: REGISTER_DELEGADO_SUCCESS,
+      payload: usuarioCreado,
+    });
+
+    message.success('✅ Delegado registrado y asociado correctamente');
+
+    return usuarioCreado;
+  } catch (error) {
+    const errorMsg = error.response?.data?.message || error.message || 'Error al registrar o asociar delegado';
+
+    dispatch({
+      type: REGISTER_DELEGADO_ERROR,
+      error: errorMsg,
+    });
+
+    message.error('❌ ' + errorMsg);
+
+    throw new Error(errorMsg);
+  }
+};
+
+
+
 
   
   // Acción para obtener historial de cambios
@@ -925,19 +967,35 @@ export const reintentarRegistro = (uuid, formData) => async (dispatch) => {
   }
 }; 
 
-export const getEmpresas = () => async (dispatch) => {
-  dispatch({ type: 'FETCH_EMPRESAS_REQUEST' });
 
+export const getEmpresas = () => async (dispatch) => {
   try {
-    const response = await api.get('/empresas');
-    dispatch({ type: 'FETCH_EMPRESAS_SUCCESS', payload: response.data.empresas });
+    dispatch({ type: FETCH_EMPRESAS_REQUEST });
+
+    const token = localStorage.getItem('token');
+    const response = await api.get('/empresas', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const empresas = response.data.empresas || [];
+
+    dispatch({
+      type: FETCH_EMPRESAS_SUCCESS,
+      payload: empresas, // ✅ ahora sí es un array directamente
+    });
+
+    return { payload: empresas }; // ✅ para que funcione bien el .then()
   } catch (error) {
     dispatch({
-      type: 'FETCH_EMPRESAS_FAIL',
-      payload: error.response?.data?.message || error.message,
+      type: FETCH_EMPRESAS_ERROR,
+      payload: error.response?.data || error.message,
     });
+    return { error }; // ← útil si necesitás manejar errores también
   }
 };
+
 
 export const getEmpresaByUuid = async (uuid) => {
   try {
@@ -1023,4 +1081,24 @@ export const fetchEmpresaDeDelegado = () => async () => {
     headers: { Authorization: `Bearer ${token}` }
   });
   return res.data;
+};
+
+// Crear nueva empresa
+export const createEmpresa = (empresaData) => async (dispatch) => {
+  try {
+    const token = localStorage.getItem('token');
+
+    const response = await api.post('/empresa', empresaData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Podés disparar un mensaje o acción si querés notificar
+    return response.data.empresa; // Esto te da el objeto empresa creado
+  } catch (error) {
+    console.error('❌ Error al crear empresa:', error);
+    throw new Error(error.response?.data?.message || 'Error al crear empresa');
+  }
 };
