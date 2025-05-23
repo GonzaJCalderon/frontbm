@@ -1,10 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchApprovedUsers, fetchRejectedUsers, fetchPendingRegistrations, deleteUsuario, denyRegistration, approveUser} from '../redux/actions/usuarios';
+import { 
+  fetchApprovedUsers,
+   fetchRejectedUsers, 
+   fetchPendingRegistrations, 
+   deleteUsuario, 
+   denyRegistration, 
+   approveUser, 
+   registrarUsuarioYAsignarRol,
+  checkExistingUser } from '../redux/actions/usuarios';
 import { fetchBienes, fetchBienesPorPropietario  } from '../redux/actions/bienes';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { notification, Button, Table, Modal, Input, Spin, Divider } from 'antd';
+import api from '../redux/axiosConfig';
+import { notification, Button, Table, Modal, Input, Spin, Divider,Form, Select } from 'antd';
 import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
+
+const { Option } = Select;
+
+const departments = [
+  'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén', 'Rivadavia',
+  'San Martín', 'La Paz', 'Santa Rosa', 'General Alvear', 'Malargüe', 'San Carlos',
+  'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo',
+];
 
 
 const UsuarioList = () => {
@@ -20,7 +37,7 @@ const shouldReload = location.state?.reload === true;
     error: state.usuarios.error || null,
   }));
   
-  const [filteredUsuarios, setFilteredUsuarios] = useState([]);
+  const [filteredUsuarios, setFilteredUsuarios] = useState([])
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserName, setCurrentUserName] = useState('');
@@ -30,6 +47,14 @@ const shouldReload = location.state?.reload === true;
   const [filters, setFilters] = useState({});
   const [isLoadingAction, setIsLoadingAction] = useState(false);
   const [bienes, setBienes] = useState([]);
+  const [isAddUserModalVisible, setIsAddUserModalVisible] = useState(false);
+const [addUserForm] = Form.useForm();
+const [validandoRenaper, setValidandoRenaper] = useState(false);
+const [renaperError, setRenaperError] = useState('');
+const [bloquearDatosRenaper, setBloquearDatosRenaper] = useState(false);
+const [datosRenaperCargados, setDatosRenaperCargados] = useState(false);
+
+
   
 
 
@@ -157,6 +182,63 @@ useEffect(() => {
         });
       });
   };
+ 
+ const validarDNIConRenaper = async (dni, callback) => {
+  setValidandoRenaper(true);
+  setRenaperError('');
+  try {
+    const { data } = await api.get(`/renaper/${dni}`);
+    console.log('📦 Datos RENAPER:', data);
+
+    if (data.resultado === 0 && data.persona && !data.persona.fallecido) {
+      const persona = data.persona;
+
+      // Prepara datos formateados
+      const datosFormateados = {
+        nombre: persona.nombres,
+        apellido: persona.apellidos,
+        cuit: persona.nroCuil || '',
+        direccion: {
+          calle: persona.domicilio?.calle || '',
+          altura: persona.domicilio?.nroCalle?.toString() || '',
+          departamento: esDeMendoza(persona.domicilio?.provincia)
+            ? normalizarDepartamento(persona.domicilio?.localidad)
+            : '',
+        },
+      };
+
+      // Aplica los valores al formulario
+      addUserForm.setFieldsValue(datosFormateados);
+
+      // Estado UI
+      setBloquearDatosRenaper(true);
+      setDatosRenaperCargados(true);
+    } else if (data.persona?.fallecido) {
+      setRenaperError('La persona figura como fallecida.');
+    } else {
+      setRenaperError('Persona no encontrada en Renaper.');
+    }
+  } catch (err) {
+    console.error('❌ Error RENAPER:', err);
+    setRenaperError('Error al validar DNI con Renaper.');
+  } finally {
+    setValidandoRenaper(false);
+  }
+};
+
+
+
+const esDeMendoza = (provincia) => provincia.toLowerCase().includes('mendoza');
+
+const normalizarDepartamento = (localidad) => {
+  if (!localidad) return '';
+  const match = departments.find(dep => 
+    dep.normalize("NFD").replace(/[\u0300-\u036f]/g, '').toLowerCase() ===
+    localidad.normalize("NFD").replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  );
+  return match || '';
+};
+
   
   
   const handleDelete = (usuario) => {
@@ -395,8 +477,136 @@ useEffect(() => {
 }, [dispatch, shouldReload, location]);
 
 
+
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
+{/* Modal de Agregar Usuario */}
+<Modal
+  title="Registrar nuevo usuario"
+  open={isAddUserModalVisible}
+  onCancel={() => setIsAddUserModalVisible(false)}
+  onOk={() => addUserForm.submit()}
+  okText="Registrar"
+  cancelText="Cancelar"
+>
+   <p>Completá el siguiente formulario para registrar un nuevo usuario, Ingrese el DNI y espere mientras RENAPER verifica la información.:</p>
+  <Form
+    form={addUserForm}
+    layout="vertical"
+   onFinish={async (values) => {
+  try {
+    // 👀 Validar si ya existe usuario por DNI, nombre y apellido
+    const existe = await dispatch(checkExistingUser({
+      dni: values.dni,
+      nombre: values.nombre,
+      apellido: values.apellido
+    }));
+
+    if (existe?.existe) {
+      notification.error({
+        message: '❌ Usuario duplicado',
+        description: 'Ya existe un usuario registrado con este DNI, nombre y apellido.',
+      });
+      return; // Detener registro
+    }
+
+    // Registrar y asignar rol
+    await dispatch(registrarUsuarioYAsignarRol(values));
+    notification.success({ message: '✅ Usuario registrado y rol asignado correctamente' });
+
+    setIsAddUserModalVisible(false);
+    addUserForm.resetFields();
+    dispatch(fetchApprovedUsers());
+  } catch (error) {
+    notification.error({
+      message: '❌ Error',
+      description: error.message || 'Error al registrar usuario.',
+    });
+  }
+}}
+
+  >
+     <Form.Item
+  name="dni"
+  label="DNI"
+  rules={[{ required: true, message: 'El DNI es obligatorio' }]}
+>
+  <Input
+    onBlur={(e) => {
+  const dni = e.target.value;
+  if (dni && /^\d{7,8}$/.test(dni)) {
+    validarDNIConRenaper(dni, (persona) => {
+      addUserForm.setFieldsValue({
+        nombre: persona.nombres,
+        apellido: persona.apellidos,
+        cuit: persona.nroCuil || '',
+        direccion: {
+          departamento: esDeMendoza(persona.provincia)
+            ? normalizarDepartamento(persona.localidad)
+            : '',
+        },
+      });
+      setBloquearDatosRenaper(true);
+    });
+  }
+}}
+
+  />
+</Form.Item>
+
+{renaperError && (
+  <p className="text-red-500 text-sm mb-2">{renaperError}</p>
+)}
+{validandoRenaper && (
+  <Spin size="small" className="mb-2" />
+)}
+
+  <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
+  <Input disabled={bloquearDatosRenaper} />
+</Form.Item>
+<Form.Item name="apellido" label="Apellido" rules={[{ required: true }]}>
+  <Input disabled={bloquearDatosRenaper} />
+</Form.Item>
+
+  
+
+
+    <Form.Item name="cuit" label="CUIT" rules={[{ required: true }]}><Input /></Form.Item>
+    <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}><Input /></Form.Item>
+    <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
+      <Select placeholder="Seleccione tipo de usuario">
+        <Option value="fisica">Persona Física</Option>
+        <Option value="juridica">Persona Jurídica</Option>
+      </Select>
+    </Form.Item>
+    <Form.Item name="rol" label="Rol" rules={[{ required: true }]}>
+      <Select placeholder="Seleccione rol">
+        <Option value="admin">Admin</Option>
+        <Option value="moderador">Moderador</Option>
+        <Option value="usuario">Usuario</Option>
+        <Option value="responsable">Responsable</Option>
+        <Option value="delegado">Delegado</Option>
+      </Select>
+    </Form.Item>
+    <Form.Item name={['direccion', 'calle']} label="Calle" rules={[{ required: true }]}><Input /></Form.Item>
+    <Form.Item name={['direccion', 'altura']} label="Altura" rules={[{ required: true }]}><Input /></Form.Item>
+    <Form.Item name={['direccion', 'departamento']} label="Departamento" rules={[{ required: true }]}>
+  <Input disabled={bloquearDatosRenaper} />
+</Form.Item>
+{datosRenaperCargados && (
+  <Button size="small" onClick={() => {
+    setBloquearDatosRenaper(false);
+    setDatosRenaperCargados(false);
+    notification.info({ message: 'Modo manual activado' });
+  }}>
+    ✏️ Editar manualmente
+  </Button>
+)}
+
+  </Form>
+</Modal>
+
       {/* Modal del Spinner */}
       <Modal
   open={isLoadingAction}
@@ -441,13 +651,29 @@ useEffect(() => {
         >
           Volver
         </Button>
-        <Button
+
+        {/* <Button
           type="primary"
           icon={<LogoutOutlined />}
           onClick={() => navigate('/home')}
         >
           Cerrar Sesión
-        </Button>
+        </Button> */}
+      <Button
+  style={{
+    backgroundColor: '	#A3D9A5', // Celeste pastel
+    borderColor: '	#A3D9A5',
+    color: '#000000',
+    fontWeight: 'bold',
+    borderRadius: '6px',
+  }}
+  icon={<span style={{ fontSize: '1.2em', fontWeight: 'bold' }}>＋</span>}
+  onClick={() => setIsAddUserModalVisible(true)}
+>
+  Agregar Usuario
+</Button>
+
+
       </div>
   
       {/* Título */}

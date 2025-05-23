@@ -1102,3 +1102,19 @@ export const createEmpresa = (empresaData) => async (dispatch) => {
     throw new Error(error.response?.data?.message || 'Error al crear empresa');
   }
 };
+
+export const registrarUsuarioYAsignarRol = (usuarioData) => async (dispatch) => {
+  try {
+    const usuario = await dispatch(registerUsuarioPorTercero(usuarioData));
+    
+    if (!usuario?.uuid) {
+      throw new Error('Usuario creado pero no se obtuvo UUID.');
+    }
+
+    await dispatch(assignRole(usuario.uuid, usuarioData.rol));
+
+    return usuario;
+  } catch (error) {
+    throw new Error(error.message || 'Error al registrar y asignar rol.');
+  }
+};
