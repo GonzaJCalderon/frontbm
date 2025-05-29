@@ -446,6 +446,9 @@ const normalizarDepartamento = (localidad) => {
     >
       Rechazar
     </Button>
+{isAdmin &&
+  usuario.uuid !== userData.uuid && // 💥 No se puede autoeliminar
+  !['admin', 'moderador'].includes((usuario.rolDefinitivo || '').toLowerCase()) && (
     <Button
       size="small"
       onClick={() => handleDelete(usuario)}
@@ -453,6 +456,7 @@ const normalizarDepartamento = (localidad) => {
     >
       Eliminar
     </Button>
+)}
   </>
 )}
 

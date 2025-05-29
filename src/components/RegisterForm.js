@@ -255,112 +255,115 @@ const normalizarDepartamento = (localidad) => {
   };
   
  
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setNotification(null);
-  
-    const esValido = validarCampos();
-  
-    if (!esValido) {
-      setNotification({
-        message: 'Por favor, corregí los errores del formulario.',
-        type: 'error',
-      });
-      setIsSubmitting(false);
-      return;
-    }
-  
-    if (formData.tipo === 'fisica' && (!renaperData || renaperError)) {
-      setNotification({
-        message: 'No se puede registrar: Persona no validada con RENAPER.',
-        type: 'error',
-      });
-      setIsSubmitting(false);
-      return;
-    }
-  
-    const isFisica = formData.tipo === 'fisica';
-    const isJuridica = formData.tipo === 'juridica';
-  
-    const userData = {
-      tipo: formData.tipo,
-      email: formData.email,
-      password: formData.password,
-      cuit: formData.cuit,
-      razonSocial: isJuridica ? formData.razonSocial : null,
-    
-      // Datos principales del usuario
-      nombre: isFisica ? formData.nombre : formData.nombreResponsable,
-      apellido: isFisica ? formData.apellido : formData.apellidoResponsable,
-      dni: isFisica ? formData.dni : formData.dniResponsable,
-    
-      // Dirección del usuario/responsable (siempre se guarda como `direccion`)
-      direccion: isFisica
-        ? {
-            calle: formData.direccion.calle,
-            altura: formData.direccion.altura,
-            barrio: formData.direccion.barrio || null,
-            departamento: formData.direccion.departamento,
-          }
-        : {
-            calle: formData.domicilioResponsable.calle,
-            altura: formData.domicilioResponsable.altura,
-            barrio: formData.domicilioResponsable.barrio || null,
-            departamento: formData.domicilioResponsable.departamento,
-          },
-    
-      // Dirección de la empresa como campo separado
-      direccionEmpresa: isJuridica
-        ? {
-            calle: formData.direccionEmpresa.calle,
-            altura: formData.direccionEmpresa.altura,
-            departamento: formData.direccionEmpresa.departamento,
-          }
-        : null,
-    
-      // Datos del responsable (si aplica)
-      dniResponsable: isJuridica ? formData.dniResponsable : null,
-      nombreResponsable: isJuridica ? formData.nombreResponsable : null,
-      apellidoResponsable: isJuridica ? formData.apellidoResponsable : null,
-      cuitResponsable: isJuridica ? formData.cuitResponsable : null,
-      domicilioResponsable: isJuridica
-        ? {
-            calle: formData.domicilioResponsable.calle,
-            altura: formData.domicilioResponsable.altura,
-            barrio: formData.domicilioResponsable.barrio || null,
-            departamento: formData.domicilioResponsable.departamento,
-          }
-        : null,
-    
-      rolDefinitivo: 'usuario',
-    };
-    
-  
-    console.log('📤 Enviando al backend:', userData);
-  
-    try {
-      const resultAction = await dispatch(register(userData));
-  
-      if (register.fulfilled.match(resultAction)) {
-        localStorage.setItem('userData', JSON.stringify(resultAction.payload));
-        setNotification({ message: '✅ Registro exitoso. Redirigiendo...', type: 'success' });
-        setTimeout(() => (window.location.href = '/'), 3000);
-      } else {
-        setNotification({
-          message: resultAction.payload || '❌ Error durante el registro.',
-          type: 'error',
-        });
-      }
-    } catch (error) {
-      setNotification({
-        message: '❌ Ocurrió un error inesperado.',
-        type: 'error',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  setNotification(null);
+
+  const esValido = validarCampos();
+
+  if (!esValido) {
+    setNotification({
+      message: 'Por favor, corregí los errores del formulario.',
+      type: 'error',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  if (formData.tipo === 'fisica' && (!renaperData || renaperError)) {
+    setNotification({
+      message: 'No se puede registrar: Persona no validada con RENAPER.',
+      type: 'error',
+    });
+    setIsSubmitting(false);
+    return;
+  }
+
+  const isFisica = formData.tipo === 'fisica';
+  const isJuridica = formData.tipo === 'juridica';
+
+  const userData = {
+    tipo: formData.tipo,
+    email: formData.email,
+    password: formData.password,
+    cuit: formData.cuit,
+    razonSocial: isJuridica ? formData.razonSocial : null,
+
+    // Datos principales del usuario
+    nombre: isFisica ? formData.nombre : formData.nombreResponsable,
+    apellido: isFisica ? formData.apellido : formData.apellidoResponsable,
+    dni: isFisica ? formData.dni : formData.dniResponsable,
+
+    // Dirección del usuario/responsable
+    direccion: isFisica
+      ? {
+          calle: formData.direccion.calle,
+          altura: formData.direccion.altura,
+          barrio: formData.direccion.barrio || null,
+          departamento: formData.direccion.departamento,
+        }
+      : {
+          calle: formData.domicilioResponsable.calle,
+          altura: formData.domicilioResponsable.altura,
+          barrio: formData.domicilioResponsable.barrio || null,
+          departamento: formData.domicilioResponsable.departamento,
+        },
+
+    // Datos del responsable (solo si es jurídica)
+    dniResponsable: isJuridica ? formData.dniResponsable : null,
+    nombreResponsable: isJuridica ? formData.nombreResponsable : null,
+    apellidoResponsable: isJuridica ? formData.apellidoResponsable : null,
+    cuitResponsable: isJuridica ? formData.cuitResponsable : null,
+    domicilioResponsable: isJuridica
+      ? {
+          calle: formData.domicilioResponsable.calle,
+          altura: formData.domicilioResponsable.altura,
+          barrio: formData.domicilioResponsable.barrio || null,
+          departamento: formData.domicilioResponsable.departamento,
+        }
+      : null,
+
+    // Dirección de la empresa se maneja en backend
+    direccionEmpresa: isJuridica
+      ? {
+          calle: formData.direccionEmpresa.calle,
+          altura: formData.direccionEmpresa.altura,
+          departamento: formData.direccionEmpresa.departamento,
+        }
+      : null,
+
+    rolDefinitivo: 'usuario',
   };
+
+  console.log('📤 Enviando al backend:', userData);
+
+  try {
+    const resultAction = await dispatch(register(userData));
+
+    if (register.fulfilled.match(resultAction)) {
+      localStorage.setItem('userData', JSON.stringify(resultAction.payload));
+      setNotification({
+        message: '✅ Registro exitoso. Redirigiendo...',
+        type: 'success',
+      });
+      setTimeout(() => (window.location.href = '/'), 3000);
+    } else {
+      setNotification({
+        message: resultAction.payload || '❌ Error durante el registro.',
+        type: 'error',
+      });
+    }
+  } catch (error) {
+    setNotification({
+      message: '❌ Ocurrió un error inesperado.',
+      type: 'error',
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
   
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
