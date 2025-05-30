@@ -246,12 +246,20 @@ const EditUsuario = () => {
             </div>
           ))}
 
-          <div className="flex flex-col">
-            <label>Rol Global</label>
-            <Select value={formData.rol} onChange={(val) => setFormData((prev) => ({ ...prev, rol: val }))}>
-              {roles.map((r) => <Option key={r} value={r}>{r}</Option>)}
-            </Select>
-          </div>
+    <div className="flex flex-col">
+  <label>Rol Global</label>
+  <Select
+    value={formData.rol}
+    disabled={formData.rol === 'admin' || formData.rol === 'moderador'}
+    onChange={(val) => setFormData((prev) => ({ ...prev, rol: val }))}
+  >
+    {roles.map((r) => <Option key={r} value={r}>{r}</Option>)}
+  </Select>
+  {(formData.rol === 'admin' || formData.rol === 'moderador') && (
+    <small className="text-gray-500 italic">No se puede editar el rol de un usuario administrador o moderador.</small>
+  )}
+</div>
+
 
           <div className="flex flex-col">
             <label>Rol en Empresa</label>

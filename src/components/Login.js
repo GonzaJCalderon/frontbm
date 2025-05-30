@@ -72,14 +72,19 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
                     console.log('🧾 Datos completos del usuario:', usuario);
                   
                     // Redirigir según el rol
-                  // Redirigir usando la URL que viene desde el backend
-if (resultAction.payload.dashboardUrl) {
-  navigate(resultAction.payload.dashboardUrl);
-} else {
-  // Fallback por si no viene la URL (caso muy raro)
-  navigate('/home');
-}
-
+                   if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {
+  navigate('/admin/dashboard');
+} else if (usuario.rolEmpresa === 'delegado') {
+                        // ✅ aunque no tenga empresaUuid, si es delegado, lo mandamos al dashboard
+                        navigate('/user/dashboard');
+                      } else if (usuario.tipo === 'juridica') {
+                        navigate('/user/dashboard');
+                      } else if (usuario.rolDefinitivo === 'usuario' ) {
+                        // Si es usuario y tiene empresa, lo mandamos al dashboard de la empresa
+                        navigate('/user/dashboard');
+                     } else {
+                        navigate('/home');
+                      }
                       
                       
                       
