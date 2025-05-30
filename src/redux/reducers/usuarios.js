@@ -374,11 +374,23 @@ const usuariosReducer = (state = initialState, action) => {
               
 
               // Manejo de solicitudes de registro pendientes
-        case FETCH_PENDING_REGISTRATIONS_REQUEST:
-            return {
-                ...state,
-                loading: true,
-            };
+       case FETCH_APPROVED_USERS_REQUEST:
+  return {
+    ...state,
+    loading: true,
+    error: null,
+    approvedUsers: [], // 🧽 Limpia antes de cargar
+  };
+
+  case FETCH_PENDING_REGISTRATIONS_REQUEST:
+  return {
+    ...state,
+    loading: true,
+    pendingRegistrations: [], // limpia antes de cargar
+    error: null,
+  };
+
+
         case FETCH_PENDING_REGISTRATIONS_SUCCESS:
             return {
                 ...state,
@@ -418,16 +430,24 @@ const usuariosReducer = (state = initialState, action) => {
             return { ...state, loading: false, success: action.payload, error: null };
           case DENY_REGISTRATION_ERROR:
             return { ...state, loading: false, success: null, error: action.payload };
+            
         
 
-            case FETCH_APPROVED_USERS_REQUEST:
-                return { ...state, loading: true, error: null };
-                case FETCH_APPROVED_USERS_SUCCESS:
-                    return {
-                        ...state,
-                        loading: false,
-                        approvedUsers: action.payload, // Asigna los usuarios aprobados al array correcto
-                    };
+          case FETCH_APPROVED_USERS_REQUEST:
+  return {
+    ...state,
+    loading: true,
+    error: null,
+    approvedUsers: [], // 🧽 Limpia antes de cargar
+  };
+  case FETCH_APPROVED_USERS_SUCCESS:
+  return {
+    ...state,
+    loading: false,
+    approvedUsers: action.payload,
+  };
+
+
                     case FETCH_APPROVED_USERS_ERROR:
   return {
     ...state,
@@ -439,10 +459,12 @@ const usuariosReducer = (state = initialState, action) => {
                 return { ...state, loading: false, error: action.payload };
 
                 case FETCH_REJECTED_USERS_REQUEST:
-                    return {
-                        ...state,
-                        loading: true,
-                    };
+  return {
+    ...state,
+    loading: true,
+    rejectedUsers: [], // Limpieza
+  };
+
                 case FETCH_REJECTED_USERS_SUCCESS:
                     return {
                         ...state,
@@ -460,7 +482,11 @@ const usuariosReducer = (state = initialState, action) => {
                     case APPROVE_USER_SUCCESS:
                         return {
                             ...state,
-                            approvedUsers: [...state.approvedUsers, action.payload], // Agrega el nuevo usuario aprobado
+                            approvedUsers: [
+  ...state.approvedUsers.filter(u => u.uuid !== action.payload.uuid),
+  action.payload
+],
+ // Agrega el nuevo usuario aprobado
                             pendingRegistrations: state.pendingRegistrations.filter(user => user.uuid !== action.payload.uuid),
                         };
                     

@@ -18,6 +18,8 @@ import {
   LogoutOutlined,
   HomeOutlined,
 } from '@ant-design/icons';
+import { fetchApprovedUsers } from '../redux/actions/usuarios';
+
 
 const SolicitudesPendientes = () => {
   const dispatch = useDispatch();
@@ -70,26 +72,37 @@ const SolicitudesPendientes = () => {
   };
 
   const handleApprove = async (uuid) => {
-    setLoadingUuid(uuid);
-    const fechaAprobacion = new Date().toISOString();
-    const aprobadoPor = userData.uuid;
-    const aprobadoPorNombre = `${userData.nombre} ${userData.apellido}`;
-    try {
-      await dispatch(approveUser(uuid, {
-        estado: 'aprobado',
-        fechaAprobacion,
-        aprobadoPor,
-        aprobadoPorNombre,
-      }));
-      notification.success({ message: 'Usuario aprobado ✅' });
-      setFilteredRegistrations((prev) => prev.filter((u) => u.uuid !== uuid));
-      await dispatch(fetchPendingRegistrations());
-    } catch (err) {
-      notification.error({ message: 'Error al aprobar usuario ❌' });
-    } finally {
-      setLoadingUuid(null);
-    }
-  };
+  setLoadingUuid(uuid);
+  const fechaAprobacion = new Date().toISOString();
+  const aprobadoPor = userData.uuid;
+  const aprobadoPorNombre = `${userData.nombre} ${userData.apellido}`;
+
+  try {
+    await dispatch(approveUser(uuid, {
+      estado: 'aprobado',
+      fechaAprobacion,
+      aprobadoPor,
+      aprobadoPorNombre,
+    }));
+
+    notification.success({ message: 'Usuario aprobado ✅' });
+
+    // 🔥 Quitar el usuario del estado actual (ya lo tenés en memoria)
+    setFilteredRegistrations(prev => prev.filter((u) => u.uuid !== uuid));
+
+    // 🧠 Opcional: actualizar el estado global para approvedUsers también
+    dispatch(fetchApprovedUsers());
+
+    // También opcional: actualizar los pendientes de nuevo (si fue exitoso)
+    dispatch(fetchPendingRegistrations());
+
+  } catch (err) {
+    notification.error({ message: 'Error al aprobar usuario ❌' });
+  } finally {
+    setLoadingUuid(null);
+  }
+};
+
 
   const showModal = (uuid) => {
     const user = filteredRegistrations.find((u) => u.uuid === uuid);

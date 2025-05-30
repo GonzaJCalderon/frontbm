@@ -67,15 +67,24 @@ const [datosRenaperCargados, setDatosRenaperCargados] = useState(false);
   
 
 useEffect(() => {
-  if (shouldReload) {
-    dispatch(fetchApprovedUsers()).then(() => {
-      // 🧽 Limpiar el state de navegación para evitar recargas futuras no deseadas
+  const recargarUsuarios = async () => {
+    await dispatch(fetchApprovedUsers());
+
+    // 🔄 Limpieza del state o URL según el origen
+    if (shouldReload) {
       navigate(location.pathname, { replace: true, state: {} });
-    });
-  } else if (approvedUsers.length === 0) {
-    dispatch(fetchApprovedUsers());
+      const params = new URLSearchParams(location.search);
+      params.delete('reload');
+      const newUrl = `${location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', newUrl);
+    }
+  };
+
+  if (shouldReload || approvedUsers.length === 0) {
+    recargarUsuarios();
   }
-}, [dispatch, shouldReload, location.pathname, navigate]);
+}, [dispatch, shouldReload, location.pathname, location.search, navigate, approvedUsers.length]);
+
 
 
   
@@ -466,19 +475,7 @@ const normalizarDepartamento = (localidad) => {
     ,
   ];
 
-  useEffect(() => {
-  if (shouldReload) {
-    dispatch(fetchApprovedUsers()).then(() => {
-      // 💥 Limpiar el parámetro de la URL después de recargar
-      const params = new URLSearchParams(location.search);
-      params.delete('reload');
-      const newUrl = `${location.pathname}?${params.toString()}`;
-      window.history.replaceState({}, '', newUrl);
-    });
-  } else if (approvedUsers.length === 0) {
-    dispatch(fetchApprovedUsers());
-  }
-}, [dispatch, shouldReload, location]);
+
 
 
 
