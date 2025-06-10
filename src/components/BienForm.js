@@ -261,21 +261,37 @@ const propietarioUuid = userData.empresaUuid || userData.uuid;
     setLoadingRegistro(true); // 👈 Mostrar loading
     message.loading({ content: 'Espere mientras registramos el bien...', key: 'registroBien', duration: 0 });
   
-    try {
-      if (selectedTipo.toLowerCase() === 'teléfono movil') {
-        if (!stock || imeis.length !== stock) {
-          message.destroy('registroBien');
-          setLoadingRegistro(false);
-          return message.error('Debe haber un IMEI (y precio) por cada unidad de stock.');
-        }
-        for (let i = 0; i < imeis.length; i++) {
-          if (!imeis[i].imei.trim() || !imeis[i].precio) {
-            message.destroy('registroBien');
-            setLoadingRegistro(false);
-            return message.error(`El IMEI #${i + 1} debe tener un precio.`);
-          }
-        }
+try {
+  if (selectedTipo.toLowerCase() === 'teléfono movil') {
+    if (!stock || imeis.length !== stock) {
+      message.destroy('registroBien');
+      setLoadingRegistro(false);
+      return message.error('Debe haber un IMEI (y precio) por cada unidad de stock.');
+    }
+    for (let i = 0; i < imeis.length; i++) {
+      if (!imeis[i].imei.trim() || !imeis[i].precio) {
+        message.destroy('registroBien');
+        setLoadingRegistro(false);
+        return message.error(`El IMEI #${i + 1} debe tener un precio.`);
       }
+
+      // ⚠️ Validar imagen
+      if (!imeis[i].foto) {
+        message.destroy('registroBien');
+        setLoadingRegistro(false);
+        return message.warning(`Debes adjuntar una foto para el IMEI #${i + 1}.`);
+      }
+    }
+  } else {
+    // ⚠️ Validar al menos una imagen en bienes que no son teléfono
+    if (fileList.length === 0) {
+      message.destroy('registroBien');
+      setLoadingRegistro(false);
+      return message.warning('Debes adjuntar al menos una imagen del bien.');
+    }
+  }
+
+
   
       const formData = new FormData();
       formData.append('tipo', selectedTipo);
