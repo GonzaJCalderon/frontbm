@@ -357,7 +357,7 @@ try {
 
 return (
   <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-    {/* Botones de cabecera */}
+    {/* Botones de cabecera */}  
     <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
       <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
         Volver

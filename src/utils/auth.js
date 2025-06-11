@@ -1,7 +1,10 @@
 // utils/auth.js
 import axios from 'axios';
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
+const isLocalhost = window.location.hostname === 'localhost';
+const baseURL = isLocalhost
+  ? 'http://localhost:5005'
+  : 'https://regbim.minsegmza.gob.ar';
 
 export const refreshAuthToken = async () => {
   try {
@@ -15,7 +18,6 @@ export const refreshAuthToken = async () => {
     localStorage.setItem('authToken', accessToken);
     localStorage.setItem('refreshToken', newRefresh);
 
-    // También actualizá Axios con el nuevo token
     axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
 
     return true;
