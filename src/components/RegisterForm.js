@@ -182,26 +182,28 @@ const normalizarDepartamento = (localidad) => {
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+const handleChange = (e) => {
+  const { name, value } = e.target;
+  const lowercasedValue = name === 'email' ? value.toLowerCase() : value;
 
-    if (['calle', 'altura', 'barrio', 'departamento'].includes(name)) {
-      setFormData((prev) => ({
-        ...prev,
-        direccion: { ...prev.direccion, [name]: value },
-      }));
-    } else if (['calleEmpresa', 'alturaEmpresa'].includes(name)) {
-      setFormData((prev) => ({
-        ...prev,
-        direccionEmpresa: { ...prev.direccionEmpresa, [name.replace('Empresa', '')]: value },
-      }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-      validateField(name, value);
-    }
+  if (['calle', 'altura', 'barrio', 'departamento'].includes(name)) {
+    setFormData((prev) => ({
+      ...prev,
+      direccion: { ...prev.direccion, [name]: lowercasedValue },
+    }));
+  } else if (['calleEmpresa', 'alturaEmpresa'].includes(name)) {
+    setFormData((prev) => ({
+      ...prev,
+      direccionEmpresa: { ...prev.direccionEmpresa, [name.replace('Empresa', '')]: lowercasedValue },
+    }));
+  } else {
+    setFormData((prev) => ({ ...prev, [name]: lowercasedValue }));
+    validateField(name, lowercasedValue);
+  }
 
-    validateField(name, value);
-  };
+  validateField(name, lowercasedValue);
+};
+
  
   const validarCampos = () => {
     const nuevosErrores = {};
