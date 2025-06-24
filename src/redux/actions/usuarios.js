@@ -583,19 +583,19 @@ export const fetchPendingRegistrations = () => async (dispatch) => {
   dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
 
   try {
-      const response = await api.get('/usuarios/usuarios/pendientes'); // Ajusta la ruta si es necesario
-
-      dispatch({
-          type: FETCH_PENDING_REGISTRATIONS_SUCCESS,
-          payload: response.data,
-      });
+    const response = await api.get('/usuarios/pendientes'); // ✅ Corrección aquí
+    dispatch({
+      type: FETCH_PENDING_REGISTRATIONS_SUCCESS,
+      payload: response.data,
+    });
   } catch (error) {
-      dispatch({
-          type: FETCH_PENDING_REGISTRATIONS_ERROR,
-          error: error.message,
-      });
+    dispatch({
+      type: FETCH_PENDING_REGISTRATIONS_ERROR,
+      error: error.message,
+    });
   }
 };
+
 
 
 
