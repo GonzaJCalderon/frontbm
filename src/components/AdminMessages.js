@@ -7,6 +7,7 @@ import {
   assignMessageToAdmin,
   getMessages,
   markUserMessagesAsRead,
+    markMessagesAsRead 
 } from '../redux/actions/messageActions';
 import { getUserByUuid } from '../redux/actions/usuarios';
 import { FaArrowLeft, FaPaperPlane } from 'react-icons/fa';
@@ -98,25 +99,28 @@ getUserByUuid(userUuid)
     setIsSending(true);
     setNewMessage('');
 
-    try {
-      const lastUnassigned = localMessages
-        .filter(msg => msg.senderUuid === userUuid && !msg.assignedAdminUuid)
-        .pop();
+try {
+  const lastUnassigned = localMessages
+    .filter(msg => msg.senderUuid === userUuid && !msg.assignedAdminUuid)
+    .pop();
 
-      if (lastUnassigned) {
-        await dispatch(assignMessageToAdmin({ messageUuid: lastUnassigned.uuid, adminUuid }));
-      }
+  if (lastUnassigned) {
+    await dispatch(assignMessageToAdmin({ messageUuid: lastUnassigned.uuid, adminUuid }));
+    await dispatch(markMessagesAsRead(adminUuid)); // ✅ agrega esto
+  }
 
-      await dispatch(sendReplyToUser({
-        recipientUuid: userUuid,
-        content: tempMsg.content
-      }));
+  await dispatch(sendReplyToUser({
+    recipientUuid: userUuid,
+    content: tempMsg.content
+  }));
 
-      await dispatch(getMessagesByUser(userUuid));
-      await dispatch(getMessages());
-    } catch (err) {
-      console.error("❌ Error enviando mensaje:", err);
-    }
+  await dispatch(getMessagesByUser(userUuid));
+  await dispatch(getMessages());
+
+} catch (err) {
+  console.error("❌ Error enviando mensaje:", err);
+}
+
 
     setIsSending(false);
   };

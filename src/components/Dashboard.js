@@ -30,26 +30,43 @@ const Dashboard = () => {
         error: state.search.error,
         user: state.auth.user
     }));
+    
+const unreadMessages = useSelector(state => Array.isArray(state.messages?.unread) ? state.messages.unread.length : 0);
 
-    const unreadMessages = useSelector(state => state.messages.unread.length);
+
 
     const logoSrc = 'https://res.cloudinary.com/dtx5ziooo/image/upload/v1739288789/logo-png-sin-fondo_lyddzv.png';
 
     // Efecto para obtener mensajes no leídos
-    useEffect(() => {
-        const userData = JSON.parse(localStorage.getItem('userData'));
-        if (!userData?.uuid) return;
+useEffect(() => {
+  const userData = JSON.parse(localStorage.getItem('userData'));
+  if (!userData?.uuid) return;
 
-        dispatch(getUnreadMessages(userData.uuid));
+  dispatch(getUnreadMessages(userData.uuid)).then((unread) => {
+    console.log("📬 Mensajes no leídos recibidos:", unread); // Ahora sí: debe ser array
+  });
 
-        // Iniciar intervalo
-        messagesIntervalRef.current = setInterval(() => {
-            dispatch(getUnreadMessages(userData.uuid));
-        }, 10000);
+  messagesIntervalRef.current = setInterval(() => {
+    dispatch(getUnreadMessages(userData.uuid));
+  }, 10000);
 
-        // Cleanup del intervalo al desmontar el componente
-        return () => clearInterval(messagesIntervalRef.current);
-    }, [dispatch]);
+  return () => clearInterval(messagesIntervalRef.current);
+}, [dispatch]);
+useEffect(() => {
+  const refreshUnread = () => {
+    const userData = JSON.parse(localStorage.getItem('userData'));
+    if (!userData?.uuid) return;
+    dispatch(getUnreadMessages(userData.uuid));
+  };
+
+  window.addEventListener("user-sent-message", refreshUnread);
+
+  return () => {
+    window.removeEventListener("user-sent-message", refreshUnread);
+  };
+}, [dispatch]);
+
+
 
     // Evento de búsqueda con debounce (reduce llamadas innecesarias)
     useEffect(() => {
@@ -147,15 +164,19 @@ const Dashboard = () => {
   <p className="text-xl font-semibold text-gray-900">Bienes Muebles</p>
 </Link>
                     
-                    <Link to="/inbox" onClick={handleInboxClick} className="group bg-indigo-100 rounded-lg p-6 flex flex-col items-center relative">
-                        <FaEnvelope className="text-indigo-500 text-5xl" />
-                        {unreadMessages > 0 && (
-                            <span className="absolute top-0 right-0 bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-bounce">
-                                {unreadMessages}
-                            </span>
-                        )}
-                        <p className="text-xl font-semibold text-gray-900">Bandeja de Mensajes</p>
-                    </Link>
+                  <Link to="/inbox" onClick={handleInboxClick} className="group bg-indigo-100 rounded-lg p-6 flex flex-col items-center relative">
+  <div className="relative">
+    <FaEnvelope className="text-indigo-500 text-5xl" />
+    {unreadMessages > 0 && (
+      <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] min-w-[20px] h-[20px] px-1 py-0.5 flex items-center justify-center rounded-full shadow-lg animate-ping z-10">
+
+        {unreadMessages}
+      </span>
+    )}
+  </div>
+  <p className="text-xl font-semibold text-gray-900">Bandeja de Mensajes</p>
+</Link>
+
 
                     
                 </div>

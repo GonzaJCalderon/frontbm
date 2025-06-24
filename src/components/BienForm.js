@@ -105,7 +105,7 @@ const propietarioUuid = userData.empresaUuid || userData.uuid;
         // Si ya teníamos datos previos, los conservamos hasta 'stock' 
         const nuevos = [...prevImeis].slice(0, stock);
         while (nuevos.length < stock) {
-          nuevos.push({ imei: '', precio: 0, foto: null });
+          nuevos.push({ imei: '', precio: 0, fotos: [] });
         }
         return nuevos;
       });
@@ -221,14 +221,20 @@ const propietarioUuid = userData.empresaUuid || userData.uuid;
 
   // -------------------------
   // Manejo de cambios en el array "imeis"
-  // -------------------------
-  const handleImeiChange = (index, field, value) => {
-    setImeis(prev => {
-      const nuevos = [...prev];
-      nuevos[index][field] = value;
-      return nuevos;
-    });
-  };
+const handleImeiChange = (index, field, value) => {
+  setImeis(prev => {
+    const nuevos = [...prev];
+    nuevos[index][field] = value;
+
+    if (field === 'fotos') {
+      console.log(`📸 IMEI ${index} tiene ${value.length} fotos`);
+    }
+
+    return nuevos;
+  });
+};
+
+
 
   // Eliminar un IMEI en particular
   const eliminarImei = (index) => {
@@ -276,7 +282,8 @@ try {
       }
 
       // ⚠️ Validar imagen
-      if (!imeis[i].foto) {
+      if (!imeis[i].fotos || imeis[i].fotos.length === 0)
+{
         message.destroy('registroBien');
         setLoadingRegistro(false);
         return message.warning(`Debes adjuntar una foto para el IMEI #${i + 1}.`);
@@ -312,11 +319,18 @@ try {
   
       if (selectedTipo.toLowerCase() === 'teléfono movil') {
         formData.append('imei', JSON.stringify(imeis));
-        imeis.forEach((item, index) => {
-          if (item.foto) {
-            formData.append(`imeiFoto_${index}`, item.foto.originFileObj || item.foto);
-          }
-        });
+imeis.forEach((item, index) => {
+  if (item.fotos && item.fotos.length > 0) {
+  item.fotos.forEach((foto, i) => {
+formData.append(`imeiFoto_${index}`, foto.originFileObj || foto);
+
+});
+
+  }
+});
+
+
+
       } else {
         formData.append('imei', JSON.stringify([]));
       }
@@ -326,6 +340,12 @@ try {
           formData.append(`fotos_bien_0_${index}`, file.originFileObj || file);
         });
       }
+
+      // 🧪 DEBUG DE FORM DATA
+for (const pair of formData.entries()) {
+  console.log('📤 FORM DATA:', pair[0], pair[1]);
+}
+
   
       await dispatch(addBien(formData));
       message.success({ content: '✅ Bien registrado exitosamente.', key: 'registroBien', duration: 2 });
@@ -537,19 +557,54 @@ return (
                   onChange={(val) => handleImeiChange(index, 'precio', val)}
                 />
               </Form.Item>
-              <Form.Item label="Foto del dispositivo">
-                <Upload
-                  listType="picture"
-                  fileList={item.foto ? [{ uid: `imei-${index}`, name: `foto-${index}.jpg`, status: 'done', url: URL.createObjectURL(item.foto) }] : []}
-                  beforeUpload={(file) => {
-                    handleImeiChange(index, 'foto', file);
-                    return false;
-                  }}
-                  onRemove={() => handleImeiChange(index, 'foto', null)}
-                  showUploadList={{ showRemoveIcon: true }}
-                >
-                  <Button>Subir Foto</Button>
-                </Upload>
+         <Form.Item
+  label="Fotos del dispositivo (máx. 4)"
+  extra="Podés subir hasta 4 fotos por unidad: frente, dorso, laterales o detalles relevantes."
+>
+<Upload
+  listType="picture"
+  multiple
+  maxCount={4}
+  fileList={item.fotos?.map(file => ({
+    uid: file.uid,
+    name: file.name,
+    status: 'done',
+    url: file.url || file.preview,
+    originFileObj: file.originFileObj || file,
+  }))}
+beforeUpload={(file) => {
+  setImeis(prev => {
+    const nuevos = [...prev];
+    const imeiActual = nuevos[index];
+    const fotosActuales = [...(imeiActual.fotos || [])];
+
+    if (fotosActuales.length >= 4) {
+      message.warning('Máximo 4 fotos por IMEI.');
+      return prev;
+    }
+
+    file.uid = `${index}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    file.preview = URL.createObjectURL(file);
+
+    imeiActual.fotos = [...fotosActuales, file];
+
+    return nuevos;
+  });
+
+  return false;
+}}
+
+  onRemove={(file) => {
+    const nuevas = item.fotos.filter(f => f.uid !== file.uid);
+    handleImeiChange(index, 'fotos', nuevas);
+  }}
+  showUploadList={{ showRemoveIcon: true }}
+>
+  <Button>Subir Fotos (máx. 4)</Button>
+</Upload>
+
+
+
               </Form.Item>
               <Button type="link" danger onClick={() => eliminarImei(index)}>Eliminar IMEI</Button>
             </div>

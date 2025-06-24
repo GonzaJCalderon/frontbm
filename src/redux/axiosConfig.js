@@ -39,8 +39,8 @@ api.interceptors.response.use(
           console.warn('⚠️ No hay refresh token, no se puede renovar el acceso.');
           return Promise.reject(error);
         }
+const response = await axios.post(`${baseURL}/usuarios/refresh`, { refreshToken });
 
-        const response = await axios.post(`${baseURL}/refresh`, { refreshToken });
         const newAccessToken = response.data.accessToken;
 
         localStorage.setItem('authToken', newAccessToken);

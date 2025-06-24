@@ -160,18 +160,24 @@ export const markMessagesAsRead = (userUuid) => async (dispatch) => {
 // ✅ Obtener mensajes no leídos
 export const getUnreadMessages = (userUuid) => async (dispatch) => {
   try {
-    if (!userUuid) return;
+    if (!userUuid) return [];
 
     const response = await api.get(`/messages/unread/${userUuid}`);
-    
+    const mensajes = response.data?.unreadMessages || [];
+
     dispatch({
-      type: GET_UNREAD_MESSAGES, // ✅ Debe estar definido en actionTypes.js
-      payload: response.data.unreadMessages || [],
+      type: GET_UNREAD_MESSAGES,
+      payload: mensajes,
     });
 
+    return mensajes; // ✅ ESTE RETURN ES CLAVE
+
   } catch (error) {
+    console.error("❌ Error en getUnreadMessages:", error);
+    return []; // 🧯 Evitamos que .then reciba undefined
   }
 };
+
 
 export const clearUnreadMessages = () => ({
   type: GET_UNREAD_MESSAGES,

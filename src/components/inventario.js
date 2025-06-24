@@ -129,12 +129,16 @@ useEffect(() => {
   };
 
   // 6) Modal para mostrar fotos
-  const handleOpenModal = (fotos, bien = null) => {
-    setCurrentFotos(fotos);
-    setModalBien(bien);
-    setIsModalVisible(true);
-  };
-  
+const handleOpenModal = (fotos, bien = null) => {
+  const arrayFotos = Array.isArray(fotos) ? [...fotos] : [];
+  console.log("🖼️ Fotos recibidas:", fotos);
+console.log("🛠️ Tipo de fotos:", typeof fotos);
+
+  setCurrentFotos(arrayFotos);
+  setModalBien(bien);
+  setIsModalVisible(true);
+};
+
   const handleCloseModal = () => {
     setIsModalVisible(false);
     setCurrentFotos([]);
@@ -270,7 +274,13 @@ useEffect(() => {
         if (!fotos || fotos.length === 0) return 'Sin fotos';
 
         // ✅ Eliminar duplicados (por URL)
-        const fotosUnicas = [...new Set(fotos)];
+   const fotosUnicas = Array.isArray(record.fotos)
+  ? record.fotos
+  : typeof record.fotos === 'string'
+    ? JSON.parse(record.fotos)
+    : [];
+// luego dedup un Set si querés
+
         
     
         const isExpanded = expandedFotoRows[record.uuid];
@@ -286,7 +296,8 @@ useEffect(() => {
                   width={80}
                   src={foto}
                   alt={`Foto ${idx + 1}`}
-                  onClick={() => handleOpenModal(fotos, record)}
+                 onClick={() => handleOpenModal(fotosUnicas, record)}
+
                   preview={false}
                   style={{ cursor: 'pointer' }}
                   onError={(e) => (e.target.src = imagenPredeterminada)}

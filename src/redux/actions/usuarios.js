@@ -579,7 +579,6 @@ export const buscarVendedor = (dni) => async dispatch => {
     }
 };
 
-
 export const fetchPendingRegistrations = () => async (dispatch) => {
   dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
 
@@ -597,6 +596,8 @@ export const fetchPendingRegistrations = () => async (dispatch) => {
       });
   }
 };
+
+
 
 
 

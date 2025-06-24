@@ -45,13 +45,17 @@ const MessageToAdmin = () => {
     e.preventDefault();
     if (!content.trim()) return;
 
-    dispatch(sendMessage({
-      recipientUuid: null,
-      isForAdmins: true,
-      content: content.trim(),
-    }));
+  await dispatch(sendMessage({
+  recipientUuid: null,
+  isForAdmins: true,
+  content: content.trim(),
+}));
 
-    setContent('');
+// 👇 Simula push al admin recargando notificaciones
+window.dispatchEvent(new Event("user-sent-message")); // ⬅️ esto es clave
+
+setContent('');
+
   };
 
   const formatTime = (timestamp) => {
