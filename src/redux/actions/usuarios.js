@@ -583,8 +583,7 @@ export const fetchPendingRegistrations = () => async (dispatch) => {
   dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
 
   try {
-    // ✅ Importante enviar "?estado=pendiente"
-    const response = await api.get('/usuarios/pendientes?estado=pendiente');
+    const response = await api.get('/usuarios/pendientes?estado=pendiente'); // ✅ Corregido
     dispatch({
       type: FETCH_PENDING_REGISTRATIONS_SUCCESS,
       payload: response.data,
@@ -596,6 +595,8 @@ export const fetchPendingRegistrations = () => async (dispatch) => {
     });
   }
 };
+
+
 
 
 
@@ -650,7 +651,7 @@ export const denyRegistration = (userUuid, data) => async (dispatch) => {
 export const fetchApprovedUsers = () => async (dispatch) => {
   dispatch({ type: 'FETCH_APPROVED_USERS_REQUEST' });
   try {
-    const response = await api.get('/usuarios/aprobados'); // Verifica la ruta correcta
+    const response = await api.get('/usuarios/aprobados?estado=aprobado'); // Verifica la ruta correcta
     dispatch({ type: 'FETCH_APPROVED_USERS_SUCCESS', payload: response.data });
   } catch (error) {
     dispatch({ type: 'FETCH_APPROVED_USERS_ERROR', payload: error.message });
@@ -662,7 +663,7 @@ export const fetchApprovedUsers = () => async (dispatch) => {
 
 export const fetchRejectedUsers = () => async (dispatch) => {
   try {
-    const response = await api.get('/usuarios/rechazados');
+    const response = await api.get('/usuarios/rechazados?estado=rechazado');
     dispatch({ type: 'FETCH_REJECTED_USERS_SUCCESS', payload: response.data });
   } catch (error) {
     dispatch({ type: 'FETCH_REJECTED_USERS_FAILURE', payload: error.message });
