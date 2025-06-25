@@ -662,7 +662,7 @@ export const fetchApprovedUsers = () => async (dispatch) => {
 
 export const fetchRejectedUsers = () => async (dispatch) => {
   try {
-    const response = await api.get('/usuarios/usuarios/rechazados');
+    const response = await api.get('/usuarios/rechazados');
     dispatch({ type: 'FETCH_REJECTED_USERS_SUCCESS', payload: response.data });
   } catch (error) {
     dispatch({ type: 'FETCH_REJECTED_USERS_FAILURE', payload: error.message });

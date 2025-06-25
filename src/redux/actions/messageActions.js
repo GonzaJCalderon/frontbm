@@ -162,7 +162,10 @@ export const getUnreadMessages = (userUuid) => async (dispatch) => {
   try {
     if (!userUuid) return [];
 
-    const response = await api.get(`/messages/unread/${userUuid}`);
+    const response = await api.get(`/messages/unread/${userUuid}`, {
+      headers: getAuthHeaders()
+    });
+
     const mensajes = response.data?.unreadMessages || [];
 
     dispatch({
@@ -170,13 +173,13 @@ export const getUnreadMessages = (userUuid) => async (dispatch) => {
       payload: mensajes,
     });
 
-    return mensajes; // ✅ ESTE RETURN ES CLAVE
-
+    return mensajes;
   } catch (error) {
     console.error("❌ Error en getUnreadMessages:", error);
-    return []; // 🧯 Evitamos que .then reciba undefined
+    return [];
   }
 };
+
 
 
 export const clearUnreadMessages = () => ({
