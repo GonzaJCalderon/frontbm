@@ -583,7 +583,8 @@ export const fetchPendingRegistrations = () => async (dispatch) => {
   dispatch({ type: FETCH_PENDING_REGISTRATIONS_REQUEST });
 
   try {
-    const response = await api.get('/usuarios/pendientes'); // ✅ Corrección aquí
+    // ✅ Importante enviar "?estado=pendiente"
+    const response = await api.get('/usuarios/pendientes?estado=pendiente');
     dispatch({
       type: FETCH_PENDING_REGISTRATIONS_SUCCESS,
       payload: response.data,

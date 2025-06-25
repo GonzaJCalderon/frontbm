@@ -209,7 +209,8 @@ export const markUserMessagesAsRead = (userUuid, adminUuid) => async (dispatch) 
   dispatch({ type: MARK_MESSAGES_AS_READ_REQUEST });
 
   try {
-    await api.put(`/messages/mark-user-read/${userUuid}`, { adminUuid });
+await api.put(`/messages/mark-as-read-user/${userUuid}`, { adminUuid });
+
 
     dispatch({ type: MARK_MESSAGES_AS_READ_SUCCESS, payload: { userUuid, adminUuid } });
 

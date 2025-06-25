@@ -144,112 +144,70 @@ const SolicitudesPendientes = () => {
     setRejectionReason('');
   };
 
-  const columns = [
-    {
-      title: 'Tipo',
-      dataIndex: 'tipo',
-      key: 'tipo',
-      render: (tipo) => tipo === 'juridica' ? 'Empresa' : 'Persona Física',
-    }, 
-    {
-      title: 'Rol en Empresa',
-      key: 'rolEmpresa',
-      render: (usuario) =>
-        usuario.rolEmpresa
-          ? usuario.rolEmpresa.charAt(0).toUpperCase() + usuario.rolEmpresa.slice(1)
-          : usuario.tipo === 'juridica'
-          ? 'Responsable'
-          : 'Sin rol',
-    },
-    
-    {
-      title: 'Empresa',
-      key: 'empresa',
-      render: (usuario) =>
-        usuario.empresa?.razonSocial ||
-        (usuario.tipo === 'juridica' ? 'Empresa propia' : 'No asignada'),
-    },
-    {
-      title: 'Nombre / Razón Social',
-      key: 'razonSocial',
-      render: (user) =>
-        user.tipo === 'juridica'
-          ? user.razonSocial || 'N/A'
-          : `${user.nombre || ''} ${user.apellido || ''}`,
-    },
-    {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email',
-    },
-    {
-      title: 'DNI',
-      dataIndex: 'dni',
-      key: 'dni',
-      render: (dni) => dni || 'N/A',
-    },
-    {
-      title: 'CUIT',
-      dataIndex: 'cuit',
-      key: 'cuit',
-      render: (cuit) => cuit || 'N/A',
-    },
-    {
-      title: 'Dirección',
-      dataIndex: 'direccion',
-      key: 'direccion',
-      render: (direccion) =>
-        direccion
-          ? [
-              direccion.calle,
-              direccion.altura,
-              direccion.barrio,
-              direccion.departamento,
-            ]
-              .filter(Boolean)
-              .join(', ')
-          : 'Sin Dirección',
-    },
-    
-    {
-      title: 'Empresa',
-      key: 'empresa',
-      render: (usuario) =>
-        usuario.empresa?.razonSocial ||
-        (usuario.tipo === 'juridica' ? 'Empresa propia' : 'No asignada'),
-    },
-    
-    {
-      title: 'Fecha de Solicitud',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      sorter: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-      render: (createdAt) => new Date(createdAt).toLocaleString(),
-    },
-    {
-      title: 'Acciones',
-      key: 'acciones',
-      render: (_, user) => (
-        <div className="flex gap-2">
-          <Button
-            onClick={() => handleApprove(user.uuid)}
-            className="bg-green-600 text-white"
-            loading={loadingUuid === user.uuid}
-            disabled={loadingUuid === user.uuid}
-          >
-            Aprobar
-          </Button>
-          <Button
-            onClick={() => showModal(user.uuid)}
-            className="bg-red-600 text-white"
-            disabled={loadingUuid === user.uuid}
-          >
-            Denegar
-          </Button>
-        </div>
-      ),
-    },
-  ];
+// 📌 CORREGIDO Columnas frontend sin duplicaciones y alias correcto:
+const columns = [
+  {
+    title: 'Tipo',
+    dataIndex: 'tipo',
+    render: tipo => tipo === 'juridica' ? 'Empresa' : 'Persona Física',
+  },
+  {
+    title: 'Rol en Empresa',
+    render: usuario => usuario.rolEmpresa ? usuario.rolEmpresa.charAt(0).toUpperCase() + usuario.rolEmpresa.slice(1) : usuario.tipo === 'juridica' ? 'Responsable' : 'Sin rol',
+  },
+  {
+    title: 'Empresa',
+    render: usuario =>
+      usuario.empresaAsignada?.razonSocial ||
+      (usuario.tipo === 'juridica' ? 'Empresa propia' : 'No asignada'),
+  },
+  {
+    title: 'Nombre / Razón Social',
+    render: user => user.tipo === 'juridica' ? user.razonSocial || 'N/A' : `${user.nombre} ${user.apellido}`,
+  },
+  {
+    title: 'Email',
+    dataIndex: 'email',
+  },
+  {
+    title: 'DNI',
+    dataIndex: 'dni',
+    render: dni => dni || 'N/A',
+  },
+  {
+    title: 'CUIT',
+    dataIndex: 'cuit',
+    render: cuit => cuit || 'N/A',
+  },
+  {
+    title: 'Dirección',
+    dataIndex: 'direccion',
+    render: direccion =>
+      direccion
+        ? [direccion.calle, direccion.altura, direccion.barrio, direccion.departamento].filter(Boolean).join(', ')
+        : 'Sin Dirección',
+  },
+  {
+    title: 'Fecha Solicitud',
+    dataIndex: 'createdAt',
+    sorter: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+    render: createdAt => new Date(createdAt).toLocaleString(),
+  },
+  {
+    title: 'Acciones',
+    render: (_, user) => (
+      <div className="flex gap-2">
+        <Button onClick={() => handleApprove(user.uuid)} loading={loadingUuid === user.uuid}>
+          Aprobar
+        </Button>
+        <Button onClick={() => showModal(user.uuid)} disabled={loadingUuid === user.uuid}>
+          Denegar
+        </Button>
+      </div>
+    ),
+  },
+];
+
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
