@@ -39,20 +39,22 @@ export const login = createAsyncThunk(
     try {
       const response = await api.post('/usuarios/login', { email, password });
 
-      const { usuario, token, refreshToken } = response.data;
+      const { usuario, token: accessToken, refreshToken } = response.data;
 
-      // 🔍 Validar datos críticos
-      if (!usuario || !token || !refreshToken) {
+      if (!usuario || !accessToken || !refreshToken) {
         throw new Error('La respuesta del servidor no contiene los datos esperados.');
       }
 
-      // 🧠 Guardar tokens y datos en localStorage
-      localStorage.setItem('authToken', token);          // 🔑 Acceso principal
-      localStorage.setItem('refreshToken', refreshToken); // 🔄 Para renovar
+      // 🧠 Guardar en localStorage
+      localStorage.setItem('authToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('userData', JSON.stringify(usuario));
       localStorage.setItem('userUuid', usuario.uuid);
 
-      return { usuario, token, refreshToken };
+      console.log('✅ Token guardado en localStorage:', accessToken);
+
+      // ✅ Devolvemos accessToken con el nombre correcto
+      return { usuario, accessToken, refreshToken };
     } catch (error) {
       // 🛑 Captura el mensaje si viene del backend
       return rejectWithValue(
@@ -61,7 +63,6 @@ export const login = createAsyncThunk(
     }
   }
 );
-
 
 
 

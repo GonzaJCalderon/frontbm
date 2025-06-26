@@ -34,12 +34,11 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
             const resultAction = await dispatch(login({ email, password }));
     
             if (login.fulfilled.match(resultAction)) {
-                const { usuario, token, refreshToken } = resultAction.payload || {};
+                const { usuario, accessToken, refreshToken } = resultAction.payload;
 
-    
-                if (usuario && token && refreshToken) {
-                    // Guardar los datos en localStorage
-                    localStorage.setItem('authToken', token);
+if (usuario && accessToken && refreshToken) {
+  localStorage.setItem('authToken', accessToken);
+
                     localStorage.setItem('refreshToken', refreshToken); // <-- ✅ ESTE FALTABA
                     localStorage.setItem('userUuid', usuario.uuid);
                     localStorage.setItem('userData', JSON.stringify({
