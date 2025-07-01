@@ -26,78 +26,72 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
         });
     };
   
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        const { email, password } = formData;
-    
-        try {
-            const resultAction = await dispatch(login({ email, password }));
-    
-            if (login.fulfilled.match(resultAction)) {
-                const { usuario, accessToken, refreshToken } = resultAction.payload;
+   const handleSubmit = async (e) => {
+  e.preventDefault();
+  const { email, password } = formData;
 
-if (usuario && accessToken && refreshToken) {
-  localStorage.setItem('authToken', accessToken);
+  try {
+    const resultAction = await dispatch(login({ email, password }));
 
-                    localStorage.setItem('refreshToken', refreshToken); // <-- ✅ ESTE FALTABA
-                    localStorage.setItem('userUuid', usuario.uuid);
-                    localStorage.setItem('userData', JSON.stringify({
-                      uuid: usuario.uuid,
-                      rol: usuario.rolDefinitivo,
-                      email: usuario.email,
-                      nombre: usuario.nombre,
-                      apellido: usuario.apellido,
-                      dni: usuario.dni || '',
-                      direccion: usuario.direccion || {
-                        calle: '',
-                        altura: '',
-                        barrio: '',
-                        departamento: '',
-                      },
-                      empresaUuid: usuario.empresaUuid || null,
-                      razonSocial: usuario.razonSocial || null,
-                      tipo: usuario.tipo || null,
-                      rolEmpresa: usuario.rolEmpresa || null,
-                    }));
-                  
-                      
-                      
-                      
-                  
-                    // 🧠 LOG DEL ROL
-                    console.log('🧠 Rol del usuario:', usuario.rolDefinitivo);
-                    console.log('📛 Tipo de usuario:', usuario.tipo);
-                    console.log('🏢 Empresa asociada:', usuario.empresaUuid);
-                    console.log('🧾 Datos completos del usuario:', usuario);
-                  
-                    // Redirigir según el rol
-                   if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {
-  navigate('/admin/dashboard');
-} else if (usuario.rolEmpresa === 'delegado') {
-                        // ✅ aunque no tenga empresaUuid, si es delegado, lo mandamos al dashboard
-                        navigate('/user/dashboard');
-                      } else if (usuario.tipo === 'juridica') {
-                        navigate('/user/dashboard');
-                      } else if (usuario.rolDefinitivo === 'usuario' ) {
-                        // Si es usuario y tiene empresa, lo mandamos al dashboard de la empresa
-                        navigate('/user/dashboard');
-                     } else {
-                        navigate('/home');
-                      }
-                      
-                      
-                      
-                } else {
-                    toast.error('No se pudieron obtener los datos del usuario.');
-                }
-            } else {
-                const errorMessage = resultAction.error?.message || 'Error al iniciar sesión.';
-                toast.error(errorMessage);
-            }
-        } catch (error) {
-            toast.error('Ocurrió un error inesperado. Intenta nuevamente.');
+    if (login.fulfilled.match(resultAction)) {
+      const { usuario, accessToken, token, refreshToken } = resultAction.payload;
+      const realAccessToken = accessToken || token;
+
+      if (usuario && realAccessToken && refreshToken) {
+        localStorage.setItem('authToken', realAccessToken);
+        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('userUuid', usuario.uuid);
+        localStorage.setItem('userData', JSON.stringify({
+          uuid: usuario.uuid,
+          rol: usuario.rolDefinitivo,
+          email: usuario.email,
+          nombre: usuario.nombre,
+          apellido: usuario.apellido,
+          dni: usuario.dni || '',
+          direccion: usuario.direccion || {
+            calle: '',
+            altura: '',
+            barrio: '',
+            departamento: '',
+          },
+          empresaUuid: usuario.empresaUuid || null,
+          razonSocial: usuario.razonSocial || null,
+          tipo: usuario.tipo || null,
+          rolEmpresa: usuario.rolEmpresa || null,
+        }));
+
+        console.log('🧠 Rol del usuario:', usuario.rolDefinitivo);
+        console.log('📛 Tipo de usuario:', usuario.tipo);
+        console.log('🏢 Empresa asociada:', usuario.empresaUuid);
+        console.log('🧾 Datos completos del usuario:', usuario);
+
+        // Redirigir según el rol
+        if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {
+          navigate('/admin/dashboard');
+        } else if (usuario.rolEmpresa === 'delegado') {
+          navigate('/user/dashboard');
+        } else if (usuario.tipo === 'juridica') {
+          navigate('/user/dashboard');
+        } else if (usuario.rolDefinitivo === 'usuario') {
+          navigate('/user/dashboard');
+        } else {
+          navigate('/home');
         }
-    };
+
+      } else {
+        toast.error('No se pudieron obtener los datos del usuario.');
+      }
+
+    } else {
+      const errorMessage = resultAction.error?.message || 'Error al iniciar sesión.';
+      toast.error(errorMessage);
+    }
+
+  } catch (error) {
+    toast.error('Ocurrió un error inesperado. Intenta nuevamente.');
+  }
+};
+
 
     return (
         <div className="font-sans">
