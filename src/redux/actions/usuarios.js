@@ -608,22 +608,21 @@ export const approveUser = (userUuid, data) => async (dispatch) => {
   dispatch({ type: 'APPROVE_USER_REQUEST' });
 
   try {
-      const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken'); // 👈 ✅ Corregido
+    const response = await api.put(`/usuarios/${userUuid}/aprobar`, data, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      const response = await api.put(`/usuarios/${userUuid}/aprobar`, data, {
-          headers: {
-              Authorization: `Bearer ${token}`,
-          },
-      });
-
-
-      dispatch({ type: 'APPROVE_USER_SUCCESS', payload: response.data });
-      return response.data;
+    dispatch({ type: 'APPROVE_USER_SUCCESS', payload: response.data });
+    return response.data;
   } catch (error) {
-      dispatch({ type: 'APPROVE_USER_ERROR', payload: error.response?.data || error.message });
-      throw error;
+    dispatch({ type: 'APPROVE_USER_ERROR', payload: error.response?.data || error.message });
+    throw error;
   }
 };
+
 
 
 
@@ -631,9 +630,7 @@ export const denyRegistration = (userUuid, data) => async (dispatch) => {
   dispatch({ type: 'DENY_REGISTRATION_REQUEST' });
 
   try {
-    const token = localStorage.getItem('token');
-
-
+    const token = localStorage.getItem('authToken'); // 👈 ✅ Corregido
     const response = await api.put(`/usuarios/${userUuid}/rechazar`, data, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -647,6 +644,7 @@ export const denyRegistration = (userUuid, data) => async (dispatch) => {
     throw error;
   }
 };
+
 
 export const fetchApprovedUsers = () => async (dispatch) => {
   dispatch({ type: 'FETCH_APPROVED_USERS_REQUEST' });
@@ -712,13 +710,8 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
   dispatch({ type: REGISTER_USER_THIRD_PARTY_REQUEST });
 
   try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Token no disponible.');
-    }
+    const token = localStorage.getItem('authToken'); // 👈 ✅ Corregido
 
-
-    // 🔹 Asegurarnos de que la estructura es correcta antes de enviar
     const cleanedData = {
       dni: usuarioData.dni,
       nombre: usuarioData.nombre?.trim(),
@@ -728,15 +721,12 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
       cuit: usuarioData.cuit?.trim() || '',
       razonSocial: usuarioData.tipo === 'juridica' ? usuarioData.razonSocial?.trim() : null,
       direccion: usuarioData.direccion || {},
-    
-      // 👇 Agregá estos campos si es persona jurídica
       dniResponsable: usuarioData.dniResponsable || '',
       nombreResponsable: usuarioData.nombreResponsable || '',
       apellidoResponsable: usuarioData.apellidoResponsable || '',
       cuitResponsable: usuarioData.cuitResponsable || '',
       domicilioResponsable: usuarioData.domicilioResponsable || {},
     };
-    
 
     const response = await api.post('/usuarios/register-usuario-por-tercero', cleanedData, {
       headers: {
@@ -763,7 +753,8 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
 
     throw new Error(error.response?.data?.message || "Error en el registro de usuario.");
   }
-}; 
+};
+
 
 export const registerDelegado = (delegadoData) => async (dispatch) => {
   dispatch({ type: REGISTER_DELEGADO_REQUEST });
@@ -970,12 +961,11 @@ export const reintentarRegistro = (uuid, formData) => async (dispatch) => {
   }
 }; 
 
-
 export const getEmpresas = () => async (dispatch) => {
   try {
     dispatch({ type: FETCH_EMPRESAS_REQUEST });
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken'); // 👈 ✅ Corregido
     const response = await api.get('/empresas', {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -986,18 +976,19 @@ export const getEmpresas = () => async (dispatch) => {
 
     dispatch({
       type: FETCH_EMPRESAS_SUCCESS,
-      payload: empresas, // ✅ ahora sí es un array directamente
+      payload: empresas,
     });
 
-    return { payload: empresas }; // ✅ para que funcione bien el .then()
+    return { payload: empresas };
   } catch (error) {
     dispatch({
       type: FETCH_EMPRESAS_ERROR,
       payload: error.response?.data || error.message,
     });
-    return { error }; // ← útil si necesitás manejar errores también
+    return { error };
   }
 };
+
 
 
 export const getEmpresaByUuid = async (uuid) => {
@@ -1036,15 +1027,13 @@ export const fetchMiEmpresaYDelegados = () => async (dispatch) => {
   dispatch({ type: 'FETCH_DELEGADOS_REQUEST' });
 
   try {
-    const token = localStorage.getItem('token'); // 👈 asegurate que sea la key correcta
+    const token = localStorage.getItem('authToken'); // 👈 ✅ Corregido
 
     const empresaRes = await api.get('/empresas/delegado/empresa', {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     const empresa = empresaRes.data.empresa;
-
-    console.log('[✅ Empresa obtenida]:', empresa);
 
     if (!empresa || !empresa.uuid) {
       throw new Error('Empresa no válida o sin UUID.');
@@ -1056,13 +1045,9 @@ export const fetchMiEmpresaYDelegados = () => async (dispatch) => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    console.log('[✅ Delegados obtenidos]:', delegadosRes.data.delegados);
-
     dispatch({ type: 'FETCH_DELEGADOS_SUCCESS', payload: delegadosRes.data.delegados });
 
   } catch (err) {
-    console.error('[❌ ERROR AL CARGAR EMPRESA + DELEGADOS]:', err);
-
     dispatch({
       type: 'FETCH_EMPRESAS_ERROR',
       payload: err.response?.data?.message || err.message,
@@ -1074,6 +1059,7 @@ export const fetchMiEmpresaYDelegados = () => async (dispatch) => {
     });
   }
 };
+
 
 
 

@@ -26,63 +26,66 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
         });
     };
   
-   const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
   e.preventDefault();
   const { email, password } = formData;
 
   try {
     const resultAction = await dispatch(login({ email, password }));
 
-    if (login.fulfilled.match(resultAction)) {
-      const { usuario, accessToken, token, refreshToken } = resultAction.payload;
-      const realAccessToken = accessToken || token;
+    console.log("result directo:", typeof resultAction);
 
-      if (usuario && realAccessToken && refreshToken) {
-        localStorage.setItem('authToken', realAccessToken);
-        localStorage.setItem('refreshToken', refreshToken);
-        localStorage.setItem('userUuid', usuario.uuid);
-        localStorage.setItem('userData', JSON.stringify({
-          uuid: usuario.uuid,
-          rol: usuario.rolDefinitivo,
-          email: usuario.email,
-          nombre: usuario.nombre,
-          apellido: usuario.apellido,
-          dni: usuario.dni || '',
-          direccion: usuario.direccion || {
-            calle: '',
-            altura: '',
-            barrio: '',
-            departamento: '',
-          },
-          empresaUuid: usuario.empresaUuid || null,
-          razonSocial: usuario.razonSocial || null,
-          tipo: usuario.tipo || null,
-          rolEmpresa: usuario.rolEmpresa || null,
-        }));
+    if (resultAction.type === 'auth/login/fulfilled') {
+      const { usuario, token, refreshToken } = resultAction.payload;
 
-        console.log('🧠 Rol del usuario:', usuario.rolDefinitivo);
-        console.log('📛 Tipo de usuario:', usuario.tipo);
-        console.log('🏢 Empresa asociada:', usuario.empresaUuid);
-        console.log('🧾 Datos completos del usuario:', usuario);
+      console.log("Voy a guardar token en localStorage:", token);
 
-        // Redirigir según el rol
-        if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {
-          navigate('/admin/dashboard');
-        } else if (usuario.rolEmpresa === 'delegado') {
-          navigate('/user/dashboard');
-        } else if (usuario.tipo === 'juridica') {
-          navigate('/user/dashboard');
-        } else if (usuario.rolDefinitivo === 'usuario') {
-          navigate('/user/dashboard');
-        } else {
-          navigate('/home');
-        }
+      // 🚨 Guarda siempre como "authToken"
+      localStorage.setItem('authToken', token);
+      sessionStorage.setItem('authToken', token);
 
+      console.log("se guardó en localStorage:", localStorage.getItem("authToken"));
+
+      // ✅ Guarda refreshToken y datos del usuario (sin cambios)
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('userUuid', usuario.uuid);
+      localStorage.setItem('userData', JSON.stringify({
+        uuid: usuario.uuid,
+        rol: usuario.rolDefinitivo,
+        email: usuario.email,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        dni: usuario.dni || '',
+        direccion: usuario.direccion || {
+          calle: '',
+          altura: '',
+          barrio: '',
+          departamento: '',
+        },
+        empresaUuid: usuario.empresaUuid || null,
+        razonSocial: usuario.razonSocial || null,
+        tipo: usuario.tipo || null,
+        rolEmpresa: usuario.rolEmpresa || null,
+      }));
+
+      console.log('🧠 Rol del usuario:', usuario.rolDefinitivo);
+      console.log('📛 Tipo de usuario:', usuario.tipo);
+      console.log('🏢 Empresa asociada:', usuario.empresaUuid);
+      console.log('🧾 Datos completos del usuario:', usuario);
+
+      if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {
+        navigate('/admin/dashboard');
+      } else if (usuario.rolEmpresa === 'delegado') {
+        navigate('/user/dashboard');
+      } else if (usuario.tipo === 'juridica') {
+        navigate('/user/dashboard');
+      } else if (usuario.rolDefinitivo === 'usuario') {
+        navigate('/user/dashboard');
       } else {
-        toast.error('No se pudieron obtener los datos del usuario.');
+        navigate('/home');
       }
-
     } else {
+      toast.error('No se pudieron obtener los datos del usuario.');
       const errorMessage = resultAction.error?.message || 'Error al iniciar sesión.';
       toast.error(errorMessage);
     }
@@ -91,6 +94,7 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
     toast.error('Ocurrió un error inesperado. Intenta nuevamente.');
   }
 };
+
 
 
     return (

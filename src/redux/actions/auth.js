@@ -45,7 +45,6 @@ export const login = createAsyncThunk(
         throw new Error('La respuesta del servidor no contiene los datos esperados.');
       }
 
-      // 🧠 Guardar en localStorage
       localStorage.setItem('authToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('userData', JSON.stringify(usuario));
@@ -53,16 +52,17 @@ export const login = createAsyncThunk(
 
       console.log('✅ Token guardado en localStorage:', accessToken);
 
-      // ✅ Devolvemos accessToken con el nombre correcto
-      return { usuario, accessToken, refreshToken };
+      // 🔁 Aquí el fix:
+      return { usuario, token: accessToken, refreshToken };
+
     } catch (error) {
-      // 🛑 Captura el mensaje si viene del backend
       return rejectWithValue(
         error.response?.data?.message || 'Ocurrió un error al iniciar sesión.'
       );
     }
   }
 );
+
 
 
 

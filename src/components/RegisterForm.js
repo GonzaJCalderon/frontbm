@@ -1,15 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { register } from '../redux/actions/auth';
 import Notification from './Notification';
 import registerImage from '../assets/registerimg.png';
 import api from '../redux/axiosConfig'; // Axios configuration for API calls
 
+
 const departments = [
   'Capital', 'Godoy Cruz', 'Junín', 'Las Heras', 'Maipú', 'Guaymallén', 'Rivadavia',
   'San Martín', 'La Paz', 'Santa Rosa', 'General Alvear', 'Malargüe', 'San Carlos',
   'Tupungato', 'Tunuyán', 'San Rafael', 'Lavalle', 'Luján de Cuyo',
 ];
+
+const useDebounce = (callback, delay) => {
+  const [debounceTimer, setDebounceTimer] = useState(null);
+
+  return useCallback((...args) => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    
+    const newTimer = setTimeout(() => {
+      callback(...args);
+    }, delay);
+    
+    setDebounceTimer(newTimer);
+  }, [callback, delay, debounceTimer]);
+};
+
 
 const Register = () => {
   const dispatch = useDispatch();
@@ -46,101 +62,109 @@ const Register = () => {
 const [loadingRenaper, setLoadingRenaper] = useState(false);
 
 
+
+
 const esDeMendoza = (provincia) =>
   provincia?.toUpperCase().includes('MENDOZA');
 
-const validateDNIWithRenaper = async (dni) => {
-  try {
-    if (!dni) {
-      setRenaperError('El DNI es obligatorio.');
-      return;
-    }
-
-    const { data } = await api.get(`/renaper/${dni}`);
-
-    if (data.resultado === 0 && data.persona) {
-      const persona = data.persona;
-      const provincia = persona.domicilio.provincia || '';
-      const localidad = persona.domicilio.localidad || '';
-
-      if (persona.fallecido) {
-        setRenaperError('Esta persona figura como fallecida y no puede registrarse.');
-        setRenaperData(null);
+ const validateDNIWithRenaper = async (dni) => {
+    try {
+      if (!dni) {
+        setRenaperError('El DNI es obligatorio.');
+        setLoadingRenaper(false);
         return;
       }
 
-      const mendoza = esDeMendoza(provincia);
-      const depNormalizado = mendoza ? normalizarDepartamento(localidad) : '';
+      const { data } = await api.get(`/renaper/${dni}`);
 
-      if (!mendoza) {
-        setRenaperError('⚠️ Esta persona no reside en Mendoza. Completá el departamento manualmente.');
-      } else {
-        setRenaperError('');
-      }
+      if (data.resultado === 0 && data.persona) {
+        const persona = data.persona;
+        const provincia = persona.domicilio.provincia || '';
+        const localidad = persona.domicilio.localidad || '';
 
-      setFormData((prev) => ({
-        ...prev,
-        nombre: persona.nombres,
-        apellido: persona.apellidos,
-        direccion: {
-          calle: persona.domicilio.calle || '',
-          altura: persona.domicilio.nroCalle || '',
-          barrio: persona.domicilio.barrio || '',
-          departamento: depNormalizado,
-        },
-        cuit: persona.nroCuil,
-        provincia: provincia,
-      }));
-
-      setRenaperData(persona);
-    } else {
-      setRenaperError(data.mensaje || 'Persona no encontrada en Renaper.');
-      setRenaperData(null);
-    }
-  } catch (error) {
-    setRenaperError('Error al validar el DNI.');
-    setRenaperData(null);
-  }
-};
-
-
-const validateDNIResponsableWithRenaper = async (dni) => {
-  try {
-    const { data } = await api.get(`/renaper/${dni}`);
-    if (data.resultado === 0 && data.persona && !data.persona.fallecido) {
-      const p = data.persona;    
-      const provincia = p.domicilio.provincia || '';
-      const localidad = p.domicilio.localidad || '';
-      const mendoza = esDeMendoza(provincia);
-
-      const depNormalizado = mendoza ? normalizarDepartamento(localidad) : '';
-
-      if (!mendoza) {
-        setRenaperError('⚠️ El responsable no reside en Mendoza. Completá el departamento manualmente.');
-      } else {
-        setRenaperError('');
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        provinciaResponsable: provincia,
-        cuitResponsable: p.nroCuil,
-        nombreResponsable: p.nombres,
-        apellidoResponsable: p.apellidos,
-        domicilioResponsable: {
-          calle: p.domicilio.calle || '',
-          altura: p.domicilio.nroCalle > 0 ? String(p.domicilio.nroCalle) : 'S/N',
-          barrio: p.domicilio.barrio || '',
-          departamento: depNormalizado
+        if (persona.fallecido) {
+          setRenaperError('Esta persona figura como fallecida y no puede registrarse.');
+          setRenaperData(null);
+          setLoadingRenaper(false);
+          return;
         }
-      }));
-    } else {
-      setRenaperError('No se pudo validar el DNI del responsable.');
+
+        const mendoza = esDeMendoza(provincia);
+        const depNormalizado = mendoza ? normalizarDepartamento(localidad) : '';
+
+        if (!mendoza) {
+          setRenaperError('⚠️ Esta persona no reside en Mendoza. Completá el departamento manualmente.');
+        } else {
+          setRenaperError('');
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          nombre: persona.nombres,
+          apellido: persona.apellidos,
+          direccion: {
+            calle: persona.domicilio.calle || '',
+            altura: persona.domicilio.nroCalle || '',
+            barrio: persona.domicilio.barrio || '',
+            departamento: depNormalizado,
+          },
+          cuit: persona.nroCuil,
+          provincia: provincia,
+        }));
+
+        setRenaperData(persona);
+      } else {
+        setRenaperError(data.mensaje || 'Persona no encontrada en Renaper.');
+        setRenaperData(null);
+      }
+    } catch (error) {
+      setRenaperError('Error al validar el DNI.');
+      setRenaperData(null);
+    } finally {
+      setLoadingRenaper(false); // 🆕 AGREGAR ESTA LÍNEA
     }
-  } catch (e) {
-    setRenaperError('Error al validar el DNI del responsable.');
-  }
-};
+  };
+
+
+ const validateDNIResponsableWithRenaper = async (dni) => {
+    try {
+      const { data } = await api.get(`/renaper/${dni}`);
+      if (data.resultado === 0 && data.persona && !data.persona.fallecido) {
+        const p = data.persona;    
+        const provincia = p.domicilio.provincia || '';
+        const localidad = p.domicilio.localidad || '';
+        const mendoza = esDeMendoza(provincia);
+
+        const depNormalizado = mendoza ? normalizarDepartamento(localidad) : '';
+
+        if (!mendoza) {
+          setRenaperError('⚠️ El responsable no reside en Mendoza. Completá el departamento manualmente.');
+        } else {
+          setRenaperError('');
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          provinciaResponsable: provincia,
+          cuitResponsable: p.nroCuil,
+          nombreResponsable: p.nombres,
+          apellidoResponsable: p.apellidos,
+          domicilioResponsable: {
+            calle: p.domicilio.calle || '',
+            altura: p.domicilio.nroCalle > 0 ? String(p.domicilio.nroCalle) : 'S/N',
+            barrio: p.domicilio.barrio || '',
+            departamento: depNormalizado
+          }
+        }));
+      } else {
+        setRenaperError('No se pudo validar el DNI del responsable.');
+      }
+    } catch (e) {
+      setRenaperError('Error al validar el DNI del responsable.');
+    } finally {
+      setLoadingRenaper(false); // 🆕 AGREGAR ESTA LÍNEA
+    }
+  };
 
 
 
@@ -182,29 +206,45 @@ const normalizarDepartamento = (localidad) => {
     setErrors((prev) => ({ ...prev, [name]: error }));
   };
 
-const handleChange = (e) => {
-  const { name, value } = e.target;
-  const lowercasedValue = name === 'email' ? value.toLowerCase() : value;
+  
+ const handleChange = (e) => {
+    const { name, value } = e.target;
+    const lowercasedValue = name === 'email' ? value.toLowerCase() : value;
 
-  if (['calle', 'altura', 'barrio', 'departamento'].includes(name)) {
-    setFormData((prev) => ({
-      ...prev,
-      direccion: { ...prev.direccion, [name]: lowercasedValue },
-    }));
-  } else if (['calleEmpresa', 'alturaEmpresa'].includes(name)) {
-    setFormData((prev) => ({
-      ...prev,
-      direccionEmpresa: { ...prev.direccionEmpresa, [name.replace('Empresa', '')]: lowercasedValue },
-    }));
-  } else {
-    setFormData((prev) => ({ ...prev, [name]: lowercasedValue }));
+    if (['calle', 'altura', 'barrio', 'departamento'].includes(name)) {
+      setFormData((prev) => ({
+        ...prev,
+        direccion: { ...prev.direccion, [name]: lowercasedValue },
+      }));
+    } else if (['calleEmpresa', 'alturaEmpresa'].includes(name)) {
+      setFormData((prev) => ({
+        ...prev,
+        direccionEmpresa: { ...prev.direccionEmpresa, [name.replace('Empresa', '')]: lowercasedValue },
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: lowercasedValue }));
+      
+      // 🆕 VALIDACIÓN AUTOMÁTICA PARA DNI (NUEVO CÓDIGO)
+      if (name === 'dni' && value.length >= 7) {
+        setLoadingRenaper(true);
+        setRenaperError('');
+        debouncedValidateDNI(value);
+      }
+      
+      // 🆕 VALIDACIÓN AUTOMÁTICA PARA DNI RESPONSABLE (NUEVO CÓDIGO)
+      if (name === 'dniResponsable' && value.length >= 7) {
+        setLoadingRenaper(true);
+        setRenaperError('');
+        debouncedValidateDNIResponsable(value);
+      }
+    }
+
     validateField(name, lowercasedValue);
-  }
+  };
 
-  validateField(name, lowercasedValue);
-};
+ const debouncedValidateDNI = useDebounce(validateDNIWithRenaper, 2000);
+  const debouncedValidateDNIResponsable = useDebounce(validateDNIResponsableWithRenaper, 2000);
 
- 
   const validarCampos = () => {
     const nuevosErrores = {};
     const esFisica = formData.tipo === 'fisica';
@@ -504,16 +544,49 @@ const handleSubmit = async (e) => {
                   <h4 className="font-semibold text-gray-700 mb-4">Responsable de la Empresa</h4>
   
                   <label className="text-gray-800 text-xs block mb-2" htmlFor="dniResponsable">DNI del Responsable</label>
-                  <input
-                    id="dniResponsable"
-                    type="text"
-                    name="dniResponsable"
-                    value={formData.dniResponsable}
-                    onChange={handleChange}
-                    onBlur={() => validateDNIResponsableWithRenaper(formData.dniResponsable)}
-                    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
-                    placeholder="DNI del responsable"
-                  />
+              <>
+  <input
+    id="dniResponsable"
+    type="text"
+    name="dniResponsable"
+    value={formData.dniResponsable}
+    onChange={handleChange}
+    onBlur={() => {
+      if (formData.dniResponsable && formData.dniResponsable.length >= 7) {
+        setLoadingRenaper(true);
+        validateDNIResponsableWithRenaper(formData.dniResponsable);
+      }
+    }}
+    className="w-full text-black text-sm border-b border-gray-300 focus:border-blue-500 px-2 py-3 outline-none"
+    placeholder="DNI del responsable"
+  />
+
+  {/* 🆕 BOTÓN MANUAL PARA RESPONSABLE */}
+  <button
+    type="button"
+    onClick={() => {
+      if (formData.dniResponsable && formData.dniResponsable.length >= 7) {
+        setLoadingRenaper(true);
+        validateDNIResponsableWithRenaper(formData.dniResponsable);
+      }
+    }}
+    disabled={!formData.dniResponsable || formData.dniResponsable.length < 7 || loadingRenaper}
+    className="mt-2 px-4 py-2 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+  >
+    {loadingRenaper ? 'Validando...' : 'Validar DNI Responsable'}
+  </button>
+
+  {loadingRenaper && (
+    <p className="text-blue-500 text-xs mt-2">🔄 Validando DNI del responsable...</p>
+  )}
+
+  {renaperError && (
+    <p className="text-red-500 text-xs mt-2">{renaperError}</p>
+  )}
+</>
+
+
+                  
                   {/* CUIT del responsable */}
 <div className="mb-6 mt-4">
   <label className="text-gray-800 text-xs block mb-2" htmlFor="cuitResponsable">CUIT del Responsable</label>
@@ -621,21 +694,50 @@ const handleSubmit = async (e) => {
             {/* Persona física */}
             {formData.tipo === 'fisica' && (
               <>
-                <div className="mb-6">
-                  <label className="text-gray-800 text-xs block mb-2" htmlFor="dni">DNI</label>
-                  <input
-                    id="dni"
-                    type="text"
-                    name="dni"
-                    value={formData.dni}
-                    onChange={handleChange}
-                    onBlur={() => validateDNIWithRenaper(formData.dni)}
-                    className={`w-full text-black text-sm border-b ${errors.dni ? 'border-red-500' : 'border-gray-300'} focus:border-blue-500 px-2 py-3 outline-none`}
-                    placeholder="Ingresa tu DNI"
-                  />
-                  {errors.dni && <p className="text-red-500 text-xs mt-2">{errors.dni}</p>}
-                  {renaperError && <p className="text-red-500 text-xs mt-2">{renaperError}</p>}
-                </div>
+               <div className="mb-6">
+    <label className="text-gray-800 text-xs block mb-2" htmlFor="dni">DNI</label>
+    <input
+      id="dni"
+      type="text"
+      name="dni"
+      value={formData.dni}
+      onChange={handleChange}
+      onBlur={() => {
+        if (formData.dni && formData.dni.length >= 7) {
+          setLoadingRenaper(true);
+          validateDNIWithRenaper(formData.dni);
+        }
+      }}
+      className={`w-full text-black text-sm border-b ${errors.dni ? 'border-red-500' : 'border-gray-300'} focus:border-blue-500 px-2 py-3 outline-none`}
+      placeholder="Ingresa tu DNI"
+    />
+    
+    {/* 🆕 BOTÓN MANUAL PARA MÓVILES */}
+    <button
+      type="button"
+      onClick={() => {
+        if (formData.dni && formData.dni.length >= 7) {
+          setLoadingRenaper(true);
+          validateDNIWithRenaper(formData.dni);
+        }
+      }}
+      disabled={!formData.dni || formData.dni.length < 7 || loadingRenaper}
+      className="mt-2 px-4 py-2 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+    >
+      {loadingRenaper ? 'Validando...' : 'Validar DNI'}
+    </button>
+    
+    {loadingRenaper && (
+      <p className="text-blue-500 text-xs mt-2">🔄 Validando DNI...</p>
+    )}
+    
+    {errors.dni && <p className="text-red-500 text-xs mt-2">{errors.dni}</p>}
+    {renaperError && <p className="text-red-500 text-xs mt-2">{renaperError}</p>}
+    
+    {renaperData && !renaperError && (
+      <p className="text-green-500 text-xs mt-2">✅ DNI validado correctamente</p>
+    )}
+  </div>
 
                 
   
