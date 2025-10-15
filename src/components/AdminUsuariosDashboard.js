@@ -150,11 +150,29 @@ const AdminUsuariosDashboard = () => {
       <div className="mt-6 flex-grow overflow-x-auto">
         <div className="min-w-full max-w-screen-lg mx-auto">
           {loading && <p className="text-center text-blue-600">Cargando usuarios...</p>}
-          {error && <p className="text-center text-red-600">{error}</p>}
-          {activeTab === 'aprobados' && <UsuarioList usuarios={usuarios} />}
+    {error && (
+  <p className="text-center text-red-600">
+    {typeof error === 'string'
+      ? error
+      : error.message || JSON.stringify(error)}
+  </p>
+)}
+
+          {activeTab === 'aprobados' && Array.isArray(usuarios) && <UsuarioList usuarios={usuarios} />}
+{activeTab === 'aprobados' && !Array.isArray(usuarios) && (
+  <p className="text-center text-red-600">
+    {usuarios?.message || 'No se pudieron cargar los usuarios.'}
+  </p>
+)}
           {activeTab === 'pendientes' && <SolicitudesPendientes />}
           {activeTab === 'rechazados' && <UsuariosRechazados />}
-          {activeTab === 'empresas' && <InfoEmpresas usuarios={usuarios} />}
+   {activeTab === 'empresas' && Array.isArray(usuarios) && <InfoEmpresas usuarios={usuarios} />}
+{activeTab === 'empresas' && !Array.isArray(usuarios) && (
+  <p className="text-center text-red-600">
+    {usuarios?.message || 'No se pudieron cargar las empresas.'}
+  </p>
+)}
+
 
         </div>
       </div>

@@ -171,7 +171,8 @@ const UsuariosRechazados = () => {
         />
       </Modal>
 
-      {error && <p className="text-red-500">Error al cargar usuarios: {error}</p>}
+   {error && <p className="text-red-500">Error al cargar usuarios: {error}</p>}
+
     </div>
   );
 };
