@@ -40,11 +40,19 @@ const desdeInfoEmpresas = location.state?.desdeInfoEmpresas;
   const [searchTerm, setSearchTerm] = useState('');
   const [usuarioActual, setUsuarioActual] = useState(null);
 
-  const bienesState = useSelector((state) => state.bienes);
-  const usuarios = useSelector((state) => state.usuarios.approvedUsers || []);
+const bienesState = useSelector((state) => state.bienes);
 
+// ✅ Toma los bienes según de dónde vengan
+const bienes = bienesState.bienesEmpresa?.length
+  ? bienesState.bienesEmpresa
+  : bienesState.items || [];
+
+console.log("🧾 Bienes desde Redux:", bienes);
+
+
+  const usuarios = useSelector((state) => state.usuarios.approvedUsers || []);
   const isLoading = bienesState.loading;
-  const bienes = bienesState.items || [];
+
 
   const userData = JSON.parse(localStorage.getItem('userData') || '{}');
   const isAdmin = userData.rol === 'admin';
@@ -53,21 +61,46 @@ const desdeInfoEmpresas = location.state?.desdeInfoEmpresas;
     dispatch(fetchApprovedUsers());
   }, [dispatch]);
 
-  useEffect(() => {
-    const usuario = usuarios.find((u) => u.uuid === uuid);
-    if (!usuario) return;
+ useEffect(() => {
+  const usuario = usuarios.find((u) => u.uuid === uuid);
+  if (!usuario) return;
 
-    setUsuarioActual(usuario);
+  setUsuarioActual(usuario);
 
-    const isEmpresa = usuario.rolEmpresa === 'responsable' || usuario.rolEmpresa === 'delegado';
-    const idDestino = isEmpresa ? usuario.empresa_uuid : uuid;
+  const esEmpresa = ['responsable', 'delegado'].includes(
+    usuario.rolEmpresa?.toLowerCase?.() || ''
+  );
 
-    if (isEmpresa) {
-      dispatch(fetchBienesPorEmpresa(idDestino));
-    } else {
-      dispatch(fetchBienesPorUsuario(idDestino, true));
-    }
-  }, [uuid, usuarios, dispatch]);
+  const empresaUuidValida =
+    usuario?.empresa &&
+    typeof usuario.empresa.uuid === 'string' &&
+    usuario.empresa.uuid !== 'undefined' &&
+    usuario.empresa.uuid !== 'null' &&
+    usuario.empresa.uuid.trim().length === 36
+      ? usuario.empresa.uuid
+      : null;
+
+  const idDestino = esEmpresa && empresaUuidValida ? empresaUuidValida : usuario.uuid;
+
+  // 🧠 Debug clave
+  console.log({
+    usuario,
+    esEmpresa,
+    empresaUuidValida,
+    idDestino,
+    empresa: usuario.empresa
+  });
+
+  if (esEmpresa && empresaUuidValida) {
+    console.log("✅ Fetch por EMPRESA:", idDestino);
+    dispatch(fetchBienesPorEmpresa(idDestino));
+  } else {
+    console.log("✅ Fetch por USUARIO:", idDestino);
+    dispatch(fetchBienesPorUsuario(idDestino, true));
+  }
+}, [uuid, usuarios, dispatch]);
+
+
 
   const toggleFotoExpand = (idx) => {
     setExpandedFotoRows((prev) => ({ ...prev, [idx]: !prev[idx] }));

@@ -5,8 +5,10 @@ import { useSelector, useDispatch } from 'react-redux';
 import searchItems from '../redux/actions/search';
 import FiltroUsuarios from './FiltroUsuarios'; // Asegura que el path sea correcto
 import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
-import { getUnreadMessages, markMessagesAsRead, markUserMessagesAsRead, clearUnreadMessages } from '../redux/actions/messageActions';
+import { getUnreadMessages, markMessagesAsRead, markUserMessagesAsRead, clearUnreadMessages,  assignUnreadToAdmin } from '../redux/actions/messageActions';
 import EmpresasRegistradas from './EmpresasRegistradas'; // ⬅️ Asegúrate que esté importado
+import api from '../redux/axiosConfig'; 
+
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -123,18 +125,34 @@ useEffect(() => {
         }
     };
 
-    const handleInboxClick = () => {
-        const userData = JSON.parse(localStorage.getItem('userData'));
-        if (!userData?.uuid) return;
-      
-        dispatch(markMessagesAsRead(userData.uuid));
-        dispatch(markUserMessagesAsRead(userData.uuid, "UUID_DEL_ADMIN"));
-        dispatch(clearUnreadMessages());
-      
-        setTimeout(() => {
-          dispatch(getUnreadMessages(userData.uuid));
-        }, 500);
-    };
+const handleInboxClick = async () => {
+  const userData = JSON.parse(localStorage.getItem('userData'));
+  if (!userData?.uuid) return;
+
+  try {
+    console.log("📩 Ejecutando flujo de Inbox...");
+
+    // 🔹 1. Asignar globales no leídos al admin
+    const assignRes = await dispatch(assignUnreadToAdmin(userData.uuid));
+    console.log("🧩 Resultado assignUnreadToAdmin:", assignRes);
+
+    // 🔹 2. Marcar mensajes del admin como leídos
+    await dispatch(markMessagesAsRead(userData.uuid));
+    await dispatch(markUserMessagesAsRead(userData.uuid, userData.uuid));
+
+    // 🔹 3. Limpiar el badge temporalmente
+    dispatch(clearUnreadMessages());
+
+    // 🔹 4. Refrescar estado real después de medio segundo
+    setTimeout(() => {
+      dispatch(getUnreadMessages(userData.uuid));
+    }, 500);
+  } catch (error) {
+    console.error("❌ Error en handleInboxClick:", error);
+  }
+};
+
+
 
     return (
         <div className="p-6 bg-gray-100 min-h-screen flex flex-col">

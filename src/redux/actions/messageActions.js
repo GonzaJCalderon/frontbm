@@ -222,6 +222,32 @@ await api.put(`/messages/mark-as-read-user/${userUuid}`, { adminUuid });
   }
 };
 
+// ✅ Asignar automáticamente mensajes globales sin leer al admin (cuando abre Inbox)
+export const assignUnreadToAdmin = (adminUuid) => async (dispatch) => {
+  try {
+    if (!adminUuid) {
+      console.warn("⚠️ Falta el UUID del admin para assignUnreadToAdmin");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    const response = await api.put(
+      "/messages/assign-unread",
+      { adminUuid },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    console.log("🧾 assignUnreadToAdmin OK:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("❌ Error en assignUnreadToAdmin:", error);
+    return null;
+  }
+};
+
+
 export const markAllAsRead = ({ from, to }) => async (dispatch) => {
   try {
     if (!from || !to) return;

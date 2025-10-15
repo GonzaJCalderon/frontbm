@@ -284,20 +284,39 @@ const normalizarDepartamento = (localidad) => {
       },
     });
   };
-  
+
   const handleViewBienes = (usuario) => {
-  const esDelegadoResponsable = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase());
-  const propietarioUuid = esDelegadoResponsable && usuario.empresa?.uuid
-    ? usuario.empresa.uuid
+  console.log("👤 Usuario seleccionado:", usuario);
+
+  // Detectar si pertenece a una empresa válida
+  const esDelegadoResponsable = ['delegado', 'responsable'].includes(
+    usuario?.rolEmpresa?.toLowerCase?.() || ''
+  );
+
+  // ✅ Tomar la empresa solo si tiene un UUID real
+  const empresaUuidValida =
+    usuario?.empresa &&
+    typeof usuario.empresa.uuid === 'string' &&
+    usuario.empresa.uuid !== 'undefined' &&
+    usuario.empresa.uuid !== 'null' &&
+    usuario.empresa.uuid.trim().length === 36
+      ? usuario.empresa.uuid
+      : null;
+
+  // ✅ Si tiene empresa válida → usa empresa, si no → usa su propio UUID
+  const propietarioUuid = esDelegadoResponsable && empresaUuidValida
+    ? empresaUuidValida
     : usuario.uuid;
 
-  if (!propietarioUuid || typeof propietarioUuid !== 'string' || propietarioUuid.length !== 36) {
-    notification.error({
-      message: 'UUID inválido',
-      description: 'El usuario no tiene un identificador válido ni empresa asociada.',
+  if (!propietarioUuid || propietarioUuid === 'undefined') {
+    notification.warning({
+      message: '⚠️ Sin empresa asignada',
+      description: `El usuario ${usuario.nombre} ${usuario.apellido} no tiene una empresa asociada.`,
     });
     return;
   }
+
+  console.log("🏷️ UUID final para obtener bienes:", propietarioUuid);
 
   dispatch(fetchBienesPorPropietario(propietarioUuid))
     .then((response) => {
@@ -312,11 +331,6 @@ const normalizarDepartamento = (localidad) => {
             description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes registrados.`,
           });
         }
-      } else {
-        notification.info({
-          message: 'Sin bienes',
-          description: `El usuario ${usuario.nombre} ${usuario.apellido} no posee bienes registrados.`,
-        });
       }
     })
     .catch((error) => {
@@ -326,6 +340,7 @@ const normalizarDepartamento = (localidad) => {
       });
     });
 };
+
 
   
 

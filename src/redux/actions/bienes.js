@@ -89,64 +89,85 @@ export const fetchAllBienes = () => async (dispatch) => {
 
 
 // Acción para obtener los bienes del usuario 
+// Acción para obtener los bienes del usuario o empresa
 export const fetchBienes = () => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_REQUEST });
 
   try {
     const token = localStorage.getItem("token");
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    const rawUserData = localStorage.getItem("userData");
 
-    if (!token || !userData?.uuid) {
+    if (!token || !rawUserData) {
       dispatch({
         type: FETCH_BIENES_ERROR,
         payload: "Faltan datos de autenticación o usuario.",
       });
-      return { success: false, message: "Datos de autenticación incompletos." };
+      return { success: false };
     }
 
+    const userData = JSON.parse(rawUserData || "{}");
     const empresaUuid = userData?.empresaUuid;
     const usuarioUuid = userData?.uuid;
+    const rol = userData?.rol || userData?.rolDefinido || "usuario";
 
-    if (!usuarioUuid) {
-      dispatch({
-        type: FETCH_BIENES_ERROR,
-        payload: "Falta el UUID del usuario.",
-      });
-      return { success: false, message: "Falta el UUID del usuario." };
-    }
+    console.log("🏢 empresaUuid detectado:", empresaUuid);
+    console.log("👤 usuarioUuid detectado:", usuarioUuid);
+    console.log("🧩 Rol detectado:", rol);
 
-    let url;
+    let url = null;
 
-    if (empresaUuid && typeof empresaUuid === 'string' && empresaUuid.length === 36) {
+    // ✅ Caso: tiene empresa válida (36 caracteres, no undefined ni null)
+    if (
+      empresaUuid &&
+      typeof empresaUuid === "string" &&
+      empresaUuid !== "undefined" &&
+      empresaUuid !== "null" &&
+      empresaUuid.trim().length === 36
+    ) {
       url = `/bienes/empresa/${empresaUuid}`;
-    } else {
+    }
+    // ✅ Caso: no tiene empresa, pero sí usuario (incluye admin)
+    else if (
+      usuarioUuid &&
+      typeof usuarioUuid === "string" &&
+      usuarioUuid !== "undefined" &&
+      usuarioUuid !== "null" &&
+      usuarioUuid.trim().length === 36
+    ) {
       url = `/bienes/usuario/${usuarioUuid}?incluirDelegados=true`;
     }
+    // ✅ Fallback final
+    else {
+      console.warn("⚠️ userData sin UUID válido:", userData);
+      dispatch({
+        type: FETCH_BIENES_ERROR,
+        payload: "UUID inválido para empresa o usuario.",
+      });
+      return { success: false };
+    }
+
+    console.log("🌐 URL final usada:", url);
 
     const response = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
-    const bienesRaw = empresaUuid ? response.data : response.data?.data;
+    const bienesRaw = Array.isArray(response.data)
+      ? response.data
+      : response.data?.data || [];
 
     if (!Array.isArray(bienesRaw)) {
-      throw new Error("La respuesta del servidor no contiene una lista válida de bienes.");
+      throw new Error("Respuesta inválida del servidor (sin lista de bienes).");
     }
 
     const bienesNormalizados = bienesRaw.map((bien) => {
-      const esTelefonoMovil = bien.tipo?.toLowerCase().includes("teléfono movil");
+      const esTelefono = bien.tipo?.toLowerCase().includes("teléfono");
+      const stock =
+        esTelefono && Array.isArray(bien.identificadores)
+          ? bien.identificadores.filter((i) => i.estado === "disponible").length
+          : bien.stock || 0;
 
-      let stockCalculado = 0;
-
-      if (esTelefonoMovil && Array.isArray(bien.identificadores)) {
-        stockCalculado = bien.identificadores.filter((i) => i.estado === 'disponible').length;
-      } else if (typeof bien.stock === 'number') {
-        stockCalculado = bien.stock;
-      }
-
-      const fotosCombinadas = [
+      const fotos = [
         ...(bien.fotos || []),
         ...(bien.identificadores?.map((d) => d.foto).filter(Boolean) || []),
       ];
@@ -158,21 +179,19 @@ export const fetchBienes = () => async (dispatch) => {
         modelo: bien.modelo,
         descripcion: bien.descripcion,
         precio: Number(bien.precio || 0),
-        stock: stockCalculado,
-        fotos: fotosCombinadas.length > 0 ? fotosCombinadas : ['/images/placeholder.png'],
+        stock,
+        fotos: fotos.length > 0 ? fotos : ["/images/placeholder.png"],
         identificadores: bien.identificadores || [],
         createdAt: bien.createdAt ? new Date(bien.createdAt) : new Date(),
       };
     });
 
-    dispatch({
-      type: FETCH_BIENES_SUCCESS,
-      payload: bienesNormalizados,
-    });
+    dispatch({ type: FETCH_BIENES_SUCCESS, payload: bienesNormalizados });
 
     return { success: true, data: bienesNormalizados };
   } catch (error) {
     const msg = error.response?.data?.message || error.message || "Error al obtener bienes.";
+    console.error("❌ Error en fetchBienes:", msg);
     dispatch({ type: FETCH_BIENES_ERROR, payload: msg });
     return { success: false, message: msg };
   }
@@ -603,16 +622,38 @@ export const fetchBienesPorPropietario = (uuid, page = 1, limit = 30, search = '
 
 
 
-
 export const fetchBienesPorEmpresa = (empresaUuid) => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_EMPRESA_REQUEST });
 
   try {
-    const res = await api.get(`/bienes/empresa/${empresaUuid}`);
-    const bienesRaw = res.data?.data || res.data; // por si viene como `data: [...]`
+    if (!empresaUuid || empresaUuid === 'undefined' || empresaUuid === 'null') {
+      console.warn('⚠️ UUID de empresa inválido recibido en fetchBienesPorEmpresa:', empresaUuid);
+      return { success: false, message: 'UUID de empresa inválido.' };
+    }
 
+    console.log('🚀 Solicitando bienes de empresa:', empresaUuid);
+    const res = await api.get(`/bienes/empresa/${empresaUuid}`);
+
+    // ✅ Detección automática del formato de respuesta
+    const bienesRaw =
+      Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data?.bienes)
+        ? res.data.bienes
+        : [];
+
+    console.log('📦 Respuesta completa del backend:', res.data);
+    console.log('✅ Bienes detectados:', bienesRaw.length);
+
+    if (!Array.isArray(bienesRaw) || bienesRaw.length === 0) {
+      console.warn('⚠️ No se encontraron bienes para la empresa:', empresaUuid);
+    }
+
+    // 🔧 Normalización de datos
     const bienesNormalizados = bienesRaw.map((bien) => {
-      const esTelefonoMovil = bien.tipo?.toLowerCase().includes("teléfono movil");
+      const esTelefonoMovil = bien.tipo?.toLowerCase().includes('teléfono movil');
 
       let stockCalculado = 0;
       if (esTelefonoMovil && Array.isArray(bien.identificadores)) {
@@ -645,8 +686,11 @@ export const fetchBienesPorEmpresa = (empresaUuid) => async (dispatch) => {
       payload: bienesNormalizados,
     });
 
+    console.log('✅ Bienes normalizados y despachados:', bienesNormalizados.length);
+
     return { success: true, data: bienesNormalizados };
   } catch (error) {
+    console.error('❌ Error en fetchBienesPorEmpresa:', error);
     dispatch({
       type: FETCH_BIENES_EMPRESA_ERROR,
       payload: error.response?.data?.message || 'Error al obtener los bienes de la empresa',
