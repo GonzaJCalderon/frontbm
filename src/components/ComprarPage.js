@@ -248,6 +248,7 @@ const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
   
       // Rellenar con datos del Renaper
      // 📌 Si no hay numeración, forzamos "0"
+// 📌 Si no hay numeración, forzamos "0"
 const alturaRenaper = persona.domicilio.nroCalle || "0";
 
 formStep1.setFieldsValue({
@@ -265,6 +266,15 @@ formStep1.setFieldsValue({
 if (!persona.domicilio.nroCalle) {
   message.info("📍 RENAPER no devolvió numeración. Se completó con '0' por defecto.");
 }
+
+// ⚠️ Verificar si el departamento es de Mendoza
+const departamentoRenaper = persona.domicilio.localidad?.trim() || '';
+const esDeMendoza = departments.includes(departamentoRenaper);
+
+if (!esDeMendoza) {
+  message.warning(`⚠️ El vendedor no reside en Mendoza (${departamentoRenaper}). Puedes continuar con el registro manualmente.`);
+}
+
 
   
       // 💡 EXTRA: Consultar si ya está registrado en el sistema

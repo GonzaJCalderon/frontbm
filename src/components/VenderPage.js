@@ -136,6 +136,9 @@ const VenderPage = () => {
     navigate('/login');
   }
   
+  const esDeMendoza = (provincia = '') =>
+  provincia.trim().toUpperCase().includes('MENDOZA');
+
 
   useEffect(() => {
     if (selectedGood) {
@@ -915,17 +918,19 @@ const validateDNIWithRenaper = async (dni) => {
       return;
     }
 
-   formBuyer.setFieldsValue({
+ formBuyer.setFieldsValue({
   nombre: persona.nombres || "",
   apellido: persona.apellidos || "",
   cuit: persona.nroCuil || "",
   direccion: {
     calle: persona.domicilio?.calle || "",
-    altura: persona.domicilio?.nroCalle || "0", // <- 👈 forzamos altura = "0" si no vino
+    altura: persona.domicilio?.nroCalle || "0",
     barrio: persona.domicilio?.barrio || "",
     departamento: persona.domicilio?.localidad || "",
   },
+  provinciaRenaper: persona.domicilio?.provincia || "",
 });
+
 
 
     // 3. Ahora que ya tenemos persona, podemos buscar si existe en el sistema
@@ -1088,11 +1093,27 @@ const validateDNIWithRenaper = async (dni) => {
             <Form.Item label="Numeración" name={['direccion', 'altura']} rules={[{ required: true, message: 'Ingresa la numeración.' }]}>
               <Input placeholder="Numeración" />
             </Form.Item>
-            <Form.Item label="Departamento" name={['direccion', 'departamento']} rules={[{ required: true, message: 'Selecciona un departamento.' }]}>
-              <Select>
-                {departments.map(dep => <Option key={dep} value={dep}>{dep}</Option>)}
-              </Select>
-            </Form.Item>
+           {esDeMendoza(formBuyer.getFieldValue('provinciaRenaper')) ? (
+  <Form.Item
+    label="Departamento"
+    name={['direccion', 'departamento']}
+    rules={[{ required: true, message: 'Selecciona un departamento.' }]}
+  >
+    <Select placeholder="Selecciona un departamento">
+      {departments.map(dep => (
+        <Option key={dep} value={dep}>{dep}</Option>
+      ))}
+    </Select>
+  </Form.Item>
+) : (
+  <Form.Item
+    label="Departamento (escribí manualmente)"
+    name={['direccion', 'departamento']}
+    rules={[{ required: true, message: 'Ingresa el departamento.' }]}
+  >
+    <Input placeholder="Departamento, localidad o ciudad" />
+  </Form.Item>
+)}
             <Form.Item
   label="Correo Electrónico"
   name="email"

@@ -155,12 +155,13 @@ const columns = [
     title: 'Rol en Empresa',
     render: usuario => usuario.rolEmpresa ? usuario.rolEmpresa.charAt(0).toUpperCase() + usuario.rolEmpresa.slice(1) : usuario.tipo === 'juridica' ? 'Responsable' : 'Sin rol',
   },
-  {
-    title: 'Empresa',
-    render: usuario =>
-      usuario.empresaAsignada?.razonSocial ||
-      (usuario.tipo === 'juridica' ? 'Empresa propia' : 'No asignada'),
-  },
+{
+  title: 'Empresa',
+  render: usuario =>
+    usuario.empresa?.razonSocial ||
+    (usuario.tipo === 'juridica' ? 'Empresa propia' : 'No asignada'),
+},
+
   {
     title: 'Nombre / Razón Social',
     render: user => user.tipo === 'juridica' ? user.razonSocial || 'N/A' : `${user.nombre} ${user.apellido}`,

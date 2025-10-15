@@ -313,14 +313,15 @@ const handleSubmit = async (e) => {
     return;
   }
 
-  if (formData.tipo === 'fisica' && (!renaperData || renaperError)) {
-    setNotification({
-      message: 'No se puede registrar: Persona no validada con RENAPER.',
-      type: 'error',
-    });
-    setIsSubmitting(false);
-    return;
-  }
+if (formData.tipo === 'fisica' && !renaperData) {
+  setNotification({
+    message: 'No se puede registrar: Persona no validada con RENAPER.',
+    type: 'error',
+  });
+  setIsSubmitting(false);
+  return;
+}
+
 
   const isFisica = formData.tipo === 'fisica';
   const isJuridica = formData.tipo === 'juridica';
