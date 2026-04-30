@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaSignOutAlt, FaHome, FaSearch, FaUser, FaEnvelope, FaBoxOpen } from 'react-icons/fa';
+import { FaSignOutAlt, FaHome, FaUser, FaEnvelope, FaBoxOpen } from 'react-icons/fa';
 import { useSelector, useDispatch } from 'react-redux';
 import searchItems from '../redux/actions/search';
-import FiltroUsuarios from './FiltroUsuarios'; // Asegura que el path sea correcto
-import { updateUser, deleteUsuario, resetPassword } from '../redux/actions/usuarios';
+import {  } from '../redux/actions/usuarios';
 import { getUnreadMessages, markMessagesAsRead, markUserMessagesAsRead, clearUnreadMessages,  assignUnreadToAdmin } from '../redux/actions/messageActions';
-import EmpresasRegistradas from './EmpresasRegistradas'; // ⬅️ Asegúrate que esté importado
-import api from '../redux/axiosConfig'; 
+import EmpresasRegistradas from './EmpresasRegistradas';
 
 
 const Dashboard = () => {
@@ -15,21 +13,16 @@ const Dashboard = () => {
     const dispatch = useDispatch();
 
     // Estados locales
-    const [searchTerm, setSearchTerm] = useState('');
-    const [searchCategory, setSearchCategory] = useState('nombre');
-    const [showModal, setShowModal] = useState(false);
-    const [selectedItem, setSelectedItem] = useState(null);
+    const [searchTerm] = useState('');
+    const [searchCategory] = useState('nombre');
+    const [selectedItem] = useState(null);
     const [showSearch, setShowSearch] = useState(false);
     
     // Referencia para limpiar intervalos
     const messagesIntervalRef = useRef(null);
 
     // Datos del usuario
-    const { loading, usuarios, bienes, error, user } = useSelector(state => ({
-        loading: state.search.loading,
-        usuarios: state.search.usuarios,
-        bienes: state.search.bienes,
-        error: state.search.error,
+    const { user } = useSelector(state => ({
         user: state.auth.user
     }));
     
@@ -86,44 +79,6 @@ useEffect(() => {
         navigate('/home');
     };
 
-    const handleSearch = (e) => {
-        setSearchTerm(e.target.value.trim());
-    };
-
-    const handleCategoryChange = (e) => {
-        setSearchCategory(e.target.value);
-    };
-
-    const openModal = (item) => {
-        setSelectedItem(item);
-        setShowModal(true);
-    };
-
-    const closeModal = () => {
-        setShowModal(false);
-        setSelectedItem(null);
-    };
-
-    const handleSave = () => {
-        if (selectedItem) {
-            dispatch(updateUser(selectedItem.id, selectedItem));
-            closeModal();
-        }
-    };
-
-    const handleDelete = () => {
-        if (selectedItem) {
-            dispatch(deleteUsuario(selectedItem.id));
-            closeModal();
-        }
-    };
-
-    const handleResetPassword = () => {
-        if (selectedItem) {
-            dispatch(resetPassword(selectedItem.id));
-            closeModal();
-        }
-    };
 
 const handleInboxClick = async () => {
   const userData = JSON.parse(localStorage.getItem('userData'));

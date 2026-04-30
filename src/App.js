@@ -1,6 +1,6 @@
 import './App.css';
 import React, { useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
 import BienList from './components/BienList';
 import BienForm from './components/BienForm';
@@ -112,6 +112,8 @@ useEffect(() => {
         <Route path="/empresa/delegados/nuevo" element={<RegistrarDelegado />} />
         <Route path="/empresa/mia" element={<MiEmpresa />} />
         <Route path="/activar-cuenta" element={<ActivarCuenta />} />
+        {/* Rutas de redirección */}
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </div>
   );

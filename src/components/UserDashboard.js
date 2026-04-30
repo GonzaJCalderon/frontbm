@@ -11,11 +11,11 @@ import {
   markUserMessagesAsRead,
   clearUnreadMessages
 } from '../redux/actions/messageActions';
-import searchItems from '../redux/actions/search';
 import logo from '../assets/logo-png-sin-fondo.png';
 import api from '../redux/axiosConfig';
 
 const ADMIN_UUID = "UUID_DEL_ADMIN";
+
 
 const UserDashboard = () => {
   const navigate = useNavigate();
@@ -23,8 +23,6 @@ const UserDashboard = () => {
 
   const unreadMessages = useSelector(state => state.messages.unread.length);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchVisible, setSearchVisible] = useState(false);
   const [fullName, setFullName] = useState('');
   const [empresaInfo, setEmpresaInfo] = useState(null);
 
@@ -74,6 +72,7 @@ const UserDashboard = () => {
       }, 10000);
       return () => clearInterval(interval);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
   const handleLogout = () => {
@@ -81,10 +80,6 @@ const UserDashboard = () => {
     navigate('/home');
   };
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    dispatch(searchItems(e.target.value, 'todos'));
-  };
 
   const handleMensajeAdminClick = async () => {
     if (!storedUser?.uuid) return;
