@@ -17,8 +17,7 @@ import {
   HomeOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
-
-const { Title } = Typography;
+import { FaArrowLeft, FaHome, FaSignOutAlt, FaShoppingCart, FaTags } from "react-icons/fa";
 
 const OperacionesUsuario = () => {
   const navigate = useNavigate();
@@ -34,21 +33,10 @@ const OperacionesUsuario = () => {
   const [totalVentas, setTotalVentas] = useState(0);
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [vistaActiva, setVistaActiva] = useState('menu'); // 'menu', 'compras', 'ventas'
 
   const transaccionesPorPagina = 10;
 
-  const uuidFromToken = useMemo(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-    try {
-      const [, payloadBase64] = token.split('.');
-      const decoded = JSON.parse(atob(payloadBase64));
-      return decoded?.uuid || null;
-    } catch (err) {
-      console.error('❌ Error al decodificar el token:', err);
-      return null;
-    }
-  }, []);
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('userData'));
@@ -94,6 +82,7 @@ const OperacionesUsuario = () => {
     };
 
     fetchTransacciones();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uuidConsulta, paginaCompras, paginaVentas]);
 
   const mostrarImagen = (url) => {
@@ -182,56 +171,121 @@ const OperacionesUsuario = () => {
   if (loadingUsuario) return <Spin tip="Cargando usuario..." />;
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <Space style={{ marginBottom: 16 }}>
-        <Button icon={<LeftOutlined />} onClick={handleBack}>Volver</Button>
-        <Button icon={<HomeOutlined />} onClick={handleHome}>Home</Button>
-        <Button icon={<LogoutOutlined />} danger onClick={handleLogout}>Cerrar sesión</Button>
-      </Space>
+    <div className="bg-background min-h-screen font-inter flex flex-col pb-8">
+      {/* Header Premium */}
+      <header className="bg-primary text-white px-8 py-5 flex justify-between items-center shadow-md mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={handleBack} className="flex items-center justify-center p-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm border-none cursor-pointer">
+            <FaArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold font-montserrat tracking-tight m-0 text-white">Mis Transacciones</h1>
+            <p className="text-inverse-primary text-sm font-medium mt-0.5 mb-0">
+              Operaciones de{' '}
+              {usuario?.razonSocial
+                ? `${usuario.razonSocial} (como ${usuario.rolEmpresa})`
+                : `${usuario?.nombre} ${usuario?.apellido}`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={handleHome} className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all font-semibold shadow-sm border-none cursor-pointer">
+            <FaHome className="w-4 h-4" /> Home
+          </button>
+          <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-error text-white rounded-lg hover:bg-red-600 transition-all font-semibold shadow-sm border-none cursor-pointer">
+            <FaSignOutAlt className="w-4 h-4" /> Cerrar sesión
+          </button>
+        </div>
+      </header>
 
-      <Title level={2}>
-        Operaciones de{' '}
-        {usuario?.razonSocial
-          ? `${usuario.razonSocial} (como ${usuario.rolEmpresa})`
-          : `${usuario?.nombre} ${usuario?.apellido}`}
-      </Title>
+      <div className="max-w-[1200px] mx-auto w-full px-8">
 
       {loadingTransacciones ? (
-        <Spin tip="Cargando transacciones..." />
+        <div className="flex justify-center my-10"><Spin tip="Cargando transacciones..." size="large" /></div>
       ) : (
         <>
-          <Title level={3}>Compras</Title>
-          {compras.length === 0 ? (
-            <Alert message="Sin compras" type="info" showIcon />
-          ) : (
-            <Table
-              columns={columnasCompras}
-              dataSource={compras}
-              rowKey="uuid"
-              pagination={{
-                current: paginaCompras,
-                pageSize: transaccionesPorPagina,
-                total: totalCompras,
-                onChange: (page) => setPaginaCompras(page),
-              }}
-            />
+          {vistaActiva === 'menu' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
+              <div 
+                onClick={() => setVistaActiva('compras')}
+                className="group bg-green-50 rounded-2xl p-8 flex flex-col items-center justify-center gap-4 text-center cursor-pointer shadow-sm hover:shadow-lg hover:bg-green-100 transition-all duration-300 border border-green-200 hover:-translate-y-1"
+              >
+                <FaShoppingCart className="text-green-600 text-6xl group-hover:scale-110 transition-transform duration-300" />
+                <div>
+                  <p className="text-2xl font-bold font-montserrat text-green-900 tracking-tight m-0">Mis Compras</p>
+                  <p className="text-green-700 mt-2 font-medium m-0">Revisa el historial de bienes que has adquirido.</p>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setVistaActiva('ventas')}
+                className="group bg-red-50 rounded-2xl p-8 flex flex-col items-center justify-center gap-4 text-center cursor-pointer shadow-sm hover:shadow-lg hover:bg-red-100 transition-all duration-300 border border-red-200 hover:-translate-y-1"
+              >
+                <FaTags className="text-red-600 text-6xl group-hover:scale-110 transition-transform duration-300" />
+                <div>
+                  <p className="text-2xl font-bold font-montserrat text-red-900 tracking-tight m-0">Mis Ventas</p>
+                  <p className="text-red-700 mt-2 font-medium m-0">Gestiona y consulta los bienes que has vendido.</p>
+                </div>
+              </div>
+            </div>
           )}
 
-          <Title level={3} style={{ marginTop: 32 }}>Ventas</Title>
-          {ventas.length === 0 ? (
-            <Alert message="Sin ventas" type="info" showIcon />
-          ) : (
-            <Table
-              columns={columnasVentas}
-              dataSource={ventas}
-              rowKey="uuid"
-              pagination={{
-                current: paginaVentas,
-                pageSize: transaccionesPorPagina,
-                total: totalVentas,
-                onChange: (page) => setPaginaVentas(page),
-              }}
-            />
+          {vistaActiva === 'compras' && (
+            <div className="mb-8 animate-fadeIn">
+              <div className="flex items-center gap-4 border-b border-outline-variant pb-4 mb-6">
+                <Button icon={<FaArrowLeft />} onClick={() => setVistaActiva('menu')} type="text" className="font-semibold text-primary">
+                  Volver
+                </Button>
+                <h2 className="text-2xl font-bold font-montserrat text-primary m-0">Compras Realizadas</h2>
+              </div>
+              <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-level-2 overflow-hidden p-4">
+                {compras.length === 0 ? (
+                  <Alert message="Sin compras" type="info" showIcon className="my-4" />
+                ) : (
+                  <Table
+                    columns={columnasCompras}
+                    dataSource={compras}
+                    rowKey="uuid"
+                    pagination={{
+                      current: paginaCompras,
+                      pageSize: transaccionesPorPagina,
+                      total: totalCompras,
+                      onChange: (page) => setPaginaCompras(page),
+                    }}
+                    className="w-full"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {vistaActiva === 'ventas' && (
+            <div className="mb-8 animate-fadeIn">
+              <div className="flex items-center gap-4 border-b border-outline-variant pb-4 mb-6">
+                <Button icon={<FaArrowLeft />} onClick={() => setVistaActiva('menu')} type="text" className="font-semibold text-primary">
+                  Volver
+                </Button>
+                <h2 className="text-2xl font-bold font-montserrat text-primary m-0">Ventas Realizadas</h2>
+              </div>
+              <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-level-2 overflow-hidden p-4">
+                {ventas.length === 0 ? (
+                  <Alert message="Sin ventas" type="info" showIcon className="my-4" />
+                ) : (
+                  <Table
+                    columns={columnasVentas}
+                    dataSource={ventas}
+                    rowKey="uuid"
+                    pagination={{
+                      current: paginaVentas,
+                      pageSize: transaccionesPorPagina,
+                      total: totalVentas,
+                      onChange: (page) => setPaginaVentas(page),
+                    }}
+                    className="w-full"
+                  />
+                )}
+              </div>
+            </div>
           )}
         </>
       )}
@@ -242,8 +296,9 @@ const OperacionesUsuario = () => {
         onCancel={() => setModalVisible(false)}
         centered
       >
-        <img src={imagenAmpliada} alt="Imagen ampliada" style={{ width: '100%' }} />
+        <img src={imagenAmpliada} alt="Imagen ampliada" style={{ width: '100%', borderRadius: '8px' }} />
       </Modal>
+      </div>
     </div>
   );
 };

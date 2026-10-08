@@ -38,12 +38,14 @@ const AdminUsuariosDashboard = () => {
     setSearchFields(updatedFields);
 
     const activeFilters = Object.entries(updatedFields)
-      .filter(([_, val]) => val.trim().length > 2)
-      .map(([k, v]) => `${k}=${encodeURIComponent(v.trim())}`)
-      .join('&');
+      .filter(([_, val]) => val.trim().length >= 2)
+      .reduce((acc, [k, v]) => ({ ...acc, [k]: v.trim() }), {});
 
-    if (activeFilters) {
+    if (Object.keys(activeFilters).length > 0) {
       dispatch(searchItems(activeFilters, 'users'));
+    } else {
+      // Si no hay filtros, tal vez quieras limpiar la búsqueda o recargar
+      // dispatch(searchItems({}, 'users'));
     }
   };
 
@@ -65,62 +67,71 @@ const AdminUsuariosDashboard = () => {
   };
 
   const tabClass = (tab) =>
-    `m-1 sm:m-2 flex-1 text-center px-4 py-2 rounded font-medium cursor-pointer transition-all
-    ${activeTab === tab ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 hover:bg-gray-300'}`;
+    `m-1 sm:m-2 flex-1 text-center px-4 py-3 rounded-lg font-montserrat font-semibold cursor-pointer transition-all shadow-sm
+    ${activeTab === tab ? 'bg-primary text-white shadow-md' : 'bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'}`;
 
   const logoSrc =
     'https://res.cloudinary.com/dtx5ziooo/image/upload/v1739288789/logo-png-sin-fondo_lyddzv.png';
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-blue-600 text-white p-4 flex justify-between items-center rounded-lg shadow">
-        <div className="flex items-center space-x-4">
-          <img src={logoSrc} alt="Logo" className="h-10 w-auto" />
-          <h1 className="text-xl font-bold">
-            Bienvenido/a, {user?.nombre} {user?.apellido}
-          </h1>
+    <div className="bg-background min-h-screen flex flex-col font-inter">
+      {/* Header Premium */}
+      <header className="bg-primary text-white px-8 py-5 flex justify-between items-center shadow-md">
+        <div className="flex items-center gap-4">
+          <img src={logoSrc} alt="Logo" className="h-12 w-auto bg-white/10 rounded p-1" />
+          <div>
+            <h1 className="text-2xl font-bold font-montserrat tracking-tight">
+              Bienvenido/a, {user?.nombre} {user?.apellido}
+            </h1>
+            <p className="text-inverse-primary text-sm font-medium mt-0.5">
+              Control de Usuarios y Empresas
+            </p>
+          </div>
         </div>
         <div className="flex items-center space-x-4">
-          <FaSearch
-            className="w-5 h-5 cursor-pointer"
-            onClick={() => setShowSearch(!showSearch)}
-            title="Buscar usuarios"
-          />
           <button
-            onClick={() => navigate('/home')}
-            className="flex items-center px-3 py-2 bg-blue-700 text-white rounded hover:bg-blue-800"
+            onClick={() => setShowSearch(!showSearch)}
+            className="flex items-center justify-center p-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm"
+            title="Buscar usuarios"
           >
-            <FaHome className="mr-1" /> Inicio
+            <FaSearch className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => navigate('/admin/dashboard')}
+            className="flex items-center justify-center p-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm"
+          >
+            <FaHome className="w-5 h-5" />
           </button>
           <button
             onClick={handleLogout}
-            className="flex items-center px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            className="flex items-center justify-center p-3 bg-error text-white rounded-lg hover:bg-error/90 transition-all shadow-sm"
           >
-            <FaSignOutAlt className="mr-1" /> Cerrar Sesión
+            <FaSignOutAlt className="w-5 h-5" />
           </button>
         </div>
       </header>
 
       {/* Campos de Búsqueda */}
       {showSearch && (
-        <div className="bg-white mt-4 p-4 rounded-lg border shadow-md">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="bg-surface-container-lowest mt-6 mx-8 p-6 rounded-2xl border border-outline-variant shadow-level-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {Object.entries(searchFields).map(([field, value]) => (
-              <input
-                key={field}
-                type="text"
-                name={field}
-                placeholder={`Buscar por ${field}`}
-                value={value}
-                onChange={handleFieldChange}
-                className="border px-3 py-2 rounded w-full"
-              />
+              <div key={field} className="flex flex-col">
+                <label className="text-sm font-semibold text-primary mb-1 uppercase tracking-wide">{field}</label>
+                <input
+                  type="text"
+                  name={field}
+                  placeholder={`Buscar por ${field}`}
+                  value={value}
+                  onChange={handleFieldChange}
+                  className="border border-outline-variant px-4 py-2.5 rounded-lg w-full focus:ring-2 focus:ring-primary focus:border-primary transition-all text-on-surface"
+                />
+              </div>
             ))}
           </div>
-          <div className="flex justify-end mt-2">
+          <div className="flex justify-end mt-4">
             <button
-              className="flex items-center text-sm text-red-600 hover:text-red-800"
+              className="flex items-center text-sm font-bold text-error hover:text-on-error-container transition-colors"
               onClick={clearSearch}
             >
               <FaTimes className="mr-1" /> Cerrar búsqueda
@@ -130,7 +141,7 @@ const AdminUsuariosDashboard = () => {
       )}
 
       {/* Tabs de usuarios */}
-      <div className="mt-6 flex flex-wrap justify-center">
+      <div className="mt-8 px-8 flex flex-wrap justify-center max-w-6xl mx-auto w-full">
         <button className={tabClass('aprobados')} onClick={() => setActiveTab('aprobados')}>
           ✅ Usuarios Aprobados
         </button>
@@ -141,9 +152,8 @@ const AdminUsuariosDashboard = () => {
           ❌ Usuarios Rechazados
         </button> 
         <button className={tabClass('empresas')} onClick={() => setActiveTab('empresas')}>
-  🏢 Empresas Registradas
-</button>
-
+          🏢 Empresas Registradas
+        </button>
       </div>
 
       {/* Cuerpo de resultado */}

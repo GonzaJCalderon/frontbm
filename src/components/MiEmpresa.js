@@ -11,7 +11,6 @@ import {
   Space,
   message,
   Modal,
-  Menu,
    Popconfirm,
 } from 'antd';
 import {
@@ -20,11 +19,8 @@ import {
   LogoutOutlined,
   ArrowLeftOutlined,
   MailOutlined,
-  CalendarOutlined,
-  CheckCircleOutlined,
   BarcodeOutlined,
   HomeOutlined,
-  DeleteOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -45,9 +41,7 @@ const MiEmpresa = () => {
   const [loadingEmpresa, setLoadingEmpresa] = useState(true);
 
   const userData = JSON.parse(localStorage.getItem('userData'));
-  console.log('🧠 userData:', userData);
-
-  const token = localStorage.getItem('authToken');
+  // console.log('🧠 userData:', userData);
 
   const handleVolver = () => navigate('/user/dashboard');
   const handleLogout = () => {
@@ -87,11 +81,6 @@ const MiEmpresa = () => {
     ? delegados.filter((d) => d.rolEmpresa?.toLowerCase() === 'delegado')
     : [];
 
-  const formatFecha = (fechaISO) => {
-    if (!fechaISO) return 'No registrada';
-    const fecha = new Date(fechaISO);
-    return isNaN(fecha) ? 'Fecha inválida' : fecha.toLocaleDateString();
-  }; 
 
   const handleActivarDesactivar = async (uuid, activo) => {
     try {

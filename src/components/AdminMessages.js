@@ -41,7 +41,7 @@ useEffect(() => {
 
 getUserByUuid(userUuid)
   .then((user) => {
-    console.log("🧪 Usuario cargado:", user);
+    // console.log("🧪 Usuario cargado:", user);
     if (user?.nombre && user?.apellido) {
       const rol = user.rol || 'desconocido';
       const empresaName = user.empresa?.razonSocial;
@@ -131,71 +131,84 @@ try {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-blue-600 text-white p-4 rounded-t-lg shadow">
-        <button onClick={() => navigate(-1)} className="flex items-center text-sm hover:underline">
-          <FaArrowLeft className="mr-2" /> Volver
-        </button>
-        <h1 className="text-lg font-semibold">{userName}</h1>
-        <div />
-      </div>
+    <div className="bg-background min-h-[calc(100vh-80px)] font-inter flex flex-col p-4 md:p-8">
+      <div className="max-w-4xl mx-auto w-full flex flex-col flex-1 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-level-2 overflow-hidden">
+        
+        {/* Header Premium */}
+        <div className="bg-primary text-white p-5 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="flex items-center justify-center p-2.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm">
+              <FaArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold font-montserrat tracking-tight uppercase">{userName}</h1>
+              <p className="text-inverse-primary text-xs font-medium mt-0.5">Hilo de conversación</p>
+            </div>
+          </div>
+        </div>
 
-      {/* Chat container */}
-      <div
-        ref={chatContainerRef}
-        className="bg-gray-50 border border-gray-200 p-4 h-[400px] overflow-y-auto space-y-3"
-      >
-        {loading ? (
-          <p className="text-gray-500">Cargando mensajes...</p>
-        ) : error ? (
-          <p className="text-red-600">{error}</p>
-        ) : localMessages.length === 0 ? (
-          <p className="text-gray-500">No hay mensajes en esta conversación.</p>
-        ) : (
-          localMessages
-            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-            .map((msg) => (
-              <div
-                key={msg.uuid}
-                className={`flex ${msg.senderUuid === adminUuid ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-xs p-3 rounded-lg text-sm shadow ${
-                    msg.senderUuid === adminUuid
-                      ? 'bg-blue-500 text-white rounded-br-none'
-                      : 'bg-gray-300 text-gray-900 rounded-bl-none'
-                  }`}
-                >
-                  <p className="whitespace-pre-line">{msg.content}</p>
-                  <small className="block mt-1 text-xs text-gray-100">
-                    {formatDate(msg.createdAt)}
-                  </small>
-                </div>
-              </div>
-            ))
-        )}
-      </div>
-
-      {/* Input de envío */}
-      <div className="flex mt-4">
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Escribe tu mensaje..."
-          className="flex-1 border px-3 py-2 rounded-l-md focus:outline-none"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSendMessage();
-          }}
-        />
-        <button
-          onClick={handleSendMessage}
-          disabled={isSending}
-          className={`bg-blue-600 text-white px-4 py-2 rounded-r-md hover:bg-blue-700 ${isSending ? 'opacity-60 cursor-not-allowed' : ''}`}
+        {/* Chat container */}
+        <div
+          ref={chatContainerRef}
+          className="bg-surface p-6 h-[500px] overflow-y-auto space-y-4"
         >
-          <FaPaperPlane />
-        </button>
+          {loading ? (
+            <div className="flex justify-center items-center h-full">
+              <p className="text-on-surface-variant font-medium animate-pulse">Cargando mensajes...</p>
+            </div>
+          ) : error ? (
+            <div className="flex justify-center items-center h-full">
+              <p className="text-error font-semibold bg-error-container px-4 py-2 rounded-lg">{error}</p>
+            </div>
+          ) : localMessages.length === 0 ? (
+            <div className="flex justify-center items-center h-full">
+              <p className="text-outline font-medium italic">No hay mensajes en esta conversación.</p>
+            </div>
+          ) : (
+            localMessages
+              .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+              .map((msg) => (
+                <div
+                  key={msg.uuid}
+                  className={`flex ${msg.senderUuid === adminUuid ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-md p-4 text-sm shadow-sm ${
+                      msg.senderUuid === adminUuid
+                        ? 'bg-primary text-white rounded-2xl rounded-br-sm'
+                        : 'bg-surface-container-high text-on-surface rounded-2xl rounded-bl-sm border border-outline-variant'
+                    }`}
+                  >
+                    <p className="whitespace-pre-line leading-relaxed">{msg.content}</p>
+                    <small className={`block mt-2 text-[10px] font-semibold text-right ${msg.senderUuid === adminUuid ? 'text-inverse-primary' : 'text-outline'}`}>
+                      {formatDate(msg.createdAt)}
+                    </small>
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+
+        {/* Input de envío */}
+        <div className="bg-surface-container-low p-4 border-t border-outline-variant flex items-center gap-3">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Escribe tu mensaje aquí..."
+            className="flex-1 bg-white border border-outline-variant px-4 py-3 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all text-on-surface"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSendMessage();
+            }}
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={isSending || !newMessage.trim()}
+            className={`flex items-center justify-center bg-primary text-white w-12 h-12 rounded-xl transition-all shadow-sm ${isSending || !newMessage.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-container hover:shadow-md'}`}
+          >
+            <FaPaperPlane className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </div>
   );

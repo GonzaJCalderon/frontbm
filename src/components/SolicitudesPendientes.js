@@ -30,7 +30,6 @@ const SolicitudesPendientes = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [selectedUserUuid, setSelectedUserUuid] = useState(null);
   const [filteredRegistrations, setFilteredRegistrations] = useState([]);
-  const [filters, setFilters] = useState({});
   const [loadingUuid, setLoadingUuid] = useState(null);
 
   const userData = JSON.parse(localStorage.getItem('userData'));
@@ -49,26 +48,22 @@ const SolicitudesPendientes = () => {
   }, [pendingRegistrations]);
 
   const handleSearch = (newFilters) => {
-    setFilters((prev) => {
-      const updated = { ...prev, ...newFilters };
-      const filtered = pendingRegistrations.filter((u) => {
-        const matchNombre = updated.nombre
-          ? u.nombre?.toLowerCase().includes(updated.nombre.toLowerCase())
+    const filtered = pendingRegistrations.filter((u) => {
+        const matchNombre = newFilters.nombre
+          ? u.nombre?.toLowerCase().includes(newFilters.nombre.toLowerCase())
           : true;
-        const matchApellido = updated.apellido
-          ? u.apellido?.toLowerCase().includes(updated.apellido.toLowerCase())
+        const matchApellido = newFilters.apellido
+          ? u.apellido?.toLowerCase().includes(newFilters.apellido.toLowerCase())
           : true;
-        const matchDni = updated.dni
-          ? u.dni?.includes(updated.dni)
+        const matchDni = newFilters.dni
+          ? u.dni?.includes(newFilters.dni)
           : true;
-        const matchEmail = updated.email
-          ? u.email?.toLowerCase().includes(updated.email.toLowerCase())
+        const matchEmail = newFilters.email
+          ? u.email?.toLowerCase().includes(newFilters.email.toLowerCase())
           : true;
         return matchNombre && matchApellido && matchDni && matchEmail;
       });
       setFilteredRegistrations(filtered);
-      return updated;
-    });
   };
 
   const handleApprove = async (uuid) => {
@@ -97,7 +92,11 @@ const SolicitudesPendientes = () => {
     dispatch(fetchPendingRegistrations());
 
   } catch (err) {
-    notification.error({ message: 'Error al aprobar usuario ❌' });
+    const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Error al aprobar usuario';
+    notification.error({ 
+      message: 'Error al aprobar usuario ❌',
+      description: errorMsg
+    });
   } finally {
     setLoadingUuid(null);
   }

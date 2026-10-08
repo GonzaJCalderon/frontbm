@@ -20,7 +20,7 @@ import {
   FINALIZAR_CREACION_REQUEST,
   FINALIZAR_CREACION_SUCCESS,
   FINALIZAR_CREACION_FAILURE,
-  CLEAR_STOCK_ERROR } from './actionTypes';
+} from './actionTypes';
 
 /** 🔄 Registrar una venta */
 export const registrarVenta = (ventaData) => async (dispatch) => {

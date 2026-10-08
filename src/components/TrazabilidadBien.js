@@ -103,7 +103,7 @@ const TrazabilidadBien = () => {
               style={{ objectFit: 'cover', borderRadius: '4px' }}
               src={foto}
               alt={`Foto ${index + 1}`}
-              fallback="/images/placeholder.png"
+              fallback="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Crect width='100%25' height='100%25' fill='%23cccccc'/%3E%3Ctext x='50%25' y='50%25' font-size='14' text-anchor='middle' fill='%23666' dy='.3em'%3ESin Foto%3C/text%3E%3C/svg%3E"
             />
           ))}
         </Space>

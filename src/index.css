@@ -27,3 +27,68 @@ code {
   display: flex;
   flex-direction: column;
 }
+
+/* --- Premium Form Overrides (Ant Design) --- */
+
+.ant-form-item-label > label {
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  font-size: 0.95rem !important;
+}
+
+.ant-input,
+.ant-select-selector,
+.ant-input-number,
+.ant-picker {
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  font-size: 1rem !important;
+  transition: all 0.2s ease-in-out !important;
+  background-color: #f8fafc !important;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-select-focused .ant-select-selector,
+.ant-input-number-focused,
+.ant-picker-focused {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+  background-color: #ffffff !important;
+}
+
+.ant-input:hover,
+.ant-select-selector:hover,
+.ant-input-number:hover,
+.ant-picker:hover {
+  border-color: #94a3b8 !important;
+}
+
+.ant-select-single .ant-select-selector {
+  height: 46px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.ant-select-single .ant-select-selection-item,
+.ant-select-single .ant-select-selection-placeholder {
+  line-height: normal !important;
+}
+
+.ant-input-number-input {
+  height: 100% !important;
+}
+
+.ant-form-item {
+  margin-bottom: 28px !important;
+}
+
+.ant-btn-primary {
+  border-radius: 8px !important;
+  height: 42px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+

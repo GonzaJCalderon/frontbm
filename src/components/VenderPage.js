@@ -113,7 +113,6 @@ const VenderPage = () => {
   // Loading global
   const [loading, setLoading] = useState(false);
   const [loadingVenta, setLoadingVenta] = useState(false);
-  const [refreshFlag, setRefreshFlag] = useState(false);
 
 
 
@@ -388,7 +387,7 @@ const VenderPage = () => {
   const handleTipoChange = async (tipo) => {
     setTipoNuevo(tipo);
     try {
-      const r = await api.get(`/bienes/bienes/marcas?tipo=${tipo}`);
+      const r = await api.get(`/bienes/marcas?tipo=${tipo}`);
       if (r.status === 200 && r.data.marcas) {
         setMarcas(r.data.marcas);
         formGood.setFieldsValue({ marca: undefined, modelo: undefined });
@@ -405,7 +404,7 @@ const VenderPage = () => {
     const tipo = formGood.getFieldValue('tipo');
     if (!tipo || !marca) return;
     try {
-      const r = await api.get(`/bienes/bienes/modelos?tipo=${tipo}&marca=${marca}`);
+      const r = await api.get(`/bienes/modelos?tipo=${tipo}&marca=${marca}`);
       if (r.status === 200 && r.data.modelos) {
         setModelos(r.data.modelos);
         formGood.setFieldsValue({ modelo: undefined });
@@ -423,7 +422,7 @@ const VenderPage = () => {
     const tipo = formGood.getFieldValue('tipo');
     if (!tipo) return message.warning("Selecciona un tipo primero.");
     try {
-      const r = await api.post('/bienes/bienes/marcas', { tipo, marca: marcaTrim });
+      const r = await api.post('/bienes/marcas', { tipo, marca: marcaTrim });
       if (r.status === 201) {
         message.success(`Marca ${marcaTrim} agregada.`);
         setMarcas(prev => [...prev, marcaTrim]);
@@ -442,7 +441,7 @@ const VenderPage = () => {
     const marca = formGood.getFieldValue('marca');
     if (!tipo || !marca) return message.warning("Selecciona tipo y marca.");
     try {
-      const r = await api.post('/bienes/bienes/modelos', { tipo, marca, modelo: modeloTrim });
+      const r = await api.post('/bienes/modelos', { tipo, marca, modelo: modeloTrim });
       if (r.status === 201) {
         message.success(`Modelo ${modeloTrim} agregado.`);
         setModelos(prev => [...prev, modeloTrim]);
@@ -752,9 +751,9 @@ formDataBien.append(`venta[${i}][imeis][${idx}][foto]`, archivo);
         }
 
         // 👁️ Debug
-        console.log("🧪 FormData enviado al backend:");
+        // console.log("🧪 FormData enviado al backend:");
         for (let pair of formDataBien.entries()) {
-          console.log(pair[0], pair[1]);
+          // console.log(pair[0], pair[1]);
         }
 
         // 🧾 Registrar el bien
@@ -814,8 +813,8 @@ formDataBien.append(`venta[${i}][imeis][${idx}][foto]`, archivo);
         fotos: bien.fotos || [],
       });
     }
-console.log("📦 ventaData antes de generar FormData:");
-console.log(JSON.stringify(ventaData, null, 2));
+// console.log("📦 ventaData antes de generar FormData:");
+// console.log(JSON.stringify(ventaData, null, 2));
     // 🧾 Final FormData de venta
     const formDataVenta = new FormData();
     formDataVenta.append("vendedorUuid", vendedorId);
@@ -844,19 +843,15 @@ ventaData.forEach((bien, i) => {
   });
 });
 
-console.log("🧪 CONTENIDO DE FormData antes de enviar:");
+// console.log("🧪 CONTENIDO DE FormData antes de enviar:");
 
 for (let pair of formDataVenta.entries()) {
   const valor = pair[1];
 
   if (valor instanceof File) {
-    console.log(`🖼️ ${pair[0]} = File ->`, {
-      name: valor.name,
-      size: valor.size,
-      type: valor.type,
-    });
+    /* log eliminado: console.log File info */
   } else {
-    console.log(`📝 ${pair[0]} =`, valor);
+    // console.log(`📝 ${pair[0]} =`, valor);
   }
 }
 
@@ -864,7 +859,7 @@ for (let pair of formDataVenta.entries()) {
 
     // 🚀 Enviar venta al backend
     const response = await dispatch(registrarVenta(formDataVenta));
-    console.log("🔍 Resultado de registrarVenta:", response);
+    // console.log("🔍 Resultado de registrarVenta:", response);
 
     if (response?.success === true) {
       message.success(response.message || "✅ Venta registrada.");
@@ -906,12 +901,12 @@ const validateDNIWithRenaper = async (dni) => {
 
     isFetchingDni.current = true;
 
-    console.log('🔍 Buscando en RENAPER...');
+    // console.log('🔍 Buscando en RENAPER...');
 
     // 1. Traemos datos de RENAPER primero
     const persona = await dispatch(fetchRenaperData(dni));
 
-    console.log('🛂 Datos de RENAPER:', persona);
+    // console.log('🛂 Datos de RENAPER:', persona);
 
     if (!persona) {
       message.warning("⚠️ No se encontraron datos en RENAPER.");
@@ -934,7 +929,7 @@ const validateDNIWithRenaper = async (dni) => {
 
 
     // 3. Ahora que ya tenemos persona, podemos buscar si existe en el sistema
-    console.log('🔍 Buscando en sistema si el usuario ya existe...');
+    // console.log('🔍 Buscando en sistema si el usuario ya existe...');
     const checkUserResponse = await dispatch(checkExistingUser({
       dni,
       nombre: persona.nombres || '',
@@ -942,12 +937,12 @@ const validateDNIWithRenaper = async (dni) => {
       email: persona.email || '',
     }));
 
-    console.log('🗃️ Respuesta de checkExistingUser:', checkUserResponse);
+    // console.log('🗃️ Respuesta de checkExistingUser:', checkUserResponse);
 
     if (checkUserResponse?.existe && checkUserResponse?.usuario) {
       const usuarioExistente = checkUserResponse.usuario;
 
-      console.log('📨 Email recibido del usuario existente:', usuarioExistente.email);
+      // console.log('📨 Email recibido del usuario existente:', usuarioExistente.email);
 
       if (usuarioExistente?.email) {
         formBuyer.setFieldsValue({ email: usuarioExistente.email });
@@ -985,50 +980,51 @@ const validateDNIWithRenaper = async (dni) => {
 
 
   return (
-    <div style={{ padding: 20, maxWidth: 1000, margin: '0 auto' }}>
-      <Steps current={step - 1} style={{ marginBottom: 24 }}>
-  <Step title="Datos del Comprador" />
-  <Step title="Registro de Bienes" />
-</Steps>
-<Title level={3}>
-  Registrando venta a nombre de:{' '}
-  {vendiendoComoEmpresa ? (
-    <Tag color="blue">{usuario.razonSocial || "Empresa"}</Tag>
-  ) : (
-    <Tag color="green">{`${usuario.nombre} ${usuario.apellido}`}</Tag>
-  )}
-</Title>
+    <div className="bg-background min-h-screen font-inter flex flex-col pb-8">
+      {/* Header Premium */}
+      <header className="bg-primary text-white px-8 py-5 flex justify-between items-center shadow-md mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={() => {
+            if (step === 1) navigate('/user/dashboard');
+            else setStep(step - 1);
+          }} className="flex items-center justify-center p-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm border-none cursor-pointer">
+            <ArrowLeftOutlined style={{ fontSize: '20px' }} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold font-montserrat tracking-tight m-0 text-white">Vender Bien Mueble</h1>
+            <p className="text-inverse-primary text-sm font-medium mt-0.5 mb-0">
+              Vendedor:{' '}
+              {vendiendoComoEmpresa ? (
+                <span className="bg-white/20 px-2 py-0.5 rounded ml-1 text-white">{usuario.razonSocial || "Empresa"}</span>
+              ) : (
+                <span className="bg-white/20 px-2 py-0.5 rounded ml-1 text-white">{`${usuario.nombre} ${usuario.apellido}`}</span>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => {
+            localStorage.removeItem('userData');
+            navigate('/home');
+          }} className="flex items-center gap-2 px-4 py-2 bg-error text-white rounded-lg hover:bg-red-600 transition-all font-semibold shadow-sm border-none cursor-pointer">
+            <LogoutOutlined /> Cerrar Sesión
+          </button>
+        </div>
+      </header>
 
-
-
-  
-
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between' }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => {
-          if (step === 1) navigate('/user/dashboard');
-          else setStep(step - 1);
-        }}>
-          Volver
-        </Button>
-        <Button icon={<LogoutOutlined />} onClick={() => {
-          localStorage.removeItem('userData');
-          navigate('/home');
-        }}>
-          Cerrar Sesión
-        </Button>
-      </div>
+      <div className="max-w-[1200px] mx-auto w-full px-8">
+        <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant mb-8">
+          <Steps current={step - 1}>
+            <Step title="Datos del Comprador" />
+            <Step title="Registro de Bienes" />
+          </Steps>
+        </div>
 
       {/* Paso 1: Datos del Comprador */}
       {step === 1 && (
-        <>
-          <Title level={3}>Paso 1: Datos del Comprador</Title>
-          <div style={{
-            backgroundColor: '#fff4c2',
-            borderRadius: '8px',
-            padding: '10px 15px',
-            marginBottom: 20,
-            boxShadow: '0px 1px 5px rgba(0, 0, 0, 0.1)'
-          }}>
+        <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-level-2 border border-outline-variant">
+          <h2 className="text-xl font-bold font-montserrat text-primary mb-6 border-b border-outline-variant pb-2">Paso 1: Datos del Comprador</h2>
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-r-lg shadow-sm">
             <Text style={{ fontSize: '1rem' }}>
               Complete los datos del comprador. Ingrese el DNI y espere mientras RENAPER verifica la información.
             </Text>
@@ -1126,13 +1122,13 @@ const validateDNIWithRenaper = async (dni) => {
               Siguiente
             </Button>
           </Form>
-        </>
+        </div>
       )}
 
       {/* Paso 2: Seleccionar o Registrar Bienes */}
       {step === 2 && (
-        <>
-          <Title level={3}>Paso 2: Seleccionar o Registrar Bienes</Title>
+        <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-level-2 border border-outline-variant">
+          <h2 className="text-xl font-bold font-montserrat text-primary mb-6 border-b border-outline-variant pb-2">Paso 2: Seleccionar o Registrar Bienes</h2>
           <div style={{ marginBottom: 20 }}>
             <Radio.Group value={subStep2} onChange={(e) => {
               setSubStep2(e.target.value);
@@ -1831,13 +1827,10 @@ const validateDNIWithRenaper = async (dni) => {
     <p style={{ fontSize: 12, color: '#666', marginTop: 8 }}>Ejemplo: IMEI visible en un teléfono Android</p>
   </div>
 </Modal>
-
-
-
 </div>
-
-        </>
+        </div>
       )}
+      </div>
     </div>
   );
 };

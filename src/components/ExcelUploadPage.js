@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { finalizarCreacionBienes } from '../redux/actions/stockActions';
 import { fetchBienes } from '../redux/actions/bienes';
+import { FaArrowLeft, FaHome, FaSignOutAlt } from 'react-icons/fa';
 import '../assets/css/excelUploadPage.css';
 
 const { Title, Paragraph } = Typography;
@@ -126,7 +127,7 @@ const handleAgregarNuevoBien = () => {
         const worksheet = workbook.worksheets[0];
 
         const data = worksheet.getSheetValues().slice(2).map((row, rowIndex) => {
-          const [_, tipo, descripcion, precioGeneral, marca, modelo, cantidadStock, imei, precioPorImei] = row;
+          const [, tipo, descripcion, precioGeneral, marca, modelo, cantidadStock, imei, precioPorImei] = row;
 
           if (!tiposPermitidos.includes(tipo)) {
             message.error(`Error en fila ${rowIndex + 2}: Tipo de bien no permitido (${tipo}).`);
@@ -341,15 +342,32 @@ if (response?.message === 'Bienes registrados correctamente.') {
   };
 
   return (
-    <div className="container">
-      <div className="header-buttons">
-        <Button onClick={() => navigate('/user/dashboard')}>Volver</Button>
-        <Button onClick={() => navigate('/home')} type="primary" danger>
-          Cerrar Sesión
-        </Button>
-      </div>
+    <div className="bg-background min-h-screen font-inter flex flex-col pb-8">
+      {/* Header Premium */}
+      <header className="bg-primary text-white px-8 py-5 flex justify-between items-center shadow-md mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="flex items-center justify-center p-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm border-none cursor-pointer">
+            <FaArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold font-montserrat tracking-tight m-0 text-white">Carga de Stock Múltiple</h1>
+            <p className="text-inverse-primary text-sm font-medium mt-0.5 mb-0">
+              Sube tus bienes masivamente con un archivo Excel
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => {
+            localStorage.removeItem('userData');
+            navigate('/home');
+          }} className="flex items-center gap-2 px-4 py-2 bg-error text-white rounded-lg hover:bg-red-600 transition-all font-semibold shadow-sm border-none cursor-pointer">
+            <FaSignOutAlt className="w-4 h-4" /> Cerrar Sesión
+          </button>
+        </div>
+      </header>
 
-      <Title level={2} className="title">Carga de Stock Múltiple</Title>
+      <div className="max-w-[1200px] mx-auto w-full px-4 sm:px-8">
+        <div className="bg-surface-container-lowest p-6 sm:p-8 rounded-2xl shadow-level-2 border border-outline-variant">
 
       <div className="highlight">
         <Paragraph>
@@ -529,8 +547,8 @@ columns={[
     ),
   },
 ]}
-
   pagination={false}
+  scroll={{ x: 'max-content' }}
 />
 
 <Button
@@ -696,6 +714,8 @@ columns={[
         >
           Eliminar Planilla
         </Button>
+      </div>
+        </div>
       </div>
     </div>
   );

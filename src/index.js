@@ -10,9 +10,10 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Verificar variables de entorno en consola (DESPUÉS de las importaciones)
-console.log("🚀 REACT_APP_ENV:", process.env.REACT_APP_ENV);
-console.log("🌎 API URL LOCAL:", process.env.REACT_APP_API_URL_LOCAL);
-console.log("🌍 API URL REMOTE:", process.env.REACT_APP_API_URL_REMOTE);
+// console.log("🚀 REACT_APP_ENV:", process.env.REACT_APP_ENV);
+// console.log("🌎 API URL LOCAL:", process.env.REACT_APP_API_URL_LOCAL);
+// console.log("🌍 API URL REMOTE:", process.env.REACT_APP_API_URL_REMOTE);
+// console.log("🔗 API URL ACTIVA:", process.env.REACT_APP_API_URL);
 
 // Solución para el problema del ResizeObserver
 window.addEventListener('error', (event) => {
@@ -27,7 +28,7 @@ const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <Provider store={store}>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <App />
         <ToastContainer
           position="top-right"

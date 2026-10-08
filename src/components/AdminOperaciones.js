@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Table, Typography, Button, Spin, Space, Modal, Image,
@@ -32,13 +32,13 @@ const AdminOperaciones = () => {
 
   const transaccionesPorPagina = 10;
 
-  // ✅ Obtiene el usuario ya sea desde la navegación o desde la API
+  // ï¿½S& Obtiene el usuario ya sea desde la navegaciÃ³n o desde la API
 useEffect(() => {
   const cargarDatos = async () => {
     let user = location.state?.usuario;
 
     if (!user) {
-      // ✅ Primero intentamos cargar como empresa
+      // ï¿½S& Primero intentamos cargar como empresa
       const empresa = await getEmpresaByUuid(uuid);
       if (empresa) {
         user = {
@@ -52,7 +52,7 @@ useEffect(() => {
         return;
       }
 
-      // ⚠️ Si no es empresa, intentamos como usuario
+      // ï¿½aï¿½ï¸ Si no es empresa, intentamos como usuario
       user = await getUserByUuid(uuid);
 
       const esEmpresa = ['responsable', 'delegado'].includes(user.rolEmpresa?.toLowerCase());
@@ -82,6 +82,7 @@ useEffect(() => {
   useEffect(() => {
     if (!uuidConsulta) return;
     fetchTransacciones();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uuidConsulta, paginaCompras, paginaVentas]);
 
   const fetchTransacciones = async () => {
@@ -98,7 +99,7 @@ useEffect(() => {
       setVentas(resVentas.data || []);
       setTotalVentas(resVentas.total || 0);
     } catch (err) {
-      console.error('❌ Error al cargar transacciones:', err.message);
+      console.error('ï¿½R Error al cargar transacciones:', err.message);
     } finally {
       setLoading(false);
     }
@@ -122,7 +123,7 @@ useEffect(() => {
               key={i}
               size="small"
               type="link"
-              onClick={() => navigate(`/bienes/trazabilidad-identificador/${det.identificador_unico}`)}
+              onClick={() => navigate(`/bienes/trazabilidad-identificador/${encodeURIComponent(det.identificador_unico)}`)}
             >
               {det.identificador_unico}
             </Button>
@@ -134,14 +135,14 @@ useEffect(() => {
 
   const columnasGenericas = [
     { title: 'Tipo', dataIndex: ['bienTransaccion', 'tipo'], key: 'tipo' },
-    { title: 'Descripción', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
+    { title: 'DescripciÃ³n', dataIndex: ['bienTransaccion', 'descripcion'], key: 'descripcion' },
     { title: 'Marca', dataIndex: ['bienTransaccion', 'marca'], key: 'marca' },
     { title: 'Modelo', dataIndex: ['bienTransaccion', 'modelo'], key: 'modelo' },
     {
       title: 'Fotos',
       key: 'fotos',
       render: (_, record) => {
-        const fotos = record?.bienTransaccion?.fotos || [];
+        const fotos = (record?.bienTransaccion?.fotos || []).map(foto => require('../utils/imageHelper').getFullImageUrl(foto));
         return fotos.length === 0
           ? 'Sin fotos'
           : (
@@ -194,18 +195,26 @@ useEffect(() => {
   ];
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <Space style={{ marginBottom: 16 }}>
-        <Button icon={<LeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
-      </Space>
+    <div className="bg-background min-h-screen font-inter flex flex-col pb-8">
+      <header className="bg-primary text-white px-8 py-5 flex flex-col md:flex-row justify-between items-center shadow-md mb-8">
+        <div>
+          <h1 className="text-2xl font-bold font-montserrat tracking-tight uppercase">
+            {usuario?.razonSocial
+              ? `Operaciones de ${usuario.razonSocial}`
+              : usuario
+                ? `Operaciones de ${usuario.nombre} ${usuario.apellido}`
+                : 'Cargando datos...'}
+          </h1>
+          <p className="text-inverse-primary text-sm font-medium mt-0.5">Control y Trazabilidad de Bienes</p>
+        </div>
+        <div className="flex items-center space-x-4 mt-4 md:mt-0">
+          <button onClick={() => navigate(-1)} className="flex items-center justify-center px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm font-semibold text-sm border-none cursor-pointer">
+            <LeftOutlined className="mr-2" /> Volver
+          </button>
+        </div>
+      </header>
 
-<Title level={2}>
-  {usuario?.razonSocial
-    ? `Operaciones de ${usuario.razonSocial}`
-    : usuario
-      ? `Operaciones de ${usuario.nombre} ${usuario.apellido}`
-      : 'Cargando datos...'}
-</Title>
+      <div className="max-w-[1400px] mx-auto w-full px-8">
 
 
       {loading ? <Spin tip="Cargando transacciones..." /> : (
@@ -251,6 +260,7 @@ useEffect(() => {
           ))}
         </Image.PreviewGroup>
       </Modal>
+      </div>
     </div>
   );
 };

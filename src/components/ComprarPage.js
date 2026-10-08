@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Button, Select, message, Typography, Upload, Modal, Table, Card, Checkbox, Row, Col, Image, Spin, Collapse   } from 'antd';
-import { useDispatch,  useSelector } from 'react-redux';
-import { fetchBienes,fetchBienesPorEmpresa,  fetchBienesPorUsuario, fetchBienesPorPropietario,  registrarCompra, agregarMarca, agregarModelo,addBien } from '../redux/actions/bienes';
+import { Form, Input, InputNumber, Button, Select, message, Typography, Upload, Modal, Table, Card, Checkbox, Row, Col, Spin, Collapse   } from 'antd';
+import { useDispatch } from 'react-redux';
+import { fetchBienesPorUsuario, fetchBienesPorPropietario,  registrarCompra, addBien } from '../redux/actions/bienes';
 import { checkExistingUser, registerUsuarioPorTercero, fetchRenaperData} from '../redux/actions/usuarios';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftOutlined, LogoutOutlined } from '@ant-design/icons';
 import api from '../redux/axiosConfig'; // Instancia de axios configurada
-import useInfiniteBienesPorPropietario from '../hooks/useInfiniteBienesPorPropietario';
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -36,19 +35,15 @@ const ComprarPage = () => {
   const [tiposDeBienes] = useState(tiposDeBienesIniciales);
   const [marcas, setMarcas] = useState([]);
   const [modelos, setModelos] = useState([]);
-  const [isVisible, setIsVisible] = useState(false);
   const [tipoDeSujeto, setTipoDeSujeto] = useState(null);
   const [imeis, setImeis] = useState([]); // Estado para los IMEIs y fotos de cada teléfono
   const [tipoSeleccionado, setTipoSeleccionado] = useState("");
-  const [currentBien, setCurrentBien] = useState(null);
   const [bienesDelVendedor, setBienesDelVendedor] = useState([]);
   const [bienesAComprar, setBienesAComprar] = useState([]);
 
   const [selectedBienDelVendedor, setSelectedBienDelVendedor] = useState(null);
 const [searchBien, setSearchBien] = useState('');
-const [imeisDisponibles, setImeisDisponibles] = useState([]); 
 const [imeisSeleccionados, setImeisSeleccionados] = useState([]);
-const [imeiFotos, setImeiFotos] = useState({});
 const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
 
 
@@ -57,28 +52,16 @@ const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
 
 
 
-  const handleCancel = () => {
-    setIsVisible(false); // Cierra el Modal
-  };
-
-  const showModal = () => {
-    setIsVisible(true); // Abre el Modal
-  };
 
   const [vendedorId, setVendedorId] = useState(null);
 
   // Estado para manejar nuevas marcas y modelos
   const [nuevaMarca, setNuevaMarca] = useState('');
   const [nuevoModelo, setNuevoModelo] = useState('');
-  const [error, setError] = useState(null); // Define el estado para manejar errores
-  const [bienes, setBienes] = useState([]); // Si también necesitas manejar los bienes directamente
 // Agregar log
 
-  const token = localStorage.getItem('authToken');
 
   const usuario = JSON.parse(localStorage.getItem('userData') || '{}');
-
-  const uuid = JSON.parse(localStorage.getItem('userData') || '{}').uuid; 
 
   const scrollToStep2 = () => {
     setTimeout(() => {
@@ -96,31 +79,13 @@ const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
       message.error('Debe iniciar sesión para continuar.');
       navigate('/login');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  const {
-    bienes: bienesComprador,
-    error: errorCargandoBienes,
-    isLoading,
-    fetchNextPage,
-    hasMore,
-    resetBienes
-  } = useInfiniteBienesPorPropietario(usuario?.empresaUuid || usuario?.uuid);
 
   
   
 
-  // Agregar un bien al array antes de confirmar la compra
-  const agregarBien = (values) => {
-    setBienesAComprar(prevBienes => {
-      const nuevosBienes = [...prevBienes, values];
-// 🛠️ Debug
-      return nuevosBienes;
-    });
-  
-    message.success("Bien agregado correctamente. Puedes seguir agregando más o finalizar la compra.");
-    formStep2.resetFields();
-  };
 
   // Eliminar un bien antes de confirmar
   const eliminarBien = (index) => {
@@ -128,9 +93,6 @@ const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
     message.success("Bien eliminado correctamente.");
   };
 
-  const agregarImei = () => {
-    setImeis((prevImeis) => [...prevImeis, { imei: '', foto: null }]);
-  };
   
 
   const actualizarImei = (index, value) => {
@@ -186,13 +148,6 @@ const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
     setImeis(nuevosImeis);
   };
 
-  const handleCompraExitosa = async (formData) => {
-    try {
-      await dispatch(registrarCompra(formData));
-      await dispatch(fetchBienes(uuid));  // Refrescar los bienes después de la compra
-    } catch (error) {
-    }
-  };
   const handleTipoChange = async (tipo) => {
     setTipoSeleccionado(tipo);
     if (!tipo) {
@@ -201,7 +156,7 @@ const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
     }
 
     try {
-      const response = await api.get(`/bienes/bienes/marcas?tipo=${tipo}`);
+      const response = await api.get(`/bienes/marcas?tipo=${tipo}`);
       if (response.status === 200 && response.data.marcas) {
         setMarcas(response.data.marcas);
         formStep2.setFieldsValue({ marca: undefined });
@@ -221,7 +176,7 @@ const [empresaVendedoraUuid, setEmpresaVendedoraUuid] = useState(null);
     }
 
     try {
-      const response = await api.get(`/bienes/bienes/modelos?tipo=${tipoSeleccionado}&marca=${marca}`);
+      const response = await api.get(`/bienes/modelos?tipo=${tipoSeleccionado}&marca=${marca}`);
       if (response.status === 200 && response.data.modelos) {
         setModelos(response.data.modelos);
         formStep2.setFieldsValue({ modelo: undefined });
@@ -269,10 +224,13 @@ if (!persona.domicilio.nroCalle) {
 
 // ⚠️ Verificar si el departamento es de Mendoza
 const departamentoRenaper = persona.domicilio.localidad?.trim() || '';
-const esDeMendoza = departments.includes(departamentoRenaper);
+const provinciaRenaper = persona.domicilio.provincia?.trim() || '';
+
+const esDeMendoza = provinciaRenaper.toUpperCase().includes('MENDOZA') || 
+                    departments.some(dep => dep.toLowerCase() === departamentoRenaper.toLowerCase());
 
 if (!esDeMendoza) {
-  message.warning(`⚠️ El vendedor no reside en Mendoza (${departamentoRenaper}). Puedes continuar con el registro manualmente.`);
+  message.warning(`⚠️ El vendedor no reside en Mendoza (${provinciaRenaper || departamentoRenaper}). Puedes continuar con el registro manualmente.`);
 }
 
 
@@ -284,7 +242,7 @@ if (!esDeMendoza) {
         apellido: persona.apellidos,
         email: persona.email,
       }));
-      console.log("Respuesta de checkExistingUser:", checkUserResponse); // 👈
+      // console.log("Respuesta de checkExistingUser:", checkUserResponse); // 👈
   
       if (checkUserResponse?.existe && checkUserResponse?.usuario?.email) {
         formStep1.setFieldsValue({
@@ -329,7 +287,7 @@ if (!esDeMendoza) {
     }
 
     try {
-        const response = await api.post('/bienes/bienes/marcas', {
+        const response = await api.post('/bienes/marcas', {
             tipo: tipoSeleccionado,
             marca: nuevaMarca.trim(),
         });
@@ -357,22 +315,12 @@ if (!esDeMendoza) {
     }
   };
 
-  const validarPropiedadDeBienes = () => {
-    const bienesInvalidos = bienesAComprar.filter(b => b.uuid && b.propietario_uuid && b.propietario_uuid !== empresaVendedoraUuid);
-  
-    if (bienesInvalidos.length > 0) {
-      message.error("Uno o más bienes seleccionados ya le pertenecen al comprador.");
-      return false;
-    }
-  
-    return true;
-  };
   
   const cargarBienesDelVendedor = async ({ uuidUsuario, uuidEmpresa }) => {
     try {
-      console.log("📦 Buscando bienes del vendedor:");
-      console.log("👤 Usuario UUID:", uuidUsuario);
-      console.log("🏢 Empresa UUID:", uuidEmpresa);
+      // console.log("📦 Buscando bienes del vendedor:");
+      // console.log("👤 Usuario UUID:", uuidUsuario);
+      // console.log("🏢 Empresa UUID:", uuidEmpresa);
   
       setSelectedBienDelVendedor(null);
       setImeisSeleccionados([]);
@@ -389,7 +337,7 @@ if (!esDeMendoza) {
         ...(bienesEmpresa?.data || []),
       ];
   
-      console.log("✅ Bienes combinados del vendedor:", todosLosBienes);
+      // console.log("✅ Bienes combinados del vendedor:", todosLosBienes);
   
       const bienesProcesados = todosLosBienes.map(bien => ({
         ...bien,
@@ -435,7 +383,7 @@ if (!esDeMendoza) {
     }
   
     try {
-      const response = await api.post('/bienes/bienes/modelos', {
+      const response = await api.post('/bienes/modelos', {
         tipo: tipoSeleccionado,
         marca: marcaSeleccionada,
         modelo: nuevoModelo.trim(),
@@ -472,7 +420,7 @@ if (!esDeMendoza) {
       bienStock: valoresTransformados.length,
     });
   
-    console.log('✅ IMEIs seleccionados transformados:', valoresTransformados);
+    // console.log('✅ IMEIs seleccionados transformados:', valoresTransformados);
   };
   
   
@@ -650,7 +598,6 @@ const tipoLimpio = tipo === 'persona' ? 'fisica' : tipo;
       } else {
         // Bien nuevo
         const formData = new FormData();
-        const esEmpresa = tipoDeSujeto === 'juridica';
         const propietario_uuid = empresaVendedoraUuid;
 
   
@@ -802,46 +749,43 @@ const tipoLimpio = tipo === 'persona' ? 'fisica' : tipo;
   
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <Title level={2} style={{ textAlign: 'center', marginBottom: 20 }}>
-        Formulario para Comprar un Bien Mueble
-      </Title>
-
-      {/* Barra Superior */}
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between' }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
-          Volver
-        </Button>
-        <Button
-          icon={<LogoutOutlined />}
-          onClick={() => {
+    <div className="bg-background min-h-screen font-inter flex flex-col pb-8">
+      {/* Header Premium */}
+      <header className="bg-primary text-white px-8 py-5 flex justify-between items-center shadow-md mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="flex items-center justify-center p-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm border-none cursor-pointer">
+            <ArrowLeftOutlined style={{ fontSize: '20px' }} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold font-montserrat tracking-tight m-0 text-white">Comprar Bien Mueble</h1>
+            <p className="text-inverse-primary text-sm font-medium mt-0.5 mb-0">
+              Registrar compra de bienes usados
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => {
             localStorage.removeItem('userData');
             navigate('/home');
-          }}
-        >
-          Cerrar Sesión
-        </Button>
-      </div>
+          }} className="flex items-center gap-2 px-4 py-2 bg-error text-white rounded-lg hover:bg-red-600 transition-all font-semibold shadow-sm border-none cursor-pointer">
+            <LogoutOutlined /> Cerrar Sesión
+          </button>
+        </div>
+      </header>
+
+      <div className="max-w-[1200px] mx-auto w-full px-8">
 
       {/* Paso 1: Datos del vendedor */}
       {step === 1 && (
-        <>
-          <Title level={3} style={{ marginBottom: 10 }}>
+        <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-level-2 border border-outline-variant">
+          <h2 className="text-xl font-bold font-montserrat text-primary mb-6 border-b border-outline-variant pb-2">
             Paso 1: Datos del vendedor
-          </Title>
-          <div
-            style={{
-              backgroundColor: '#fff4c2', // Amarillo suave
-              borderRadius: '8px',
-              padding: '10px 15px',
-              marginBottom: 20,
-              boxShadow: '0px 1px 5px rgba(0, 0, 0, 0.1)',
-            }}
-          >
+          </h2>
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-r-lg shadow-sm">
             Complete los datos del vendedor. Ingrese el DNI y espere unos segundos mientras el RENAPER
             (Registro Nacional de las Personas) verifica la información ingresada.
           </div>
-        </>
+        </div>
       )}
 {step === 1 && (
   <Form layout="vertical" onFinish={handleFinishStep1} form={formStep1}>
@@ -1459,7 +1403,8 @@ const tipoLimpio = tipo === 'persona' ? 'fisica' : tipo;
   
   </div>
 )}
+  </div>
 </div>
-);
-} 
+  );
+}; 
 export default ComprarPage;

@@ -12,9 +12,11 @@ export const register = createAsyncThunk(
       const { usuario, token, refreshToken } = response.data;
 
       // Verificación básica
-      if (!usuario || !token || !refreshToken) {
-        throw new Error('La respuesta del servidor no contiene los datos esperados.');
-      }
+      if (!usuario) {
+  console.warn("⚠️ Backend no devolvió token en registro, pero usuario creado correctamente:", response.data);
+  return { usuario, token: token || null, refreshToken: refreshToken || null };
+}
+
 
       // 🧠 Guardar en localStorage
       localStorage.setItem('authToken', token);
@@ -50,7 +52,7 @@ export const login = createAsyncThunk(
       localStorage.setItem('userData', JSON.stringify(usuario));
       localStorage.setItem('userUuid', usuario.uuid);
 
-      console.log('✅ Token guardado en localStorage:', accessToken);
+      // console.log('✅ Token guardado en localStorage:', accessToken);
 
       // 🔁 Aquí el fix:
       return { usuario, token: accessToken, refreshToken };

@@ -433,13 +433,7 @@ const usuariosReducer = (state = initialState, action) => {
             
         
 
-          case FETCH_APPROVED_USERS_REQUEST:
-  return {
-    ...state,
-    loading: true,
-    error: null,
-    approvedUsers: [], // 🧽 Limpia antes de cargar
-  };
+
   case FETCH_APPROVED_USERS_SUCCESS:
   return {
     ...state,

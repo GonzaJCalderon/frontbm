@@ -22,7 +22,7 @@ const UsuariosRechazados = () => {
 
 
   useEffect(() => {
-    console.log('Rol actual del usuario:', userData?.rolDefinitivo);
+    // console.log('Rol actual del usuario:', userData?.rolDefinitivo);
   }, [userData]);
 
   useEffect(() => {

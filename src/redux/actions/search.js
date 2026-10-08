@@ -16,7 +16,7 @@ export const searchItems = (query, category = 'all') => async (dispatch) => {
     const endpoint = isUserSearch ? '/search/users' : '/search/all';
 
     const { data } = await api.get(endpoint, {
-      params: isUserSearch ? query : { term: query, category }
+      params: isUserSearch ? { ...query, limit: 1000 } : { term: query, category, limit: 1000 }
     });
 
     dispatch({

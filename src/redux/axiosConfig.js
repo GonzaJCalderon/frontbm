@@ -2,8 +2,8 @@ import axios from 'axios';
 
 
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5005';
-console.log("🔥 API BASE URL:", baseURL);
+const baseURL = process.env.REACT_APP_API_URL || 'https://sistemas.seguridad.mendoza.gov.ar/regbimbak';
+// console.log("🔥 API BASE URL:", baseURL);
 
 const api = axios.create({
   baseURL,

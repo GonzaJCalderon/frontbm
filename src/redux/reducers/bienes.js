@@ -204,7 +204,6 @@ const bienesReducer = (state = initialState, action) => {
         
         
 
-    case REGISTRAR_VENTA_ERROR:
     case REGISTRAR_COMPRA_ERROR:
       return {
         ...state,
@@ -229,14 +228,14 @@ const bienesReducer = (state = initialState, action) => {
           transacciones: Array.isArray(action.payload)
             ? action.payload.map((transaccion) => ({
                 ...transaccion,
-                compradorTransaccion: transaccion.comprador || {},
-                vendedorTransaccion: transaccion.vendedor || {},
+                compradorTransaccion: transaccion.compradorTransaccion || transaccion.comprador || {},
+                vendedorTransaccion: transaccion.vendedorTransaccion || transaccion.vendedor || {},
                 empresaCompradora: transaccion.empresaCompradora || null,
                 empresaVendedora: transaccion.empresaVendedora || null,
                 bienTransaccion: {
-                  ...transaccion.bien,
-                  detalles: transaccion.imeis || [],
-                  fotos: transaccion.fotos || [],
+                  ...(transaccion.bienTransaccion || transaccion.bien || {}),
+                  detalles: transaccion.identificadores || transaccion.bienTransaccion?.identificadores || transaccion.imeis || [],
+                  fotos: transaccion.fotos || transaccion.bienTransaccion?.fotos || transaccion.bien?.fotos || [],
                 },
               }))
             : [],

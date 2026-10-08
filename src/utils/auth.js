@@ -2,9 +2,7 @@
 import axios from 'axios';
 
 const isLocalhost = window.location.hostname === 'localhost';
-const baseURL = isLocalhost
-  ? 'http://localhost:5005'
-  : 'https://regbim.minsegmza.gob.ar';
+const baseURL = process.env.REACT_APP_API_URL || 'https://regbimb.minsegmza.gob.ar';
 
 export const refreshAuthToken = async () => {
   try {

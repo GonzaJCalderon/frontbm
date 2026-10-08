@@ -49,7 +49,7 @@ const EditUsuario = () => {
     }
 
     dispatch(getEmpresas()).then((res) => {
-  console.log('🌐 Empresas cargadas:', res?.payload); // 💡 VERIFICACIÓN
+  // console.log('🌐 Empresas cargadas:', res?.payload); // 💡 VERIFICACIÓN
   setEmpresasDisponibles(res?.payload || []);
 });
 
@@ -143,14 +143,16 @@ const EditUsuario = () => {
       });
   };
 
+  const loggedInUser = useSelector((state) => state.auth.user);
+  const isAdmin = (loggedInUser?.rolDefinitivo || loggedInUser?.rol) === 'admin';
+
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-md bg-white p-6 rounded-lg shadow-lg">
         <div className="flex justify-between items-center mb-4">
-<button onClick={() => navigate('/usuarios', { state: { reload: true } })}>
-  <FaArrowLeft />
-</button>
-
+          <button onClick={() => navigate('/usuarios', { state: { reload: true } })}>
+            <FaArrowLeft />
+          </button>
 
           <h2 className="text-xl font-bold">Editar Usuario</h2>
           <button onClick={() => navigate('/home')}><FaSignOutAlt /></button>
@@ -246,19 +248,19 @@ const EditUsuario = () => {
             </div>
           ))}
 
-    <div className="flex flex-col">
-  <label>Rol Global</label>
-  <Select
-    value={formData.rol}
-    disabled={formData.rol === 'admin' || formData.rol === 'moderador'}
-    onChange={(val) => setFormData((prev) => ({ ...prev, rol: val }))}
-  >
-    {roles.map((r) => <Option key={r} value={r}>{r}</Option>)}
-  </Select>
-  {(formData.rol === 'admin' || formData.rol === 'moderador') && (
-    <small className="text-gray-500 italic">No se puede editar el rol de un usuario administrador o moderador.</small>
-  )}
-</div>
+          <div className="flex flex-col">
+            <label>Rol Global</label>
+            <Select
+              value={formData.rol}
+              disabled={!isAdmin}
+              onChange={(val) => setFormData((prev) => ({ ...prev, rol: val }))}
+            >
+              {roles.map((r) => <Option key={r} value={r}>{r}</Option>)}
+            </Select>
+            {!isAdmin && (
+              <small className="text-gray-500 italic">No tienes permisos para editar el rol.</small>
+            )}
+          </div>
 
 
           <div className="flex flex-col">

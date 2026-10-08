@@ -27,8 +27,8 @@ const ActivarCuenta = () => {
 
   const onFinish = async (values) => {
     try {
-        console.log('📦 Enviando token:', token);
-      const res = await api.post('/auth/activar-cuenta', {
+        // console.log('📦 Enviando token:', token);
+      await api.post('/auth/activar-cuenta', {
         token,
         password: values.password,
       });

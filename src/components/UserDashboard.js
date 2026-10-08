@@ -99,7 +99,6 @@ const UserDashboard = () => {
           </h1>
         </div>
         <div className="flex items-center space-x-2">
-          <FaHome onClick={() => navigate('/home')} className="text-white w-5 h-5 cursor-pointer" />
           <FaSignOutAlt onClick={handleLogout} className="text-white w-5 h-5 cursor-pointer hover:text-red-300 transition-colors duration-200" />
         </div>
       </header>
@@ -113,70 +112,88 @@ const UserDashboard = () => {
       <main className="mt-6 flex-grow overflow-x-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Tarjetas comunes */}
-          <Link to="/perfil" className="group bg-blue-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center">
-            <FaUser className="text-blue-500 text-5xl" />
-            <p className="text-xl font-semibold text-gray-900">Perfil</p>
-            <p className="text-gray-600 text-sm">Consulta y edita tus datos personales.</p>
+          <Link to="/perfil" className="group bg-blue-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-sm hover:shadow-lg hover:bg-blue-100 transition-all duration-300 border border-blue-200 hover:-translate-y-1">
+            <FaUser className="text-blue-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
+            <div>
+              <p className="text-xl font-bold font-montserrat text-blue-900 tracking-tight m-0">Perfil</p>
+              <p className="text-blue-700 text-sm mt-1 font-medium m-0">Consulta y edita tus datos personales.</p>
+            </div>
           </Link>
 
-          <Link to="/operaciones" className="group bg-green-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center">
-            <FaShoppingCart className="text-green-500 text-5xl" />
-            <p className="text-xl font-semibold text-gray-900">Transacciones</p>
-            <p className="text-gray-600 text-sm">Visualiza tus compras y ventas realizadas.</p>
+          <Link to="/operaciones" className="group bg-green-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-sm hover:shadow-lg hover:bg-green-100 transition-all duration-300 border border-green-200 hover:-translate-y-1">
+            <FaShoppingCart className="text-green-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
+            <div>
+              <p className="text-xl font-bold font-montserrat text-green-900 tracking-tight m-0">Transacciones</p>
+              <p className="text-green-700 text-sm mt-1 font-medium m-0">Visualiza tus compras y ventas realizadas.</p>
+            </div>
           </Link>
 
-          <Link to="/bienes" className="group bg-purple-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center">
-            <FaBoxOpen className="text-purple-500 text-5xl" />
-            <p className="text-xl font-semibold text-gray-900">Agregar Bien Mueble</p>
-            <p className="text-gray-600 text-sm">Carga bienes nuevos con detalles e imágenes.</p>
+          <Link to="/registrar-bien" className="group bg-purple-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-sm hover:shadow-lg hover:bg-purple-100 transition-all duration-300 border border-purple-200 hover:-translate-y-1">
+            <FaBoxOpen className="text-purple-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
+            <div>
+              <p className="text-xl font-bold font-montserrat text-purple-900 tracking-tight m-0">Agregar Bien Mueble</p>
+              <p className="text-purple-700 text-sm mt-1 font-medium m-0">Carga bienes nuevos con detalles e imágenes.</p>
+            </div>
           </Link>
 
-          <Link to="/inventario" className="group bg-yellow-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center">
-            <FaWarehouse className="text-yellow-500 text-5xl" />
-            <p className="text-xl font-semibold text-gray-900">Inventario</p>
-            <p className="text-gray-600 text-sm">Visualiza tus bienes registrados.</p>
+          <Link to="/inventario" className="group bg-yellow-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-sm hover:shadow-lg hover:bg-yellow-100 transition-all duration-300 border border-yellow-200 hover:-translate-y-1">
+            <FaWarehouse className="text-yellow-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
+            <div>
+              <p className="text-xl font-bold font-montserrat text-yellow-900 tracking-tight m-0">Inventario</p>
+              <p className="text-yellow-700 text-sm mt-1 font-medium m-0">Visualiza tus bienes registrados.</p>
+            </div>
           </Link>
 
-          <Link to="/comprar" className="group bg-orange-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center">
-            <FaDollarSign className="text-orange-500 text-5xl" />
-            <p className="text-xl font-semibold text-gray-900">Comprar Bien Mueble</p>
-            <p className="text-gray-600 text-sm">Registra la compra de un Bien Mueble.</p>
+          <Link to="/comprar" className="group bg-orange-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-sm hover:shadow-lg hover:bg-orange-100 transition-all duration-300 border border-orange-200 hover:-translate-y-1">
+            <FaDollarSign className="text-orange-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
+            <div>
+              <p className="text-xl font-bold font-montserrat text-orange-900 tracking-tight m-0">Comprar Bien Mueble</p>
+              <p className="text-orange-700 text-sm mt-1 font-medium m-0">Registra la compra de un Bien Mueble.</p>
+            </div>
           </Link>
 
-          <Link to="/vender" className="group bg-red-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center">
-            <FaTags className="text-red-500 text-5xl" />
-            <p className="text-xl font-semibold text-gray-900">Vender Bien Mueble</p>
-            <p className="text-gray-600 text-sm">Formaliza la venta de un bien que posees.</p>
+          <Link to="/vender" className="group bg-red-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-sm hover:shadow-lg hover:bg-red-100 transition-all duration-300 border border-red-200 hover:-translate-y-1">
+            <FaTags className="text-red-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
+            <div>
+              <p className="text-xl font-bold font-montserrat text-red-900 tracking-tight m-0">Vender Bien Mueble</p>
+              <p className="text-red-700 text-sm mt-1 font-medium m-0">Formaliza la venta de un bien que posees.</p>
+            </div>
           </Link>
 
-          <Link to="/upload-stock" className="group bg-teal-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center">
-            <FaFileExcel className="text-teal-500 text-5xl" />
-            <p className="text-xl font-semibold text-gray-900">Cargar Stock</p>
-            <p className="text-gray-600 text-sm">Importa varios bienes desde un archivo Excel.</p>
+          <Link to="/upload-stock" className="group bg-teal-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-sm hover:shadow-lg hover:bg-teal-100 transition-all duration-300 border border-teal-200 hover:-translate-y-1">
+            <FaFileExcel className="text-teal-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
+            <div>
+              <p className="text-xl font-bold font-montserrat text-teal-900 tracking-tight m-0">Cargar Stock</p>
+              <p className="text-teal-700 text-sm mt-1 font-medium m-0">Importa varios bienes desde un archivo Excel.</p>
+            </div>
           </Link>
 
           <Link to="/mensaje-admin" onClick={handleMensajeAdminClick}
-            className="group bg-indigo-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center relative"
+            className="group bg-indigo-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center shadow-sm hover:shadow-lg hover:bg-indigo-100 transition-all duration-300 border border-indigo-200 hover:-translate-y-1 relative"
           >
-            <FaPaperPlane className="text-indigo-500 text-5xl" />
+            <FaPaperPlane className="text-indigo-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
             {unreadMessages > 0 && (
-              <span className="absolute top-0 right-0 bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-bounce">
+              <span className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-bounce shadow-md">
                 {unreadMessages}
               </span>
             )}
-            <p className="text-xl font-semibold text-gray-900">Enviar Mensaje</p>
-            <p className="text-gray-600 text-sm">Comunicate con el equipo de soporte.</p>
+            <div>
+              <p className="text-xl font-bold font-montserrat text-indigo-900 tracking-tight m-0">Enviar Mensaje</p>
+              <p className="text-indigo-700 text-sm mt-1 font-medium m-0">Comunicate con el equipo de soporte.</p>
+            </div>
           </Link>
 
 {/* 💼 Tarjeta adicional para "Mi Empresa" */}
 {storedUser.tipo === 'juridica' && empresaInfo && (
   <div
     onClick={() => navigate('/empresa/mia')}
-    className="group bg-cyan-100 rounded-lg p-6 flex flex-col items-center justify-center gap-2 text-center cursor-pointer hover:shadow-md hover:bg-cyan-200 transition-all duration-200"
+    className="group bg-cyan-50 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center cursor-pointer shadow-sm hover:shadow-lg hover:bg-cyan-100 transition-all duration-300 border border-cyan-200 hover:-translate-y-1"
   >
-    <FaBuilding className="text-cyan-500 text-5xl" />
-    <p className="text-xl font-semibold text-gray-900">Mi Empresa</p>
-    <p className="text-gray-600 text-sm">Gestión, delegados y datos generales.</p>
+    <FaBuilding className="text-cyan-600 text-5xl group-hover:scale-110 transition-transform duration-300" />
+    <div>
+      <p className="text-xl font-bold font-montserrat text-cyan-900 tracking-tight m-0">Mi Empresa</p>
+      <p className="text-cyan-700 text-sm mt-1 font-medium m-0">Gestión, delegados y datos generales.</p>
+    </div>
   </div>
 )}
 

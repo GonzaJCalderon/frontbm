@@ -42,12 +42,12 @@ const desdeInfoEmpresas = location.state?.desdeInfoEmpresas;
 
 const bienesState = useSelector((state) => state.bienes);
 
-// ✅ Toma los bienes según de dónde vengan
+// �S& Toma los bienes según de dónde vengan
 const bienes = bienesState.bienesEmpresa?.length
   ? bienesState.bienesEmpresa
   : bienesState.items || [];
 
-console.log("🧾 Bienes desde Redux:", bienes);
+// console.log("�x�� Bienes desde Redux:", bienes);
 
 
   const usuarios = useSelector((state) => state.usuarios.approvedUsers || []);
@@ -82,7 +82,8 @@ console.log("🧾 Bienes desde Redux:", bienes);
 
   const idDestino = esEmpresa && empresaUuidValida ? empresaUuidValida : usuario.uuid;
 
-  // 🧠 Debug clave
+  // �x�� Debug clave
+  /* Debug eliminado por seguridad
   console.log({
     usuario,
     esEmpresa,
@@ -90,12 +91,13 @@ console.log("🧾 Bienes desde Redux:", bienes);
     idDestino,
     empresa: usuario.empresa
   });
+  */
 
   if (esEmpresa && empresaUuidValida) {
-    console.log("✅ Fetch por EMPRESA:", idDestino);
+    // console.log("�S& Fetch por EMPRESA:", idDestino);
     dispatch(fetchBienesPorEmpresa(idDestino));
   } else {
-    console.log("✅ Fetch por USUARIO:", idDestino);
+    // console.log("�S& Fetch por USUARIO:", idDestino);
     dispatch(fetchBienesPorUsuario(idDestino, true));
   }
 }, [uuid, usuarios, dispatch]);
@@ -140,12 +142,14 @@ console.log("🧾 Bienes desde Redux:", bienes);
       title: 'Fecha de Registro',
       dataIndex: 'createdAt',
       key: 'createdAt',
+      width: 120,
       render: (createdAt) => createdAt ? new Date(createdAt).toLocaleString() : 'Sin fecha',
     },
     {
       title: 'Tipo',
       dataIndex: 'tipo',
       key: 'tipo',
+      width: 100,
     },
     {
       title: 'Marca',
@@ -161,11 +165,13 @@ console.log("🧾 Bienes desde Redux:", bienes);
       title: 'Descripción',
       dataIndex: 'descripcion',
       key: 'descripcion',
+      width: 150,
     },
     {
       title: 'Precio',
       dataIndex: 'precio',
       key: 'precio',
+      width: 100,
       render: (precio) => `$${Number(precio).toFixed(2)}`,
     },
     {
@@ -213,9 +219,10 @@ console.log("🧾 Bienes desde Redux:", bienes);
       title: 'Fotos',
       key: 'fotos',
       render: (_, row, idx) => {
-        const fotos = row.fotos || [];
+        const fotosUnicas = [...new Set(row.fotos || [])];
+        const fotos = fotosUnicas.map(foto => require('../utils/imageHelper').getFullImageUrl(foto));
         const expanded = expandedFotoRows[idx];
-        const visibles = expanded ? fotos : fotos.slice(0, 3);
+        const visibles = expanded ? fotos : fotos.slice(0, 1);
 
         return fotos.length === 0 ? (
           'Sin fotos'
@@ -228,18 +235,19 @@ console.log("🧾 Bienes desde Redux:", bienes);
                   width={80}
                   src={foto}
                   alt={`Foto ${i + 1}`}
+                  fallback="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Crect width='100%25' height='100%25' fill='%23cccccc'/%3E%3Ctext x='50%25' y='50%25' font-size='14' text-anchor='middle' fill='%23666' dy='.3em'%3ESin Foto%3C/text%3E%3C/svg%3E"
                   onClick={() => setPreviewFoto(foto)}
                   preview={false}
                 />
               ))}
             </Space>
-            {fotos.length > 3 && (
+            {fotos.length > 1 && (
               <Button
                 type="link"
                 size="small"
                 onClick={() => toggleFotoExpand(idx)}
               >
-                {expanded ? <UpOutlined /> : <DownOutlined />} {expanded ? 'Ver menos' : 'Ver más'}
+                {expanded ? <UpOutlined /> : <DownOutlined />} {expanded ? 'Ver menos' : `Ver más (${fotos.length - 1})`}
               </Button>
             )}
           </>
@@ -253,7 +261,7 @@ console.log("🧾 Bienes desde Redux:", bienes);
           render: (_, bien) => (
             <Space>
               <Button onClick={() => navigate(`/bienes/trazabilidad/${bien.uuid}`)}>
-                Trazabilidad
+                🔍 Trazabilidad
               </Button>
              <Button
   type="primary"
@@ -278,23 +286,30 @@ console.log("🧾 Bienes desde Redux:", bienes);
   ];
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <div className="flex justify-between mb-4">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Volver</Button>
-        <Button icon={<LogoutOutlined />} danger onClick={() => navigate('/home')}>Cerrar sesión</Button>
-      </div>
+    <div className="bg-background min-h-screen font-inter flex flex-col pb-8">
+      {/* Header Corporativo */}
+      <header className="bg-primary text-white px-8 py-5 flex flex-col md:flex-row justify-between items-center shadow-md mb-8">
+        <div>
+          <h1 className="text-2xl font-bold font-montserrat tracking-tight uppercase">
+            {desdeInfoEmpresas
+              ? `Bienes de la empresa: ${nombreEmpresaDesdeState || localStorage.getItem('nombreUsuarioSeleccionado')}`
+              : usuarioActual?.rolEmpresa === 'responsable' || usuarioActual?.rolEmpresa === 'delegado'
+                ? `Bienes de la empresa: ${usuarioActual?.empresa?.razonSocial || localStorage.getItem('nombreUsuarioSeleccionado') || 'Empresa no identificada'}`
+                : `Bienes del usuario: ${usuarioActual?.nombre} ${usuarioActual?.apellido}`}
+          </h1>
+          <p className="text-inverse-primary text-sm font-medium mt-0.5">Control y Trazabilidad de Bienes</p>
+        </div>
+        <div className="flex items-center space-x-4 mt-4 md:mt-0">
+          <button onClick={() => navigate(-1)} className="flex items-center justify-center px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm font-semibold text-sm border-none cursor-pointer">
+            <ArrowLeftOutlined className="mr-2" /> Volver
+          </button>
+          <button onClick={() => { localStorage.clear(); navigate('/home'); }} className="flex items-center justify-center px-4 py-2 bg-error text-white rounded-lg hover:bg-red-600 transition-all shadow-sm font-semibold text-sm border-none cursor-pointer">
+            <LogoutOutlined className="mr-2" /> Cerrar Sesión
+          </button>
+        </div>
+      </header>
 
-    <h1 className="text-2xl font-bold mb-4 text-center">
-  {desdeInfoEmpresas
-    ? `Bienes de la empresa: ${nombreEmpresaDesdeState || localStorage.getItem('nombreUsuarioSeleccionado')}`
-    : usuarioActual?.rolEmpresa === 'responsable' || usuarioActual?.rolEmpresa === 'delegado'
-      ? `Bienes de la empresa: ${usuarioActual?.empresa?.razonSocial || localStorage.getItem('nombreUsuarioSeleccionado') || 'Empresa no identificada'}`
-      : `Bienes del usuario: ${usuarioActual?.nombre} ${usuarioActual?.apellido}`}
-</h1>
-
-
-
-      <Input.Search
+      <div className="max-w-[1400px] mx-auto w-full px-8">      <Input.Search
         placeholder="Buscar por tipo, marca, modelo, descripción..."
         onChange={handleSearchChange}
         allowClear
@@ -312,7 +327,6 @@ console.log("🧾 Bienes desde Redux:", bienes);
           columns={columns}
           rowKey="uuid"
           pagination={{ pageSize: 10 }}
-          scroll={{ x: true }}
         />
       )}
 
@@ -324,6 +338,7 @@ console.log("🧾 Bienes desde Redux:", bienes);
       >
         <img src={previewFoto} alt="Vista previa" style={{ width: '100%' }} />
       </Modal>
+      </div>
     </div>
   );
 };

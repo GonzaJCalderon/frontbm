@@ -3,13 +3,12 @@ import { Form, Input, InputNumber, Button, Select, Upload, message, Typography }
 import { ArrowLeftOutlined, HomeOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import axios from 'axios';        // Si lo necesitas adicional a tu setup
+
 import api from '../redux/axiosConfig'; // Supuesto helper que wrappea axios, ajústalo según tu proyecto
 import { addBien } from '../redux/actions/bienes'; 
 import imeiEjemploImg from '../assets/imei-ejemplo.png'; // Ajusta la ruta si estás en una subcarpeta
 
 
-const { Option } = Select;
 const { Title } = Typography;
 
 const RegistrarBienPage = () => {
@@ -25,7 +24,6 @@ const RegistrarBienPage = () => {
   const [selectedTipo, setSelectedTipo] = useState('');
   const [precio, setPrecio] = useState(null);
   const [stock, setStock] = useState(null);
-  const [identificadoresUnicos, setIdentificadoresUnicos] = useState([]);
   const [loadingRegistro, setLoadingRegistro] = useState(false);
 
 
@@ -131,7 +129,7 @@ const propietarioUuid = userData.empresaUuid || userData.uuid;
     try {
       // Llamada a tu backend para obtener las marcas:
       // Ajusta la ruta a tu API real 
-      const response = await api.get(`/bienes/bienes/marcas?tipo=${tipo}`);
+      const response = await api.get(`/bienes/marcas?tipo=${tipo}`);
       if (response.status === 200 && response.data.marcas) {
         setMarcas(response.data.marcas);
       } else {
@@ -155,7 +153,7 @@ const propietarioUuid = userData.empresaUuid || userData.uuid;
       if (!tipo || !marca) return;
 
       // Llamada a tu backend para obtener modelos:
-      const response = await api.get(`/bienes/bienes/modelos?tipo=${tipo}&marca=${marca}`);
+      const response = await api.get(`/bienes/modelos?tipo=${tipo}&marca=${marca}`);
       if (response.status === 200 && response.data.modelos) {
         setModelos(response.data.modelos);
       } else {
@@ -178,7 +176,7 @@ const propietarioUuid = userData.empresaUuid || userData.uuid;
 
     try {
       // Ajustar llamada a tu backend real:
-      const response = await api.post('/bienes/bienes/marcas', { tipo, marca });
+      const response = await api.post('/bienes/marcas', { tipo, marca });
       if (response.status === 201) {
         message.success(`Marca "${marca}" agregada.`);
         // Actualizamos la lista de marcas 
@@ -205,7 +203,7 @@ const propietarioUuid = userData.empresaUuid || userData.uuid;
 
     try {
       // Ajustar llamada a tu backend real:
-      const response = await api.post('/bienes/bienes/modelos', { tipo, marca, modelo });
+      const response = await api.post('/bienes/modelos', { tipo, marca, modelo });
       if (response.status === 201) {
         message.success(`Modelo "${modelo}" agregado.`);
         // Actualizamos la lista de modelos
@@ -227,7 +225,7 @@ const handleImeiChange = (index, field, value) => {
     nuevos[index][field] = value;
 
     if (field === 'fotos') {
-      console.log(`📸 IMEI ${index} tiene ${value.length} fotos`);
+      // console.log(`📸 IMEI ${index} tiene ${value.length} fotos`);
     }
 
     return nuevos;
@@ -245,20 +243,7 @@ const handleImeiChange = (index, field, value) => {
     });
   };
 
-  const agregarIdentificador = () => {
-    setIdentificadoresUnicos(prev => [...prev, '']);
-  };
-  
-  const actualizarIdentificador = (index, value) => {
-    const nuevos = [...identificadoresUnicos];
-    nuevos[index] = value;
-    setIdentificadoresUnicos(nuevos);
-  };
-  
-  const eliminarIdentificador = (index) => {
-    setIdentificadoresUnicos(prev => prev.filter((_, i) => i !== index));
-  };
-  
+
 
   // -------------------------
   // Al dar "submit" al formulario
@@ -343,7 +328,7 @@ formData.append(`imeiFoto_${index}`, foto.originFileObj || foto);
 
       // 🧪 DEBUG DE FORM DATA
 for (const pair of formData.entries()) {
-  console.log('📤 FORM DATA:', pair[0], pair[1]);
+  // console.log('📤 FORM DATA:', pair[0], pair[1]);
 }
 
   
@@ -376,26 +361,39 @@ for (const pair of formData.entries()) {
   const esDelegado = !!userData.empresaUuid;
 
 return (
-  <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-    {/* Botones de cabecera */}  
-    <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between' }}>
-      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
-        Volver
-      </Button>
-      <Button icon={<HomeOutlined />} onClick={() => navigate('/user/dashboard')}>
-        Inicio
-      </Button>
-    </div>
+  <div className="bg-background min-h-screen font-inter flex flex-col pb-8">
+      {/* Header Premium */}
+      <header className="bg-primary text-white px-8 py-5 flex justify-between items-center shadow-md mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="flex items-center justify-center p-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all shadow-sm border-none cursor-pointer">
+            <ArrowLeftOutlined style={{ fontSize: '20px' }} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold font-montserrat tracking-tight m-0 text-white">Registro de Bienes</h1>
+            <p className="text-inverse-primary text-sm font-medium mt-0.5 mb-0">
+              Cargar nuevo bien al inventario
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/user/dashboard')} className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all font-semibold shadow-sm border-none cursor-pointer">
+            <HomeOutlined /> Inicio
+          </button>
+        </div>
+      </header>
 
-    {esDelegado && (
-      <div style={{ marginBottom: 16, backgroundColor: '#fff7e6', padding: 12, border: '1px solid #faad14', borderRadius: 8 }}>
-        Estás cargando bienes en representación de la empresa <strong>{userData.razonSocial || 'Tu Empresa'}</strong>
-      </div>
-    )}
+    <div className="max-w-[1200px] mx-auto w-full px-4 sm:px-8 pt-6">
+      {esDelegado && (
+        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
+          Estás cargando bienes en representación de la empresa <strong>{userData.razonSocial || 'Tu Empresa'}</strong>
+        </div>
+      )}
 
-    <Title level={3}>Registro de Bienes</Title>
-    <Title level={3}>Cargar nuevo bien</Title>
-    <p>Utilizá este formulario para registrar un bien individual en tu inventario.</p>
+      <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-level-2 border border-outline-variant">
+        <div className="border-b border-outline-variant pb-4 mb-6">
+          <h2 className="text-2xl font-bold font-montserrat text-primary m-0">Cargar nuevo bien</h2>
+          <p className="text-gray-600 mt-2 mb-0">Utilizá este formulario para registrar un bien individual en tu inventario.</p>
+        </div>
 
     <Form
       form={form}
@@ -718,8 +716,10 @@ beforeUpload={(file) => {
 `}
 </style>
 
-  </div>
-);
+        </div>
+      </div>
+    </div>
+  );
 
 };
 

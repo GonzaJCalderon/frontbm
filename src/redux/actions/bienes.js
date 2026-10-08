@@ -1,20 +1,13 @@
-
 import api from '../axiosConfig';
-import axios from '../axiosConfig';
-import { message,notification  } from 'antd';
-import prepareFormData from '../../utils/prepareFormData';  // Ajusta la ruta si es necesario
+import axios from 'axios';
+import { message, notification } from 'antd';
 
 
 
 import {
-    FETCH_BIENES,
-    FETCH_BIENES_FAILURE,
-    ADD_BIEN,
     ADD_BIEN_REQUEST,
     ADD_BIEN_ERROR,
     ADD_BIEN_SUCCESS,
-    FETCH_BIEN_DETAILS,
-    FETCH_BIEN_DETAILS_REQUEST,
     UPDATE_BIEN,
     DELETE_BIEN,
     REGISTRAR_VENTA_EXITO,
@@ -23,10 +16,6 @@ import {
     FETCH_BIENES_ERROR,
     FETCH_BIENES_SUCCESS,
     FETCH_BIENES_REQUEST,
-    FETCH_BIEN_DETAILS_ERROR,
-    REGISTRAR_COMPRA_REQUEST,
-    COMPRA_SUCCESS,
-    COMPRA_ERROR,
     REGISTRAR_COMPRA_EXITO,
     REGISTRAR_COMPRA_ERROR,
     FETCH_TRAZABILIDAD_REQUEST,
@@ -38,8 +27,8 @@ import {
     VERIFY_IMEI_REQUEST,
     VERIFY_IMEI_SUCCESS,
     VERIFY_IMEI_FAILURE,
-    SEARCH_REQUEST, 
-    SEARCH_SUCCESS, 
+    SEARCH_REQUEST,
+    SEARCH_SUCCESS,
     SEARCH_ERROR,
     FETCH_BIENES_EMPRESA_REQUEST,
     FETCH_BIENES_EMPRESA_SUCCESS,
@@ -56,7 +45,7 @@ const handleRequestError = (error) => {
   if (error.response) {
     return error.response.data.message || 'Error al procesar la solicitud en el servidor.';
   } else if (error.request) {
-    return 'No se recibió respuesta del servidor.';
+    return 'No se recibiÃƒÆ’Ã‚Â³ respuesta del servidor.';
   } else {
     return `Error en la solicitud: ${error.message}`;
   }
@@ -64,16 +53,41 @@ const handleRequestError = (error) => {
 
 
 // Función para obtener el token del localStorage
-const getToken = () => localStorage.getItem('token');
+const getToken = () => localStorage.getItem('authToken');
 
 export const fetchAllBienes = () => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_REQUEST });
 
   try {
-    const response = await api.get('/bienes');
+    const response = await api.get('/bienes', { params: { limit: 1000 } });
 
-    const sortedBienes = response.data.sort(
-      (a, b) => new Date(b.fechaActualizacion) - new Date(a.fechaActualizacion)
+    const bienesRaw = Array.isArray(response.data)
+      ? response.data
+      : response.data?.data || [];
+
+    const bienesNormalizados = bienesRaw.map((bien) => {
+      const esTelefono = bien.tipo && (bien.tipo.toLowerCase().includes("teléfono movil") || bien.tipo.toLowerCase().includes("teléfono"));
+      const stock =
+        esTelefono && Array.isArray(bien.identificadores)
+          ? bien.identificadores.filter((i) => i.estado === "disponible").length
+          : bien.stock || 0;
+
+      const fotos = [
+        ...(bien.fotos || []),
+        ...(bien.identificadores?.map((d) => d.foto).filter(Boolean) || []),
+      ];
+
+      return {
+        ...bien,
+        stock,
+        fotos: fotos.length > 0 ? fotos : [],
+        precio: Number(bien.precio || 0),
+        createdAt: bien.createdAt ? new Date(bien.createdAt) : new Date(),
+      };
+    });
+
+    const sortedBienes = bienesNormalizados.sort(
+      (a, b) => new Date(b.fechaActualizacion || b.createdAt) - new Date(a.fechaActualizacion || a.createdAt)
     );
 
     dispatch({ type: FETCH_BIENES_SUCCESS, payload: sortedBienes });
@@ -94,7 +108,7 @@ export const fetchBienes = () => async (dispatch) => {
   dispatch({ type: FETCH_BIENES_REQUEST });
 
   try {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("authToken");
     const rawUserData = localStorage.getItem("userData");
 
     if (!token || !rawUserData) {
@@ -110,13 +124,13 @@ export const fetchBienes = () => async (dispatch) => {
     const usuarioUuid = userData?.uuid;
     const rol = userData?.rol || userData?.rolDefinido || "usuario";
 
-    console.log("🏢 empresaUuid detectado:", empresaUuid);
-    console.log("👤 usuarioUuid detectado:", usuarioUuid);
-    console.log("🧩 Rol detectado:", rol);
+    // console.log("ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ÃƒÂ¯Ã‚Â¿Ã‚Â½ empresaUuid detectado:", empresaUuid);
+    // console.log("ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ usuarioUuid detectado:", usuarioUuid);
+    // console.log("ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ÃƒÂ¯Ã‚Â¿Ã‚Â½ Rol detectado:", rol);
 
     let url = null;
 
-    // ✅ Caso: tiene empresa válida (36 caracteres, no undefined ni null)
+    // ÃƒÂ¯Ã‚Â¿Ã‚Â½S& Caso: tiene empresa válida (36 caracteres, no undefined ni null)
     if (
       empresaUuid &&
       typeof empresaUuid === "string" &&
@@ -126,7 +140,7 @@ export const fetchBienes = () => async (dispatch) => {
     ) {
       url = `/bienes/empresa/${empresaUuid}`;
     }
-    // ✅ Caso: no tiene empresa, pero sí usuario (incluye admin)
+    // ÃƒÂ¯Ã‚Â¿Ã‚Â½S& Caso: no tiene empresa, pero sí usuario (incluye admin)
     else if (
       usuarioUuid &&
       typeof usuarioUuid === "string" &&
@@ -136,9 +150,9 @@ export const fetchBienes = () => async (dispatch) => {
     ) {
       url = `/bienes/usuario/${usuarioUuid}?incluirDelegados=true`;
     }
-    // ✅ Fallback final
+    // ÃƒÂ¯Ã‚Â¿Ã‚Â½S& Fallback final
     else {
-      console.warn("⚠️ userData sin UUID válido:", userData);
+      console.warn("ÃƒÂ¯Ã‚Â¿Ã‚Â½aÃƒÂ¯Ã‚Â¿Ã‚Â½ÃƒÂ¯Ã‚Â¸Ã‚Â userData sin UUID válido:", userData);
       dispatch({
         type: FETCH_BIENES_ERROR,
         payload: "UUID inválido para empresa o usuario.",
@@ -146,9 +160,9 @@ export const fetchBienes = () => async (dispatch) => {
       return { success: false };
     }
 
-    console.log("🌐 URL final usada:", url);
+    // console.log("ÃƒÂ¯Ã‚Â¿Ã‚Â½xRÃƒÂ¯Ã‚Â¿Ã‚Â½ URL final usada:", url);
 
-    const response = await axios.get(url, {
+    const response = await api.get(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -161,7 +175,7 @@ export const fetchBienes = () => async (dispatch) => {
     }
 
     const bienesNormalizados = bienesRaw.map((bien) => {
-      const esTelefono = bien.tipo?.toLowerCase().includes("teléfono");
+      const esTelefono = bien.tipo?.toLowerCase()?.includes("teléfono");
       const stock =
         esTelefono && Array.isArray(bien.identificadores)
           ? bien.identificadores.filter((i) => i.estado === "disponible").length
@@ -191,7 +205,7 @@ export const fetchBienes = () => async (dispatch) => {
     return { success: true, data: bienesNormalizados };
   } catch (error) {
     const msg = error.response?.data?.message || error.message || "Error al obtener bienes.";
-    console.error("❌ Error en fetchBienes:", msg);
+    console.error("ÃƒÂ¯Ã‚Â¿Ã‚Â½R Error en fetchBienes:", msg);
     dispatch({ type: FETCH_BIENES_ERROR, payload: msg });
     return { success: false, message: msg };
   }
@@ -221,13 +235,13 @@ export const addBien = (formData) => async (dispatch) => {
       : 0;
 
     if (!bienUuid || !cantidadEsperada) {
-      throw new Error("❌ No se pudo obtener UUID del bien o cantidad esperada.");
+      throw new Error("ÃƒÂ¯Ã‚Â¿Ã‚Â½R No se pudo obtener UUID del bien o cantidad esperada.");
     }
 
-    // 🔁 Esperar hasta que los identificadores (IMEIs) estén disponibles
+    // ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ Esperar hasta que los identificadores (IMEIs) estén disponibles
    let retries = 10;
 let bienConfirmado = false;
-let disponibles = 0; // 🔧 Inicializada fuera del bucle
+let disponibles = 0; // ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ Inicializada fuera del bucle
 
 
     while (retries > 0 && !bienConfirmado) {
@@ -245,7 +259,7 @@ let disponibles = 0; // 🔧 Inicializada fuera del bucle
     }
 if (!bienConfirmado) {
   throw new Error(
-    `❌ El bien fue creado, pero solo se generaron ${disponibles || 0} IMEIs de los ${cantidadEsperada} esperados.`
+    `ÃƒÂ¯Ã‚Â¿Ã‚Â½R El bien fue creado, pero solo se generaron ${disponibles || 0} IMEIs de los ${cantidadEsperada} esperados.`
   );
 }
 
@@ -284,9 +298,8 @@ export const updateBien = (uuid, formData) => async dispatch => {
       const token = getToken();
 
       // Realizar la solicitud con FormData
-      const res = await axios.put(`/bienes/${uuid}`, formData, {
+      const res = await api.put(`/bienes/${uuid}`, formData, {
           headers: {
-              Authorization: `Bearer ${token}`,
               'Content-Type': 'multipart/form-data', // Necesario para manejar archivos
           },
       });
@@ -319,7 +332,7 @@ export const fetchFotosDeBien = (bienUuid) => async () => {
 export const registrarVenta = (ventaData) => async (dispatch) => {
   try {
     const response = await api.post('/transacciones/vender', ventaData);
-    console.log('✅ RESPUESTA BACKEND:', response.data); // <-- AGREGALO ACÁ
+    // console.log('ÃƒÂ¯Ã‚Â¿Ã‚Â½S& RESPUESTA BACKEND:', response.data); // <-- AGREGALO ACÃƒÆ’Ã‚Â
 
     dispatch({
       type: REGISTRAR_VENTA_EXITO,
@@ -330,7 +343,7 @@ export const registrarVenta = (ventaData) => async (dispatch) => {
 
   } catch (error) {
     const mensajeError = error.response?.data?.error || error.message || 'Error al registrar venta';
-    console.error('❌ ERROR registrarVenta:', mensajeError); // <-- AGREGALO TAMBIÉN
+    console.error('ÃƒÂ¯Ã‚Â¿Ã‚Â½R ERROR registrarVenta:', mensajeError); // <-- AGREGALO TAMBIÃƒÂ¯Ã‚Â¿Ã‚Â½0N
 
     dispatch({
       type: REGISTRAR_VENTA_ERROR,
@@ -347,7 +360,7 @@ export const registrarVenta = (ventaData) => async (dispatch) => {
 
 export const registrarCompra = (formData) => async (dispatch) => {
   try {
-    const response = await api.post('/transacciones/comprar', formData); // ❌ no pongas Content-Type
+    const response = await api.post('/transacciones/comprar', formData); // ÃƒÂ¯Ã‚Â¿Ã‚Â½R no pongas Content-Type
 
     const { data } = response;
 
@@ -358,7 +371,7 @@ export const registrarCompra = (formData) => async (dispatch) => {
         payload: data,
       });
 
-      message.success(data.message || '✅ Compra registrada con éxito.');
+      message.success(data.message || 'ÃƒÂ¯Ã‚Â¿Ã‚Â½S& Compra registrada con éxito.');
       return { success: true, data };
     } else {
       const errorMsg = data.message || 'La compra no pudo registrarse.';
@@ -366,7 +379,7 @@ export const registrarCompra = (formData) => async (dispatch) => {
     }
 
   } catch (error) {
-    const msg = error?.response?.data?.error || error?.message || '❌ Error desconocido al registrar la compra.';
+    const msg = error?.response?.data?.error || error?.message || 'ÃƒÂ¯Ã‚Â¿Ã‚Â½R Error desconocido al registrar la compra.';
 
     dispatch({
       type: REGISTRAR_COMPRA_ERROR,
@@ -396,20 +409,15 @@ export const fetchTrazabilidadBien = (identificadorUnico) => async (dispatch) =>
   dispatch({ type: FETCH_TRAZABILIDAD_REQUEST });
 
   try {
-    const response = await api.get(`/bienes/trazabilidad-identificador/${identificadorUnico}`);
+    const response = await api.get(`/bienes/trazabilidad-identificador/${encodeURIComponent(identificadorUnico)}`);
 
     dispatch({
       type: FETCH_TRAZABILIDAD_SUCCESS,
       payload: Array.isArray(response.data.historial)
       ? response.data.historial.map((t) => ({
           ...t,
-          compradorTransaccion: t.comprador,
-          vendedorTransaccion: t.vendedor,
-          empresaCompradora: t.empresaCompradora || null,
-          empresaVendedora: t.empresaVendedora || null,
-          bien: t.bien,
-          imeis: t.bien?.detalles || [],
-          fotos: t.bien?.fotos || [],
+          imeis: t.bienTransaccion?.detalles || [],
+          fotos: t.bienTransaccion?.fotos || [],
         }))
       : [],
     });
@@ -430,7 +438,7 @@ export const fetchTrazabilidadPorBien = (uuid) => async (dispatch) => {
 
     dispatch({
       type: FETCH_TRAZABILIDAD_SUCCESS,
-      payload: Array.isArray(response.data) ? response.data : [], // 👈 Misma validación importante
+      payload: Array.isArray(response.data) ? response.data : [], // ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ Misma validación importante
     });
   } catch (error) {
     dispatch({
@@ -521,18 +529,24 @@ export const fetchBienesPorUsuario = (uuid, incluirDelegados = false) => async (
 
   try {
     const queryString = incluirDelegados ? '?incluirDelegados=true' : '';
-    const response = await axios.get(`/bienes/usuario/${uuid}${queryString}`);
+    const response = await api.get(`/bienes/usuario/${uuid}${queryString}`);
 
     const bienesNormalizados = response.data.data.map((bien) => {
       const stockCalculado =
-        bien.tipo?.toLowerCase().includes("teléfono movil") && bien.identificadores
+        bien.tipo?.toLowerCase()?.includes("teléfono movil") && bien.identificadores
           ? bien.identificadores.length
           : bien.stock || 0;
+
+      const fotos = [
+        ...(bien.fotos || []),
+        ...(bien.identificadores?.map((d) => d.foto).filter(Boolean) || []),
+      ];
 
       return {
         ...bien,
         precio: Number(bien.precio || 0),
         stock: stockCalculado,
+        fotos: fotos.length > 0 ? fotos : [],
         createdAt: new Date(bien.createdAt),
       };
     });
@@ -542,7 +556,7 @@ export const fetchBienesPorUsuario = (uuid, incluirDelegados = false) => async (
       payload: bienesNormalizados,
     });
 
-    // 🔧 FIX: agregar return explícito como lo hace fetchBienesPorEmpresa
+    // ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ FIX: agregar return explícito como lo hace fetchBienesPorEmpresa
     return { success: true, data: bienesNormalizados };
 
   } catch (error) {
@@ -567,7 +581,7 @@ export const fetchBienesPorPropietario = (uuid, page = 1, limit = 30, search = '
     const bienesRaw = res.data?.data || [];
 
     const bienesNormalizados = bienesRaw.map((bien) => {
-      const esTelefonoMovil = bien.tipo?.toLowerCase().includes("teléfono movil");
+      const esTelefonoMovil = bien.tipo?.toLowerCase()?.includes("teléfono movil");
 
       const stockCalculado = esTelefonoMovil
         ? (bien.identificadores || []).filter((i) => i.estado === 'disponible').length
@@ -586,7 +600,7 @@ export const fetchBienesPorPropietario = (uuid, page = 1, limit = 30, search = '
         descripcion: bien.descripcion,
         precio: Number(bien.precio || 0),
         stock: stockCalculado,
-        fotos: fotosCombinadas.length > 0 ? fotosCombinadas : ['/images/placeholder.png'],
+        fotos: (fotosCombinadas.length > 0 ? fotosCombinadas : ['/images/placeholder.png']).map(foto => require('../../utils/imageHelper').getFullImageUrl(foto)),
         identificadores: bien.identificadores || [],
         createdAt: bien.createdAt ? new Date(bien.createdAt) : new Date(),
       };
@@ -627,14 +641,14 @@ export const fetchBienesPorEmpresa = (empresaUuid) => async (dispatch) => {
 
   try {
     if (!empresaUuid || empresaUuid === 'undefined' || empresaUuid === 'null') {
-      console.warn('⚠️ UUID de empresa inválido recibido en fetchBienesPorEmpresa:', empresaUuid);
+      console.warn('ÃƒÂ¯Ã‚Â¿Ã‚Â½aÃƒÂ¯Ã‚Â¿Ã‚Â½ÃƒÂ¯Ã‚Â¸Ã‚Â UUID de empresa inválido recibido en fetchBienesPorEmpresa:', empresaUuid);
       return { success: false, message: 'UUID de empresa inválido.' };
     }
 
-    console.log('🚀 Solicitando bienes de empresa:', empresaUuid);
+    // console.log('ÃƒÂ¯Ã‚Â¿Ã‚Â½xaÃƒÂ¯Ã‚Â¿Ã‚Â½ Solicitando bienes de empresa:', empresaUuid);
     const res = await api.get(`/bienes/empresa/${empresaUuid}`);
 
-    // ✅ Detección automática del formato de respuesta
+    // ÃƒÂ¯Ã‚Â¿Ã‚Â½S& Detección automática del formato de respuesta
     const bienesRaw =
       Array.isArray(res.data)
         ? res.data
@@ -644,16 +658,16 @@ export const fetchBienesPorEmpresa = (empresaUuid) => async (dispatch) => {
         ? res.data.bienes
         : [];
 
-    console.log('📦 Respuesta completa del backend:', res.data);
-    console.log('✅ Bienes detectados:', bienesRaw.length);
+    // console.log('ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ Respuesta completa del backend:', res.data);
+    // console.log('ÃƒÂ¯Ã‚Â¿Ã‚Â½S& Bienes detectados:', bienesRaw.length);
 
     if (!Array.isArray(bienesRaw) || bienesRaw.length === 0) {
-      console.warn('⚠️ No se encontraron bienes para la empresa:', empresaUuid);
+      console.warn('ÃƒÂ¯Ã‚Â¿Ã‚Â½aÃƒÂ¯Ã‚Â¿Ã‚Â½ÃƒÂ¯Ã‚Â¸Ã‚Â No se encontraron bienes para la empresa:', empresaUuid);
     }
 
-    // 🔧 Normalización de datos
+    // ÃƒÂ¯Ã‚Â¿Ã‚Â½xÃƒÂ¯Ã‚Â¿Ã‚Â½ Normalización de datos
     const bienesNormalizados = bienesRaw.map((bien) => {
-      const esTelefonoMovil = bien.tipo?.toLowerCase().includes('teléfono movil');
+      const esTelefonoMovil = bien.tipo?.toLowerCase()?.includes('teléfono movil');
 
       let stockCalculado = 0;
       if (esTelefonoMovil && Array.isArray(bien.identificadores)) {
@@ -675,7 +689,7 @@ export const fetchBienesPorEmpresa = (empresaUuid) => async (dispatch) => {
         descripcion: bien.descripcion,
         precio: Number(bien.precio || 0),
         stock: stockCalculado,
-        fotos: fotosCombinadas.length > 0 ? fotosCombinadas : ['/images/placeholder.png'],
+        fotos: (fotosCombinadas.length > 0 ? fotosCombinadas : ['/images/placeholder.png']).map(foto => require('../../utils/imageHelper').getFullImageUrl(foto)),
         identificadores: bien.identificadores || [],
         createdAt: bien.createdAt ? new Date(bien.createdAt) : new Date(),
       };
@@ -686,11 +700,11 @@ export const fetchBienesPorEmpresa = (empresaUuid) => async (dispatch) => {
       payload: bienesNormalizados,
     });
 
-    console.log('✅ Bienes normalizados y despachados:', bienesNormalizados.length);
+    // console.log('ÃƒÂ¯Ã‚Â¿Ã‚Â½S& Bienes normalizados y despachados:', bienesNormalizados.length);
 
     return { success: true, data: bienesNormalizados };
   } catch (error) {
-    console.error('❌ Error en fetchBienesPorEmpresa:', error);
+    console.error('ÃƒÂ¯Ã‚Â¿Ã‚Â½R Error en fetchBienesPorEmpresa:', error);
     dispatch({
       type: FETCH_BIENES_EMPRESA_ERROR,
       payload: error.response?.data?.message || 'Error al obtener los bienes de la empresa',
@@ -704,7 +718,7 @@ export const fetchBienesPorEmpresa = (empresaUuid) => async (dispatch) => {
 
 export const agregarMarca = (tipo, marca) => async (dispatch) => {
   try {
-    const response = await axios.post('bienes/bienes/marcas', { tipo, marca });
+    const response = await axios.post('/bienes/marcas', { tipo, marca });
     return response.data;
   } catch (error) {
     throw error;
@@ -713,7 +727,7 @@ export const agregarMarca = (tipo, marca) => async (dispatch) => {
 
 export const agregarModelo = (tipo, marca, modelo) => async (dispatch) => {
   try {
-    const response = await axios.post('bienes/bienes/modelos', { tipo, marca, modelo });
+    const response = await axios.post('/bienes/modelos', { tipo, marca, modelo });
     return response.data;
   } catch (error) {
     throw error;
@@ -730,12 +744,7 @@ export const actualizarStock = (params) => async (dispatch) => {
 };
 export const deleteBien = (uuid) => async (dispatch) => {
   try {
-      const token = localStorage.getItem('token'); // O ajusta según cómo almacenes el token
-      await axios.delete(`/bienes/${uuid}`, {
-          headers: {
-              Authorization: `Bearer ${token}`,
-          },
-      });
+      await api.delete(`/bienes/${uuid}`);
 
       // Opcional: Actualizar el estado global recargando la lista
       dispatch(fetchAllBienes());
@@ -821,3 +830,6 @@ export const verificarIMEI = (imei) => async (dispatch) => {
       throw error;
   }
 };
+
+
+

@@ -13,7 +13,6 @@ import {
     FETCH_USUARIO_DETAILS_FAILURE,
     LOGIN_REQUEST,
     LOGIN_SUCCESS,
-    LOGIN_FAIL,
     LOGOUT,
     REGISTER_REQUEST,
     REGISTER_SUCCESS,
@@ -24,9 +23,6 @@ import {
     FETCH_COMPRAS_VENTAS_REQUEST,
     FETCH_COMPRAS_VENTAS_SUCCESS,
     FETCH_COMPRAS_VENTAS_ERROR,
-    DELETE_USUARIO_REQUEST,
-    DELETE_USUARIO_SUCCESS,
-    DELETE_USUARIO_ERROR,
     ASSIGN_ROLE_REQUEST,
     ASSIGN_ROLE_SUCCESS,
     ASSIGN_ROLE_ERROR,
@@ -39,7 +35,6 @@ import {
     SET_USER_DETAILS,
     UPDATE_USER_REQUEST, 
     UPDATE_USER_SUCCESS, 
-    UPDATE_USER_ERROR, 
     BUSCAR_USUARIO_DNI_REQUEST,
     BUSCAR_USUARIO_DNI_SUCCESS,
     BUSCAR_USUARIO_DNI_ERROR,
@@ -54,41 +49,21 @@ import {
     FETCH_PENDING_REGISTRATIONS_ERROR,
     APPROVE_REGISTRATION_REQUEST,
     APPROVE_REGISTRATION_SUCCESS,
-    APPROVE_REGISTRATION_ERROR,
     DENY_REGISTRATION_REQUEST,
     DENY_REGISTRATION_SUCCESS,
-    DENY_REGISTRATION_ERROR,
     FETCH_APPROVED_USERS_REQUEST,
-    FETCH_APPROVED_USERS_SUCCESS,
-    FETCH_APPROVED_USERS_ERROR,
-    
-    FETCH_APPROVED_USERS_FAILURE,
-    FETCH_REJECTED_USERS_REQUEST,
-    FETCH_REJECTED_USERS_SUCCESS,
-    FETCH_REJECTED_USERS_ERROR,
-    APPROVE_USER_REQUEST, 
-    APPROVE_USER_SUCCESS, 
-    APPROVE_USER_ERROR,
-    CHECK_USER_REQUEST, 
-    CHECK_USER_SUCCESS,
-     CHECK_USER_ERROR, 
-     REGISTER_USER_THIRD_PARTY_REQUEST,
-  REGISTER_USER_THIRD_PARTY_SUCCESS,
-  REGISTER_USER_THIRD_PARTY_ERROR,
-  REENVIAR_REGISTRO_REQUEST, 
-  REENVIAR_REGISTRO_SUCCESS,
-   REENVIAR_REGISTRO_ERROR,
-   REINTENTAR_REGISTRO_REQUEST, 
-   REINTENTAR_REGISTRO_SUCCESS, 
-   REINTENTAR_REGISTRO_ERROR,
-   FETCH_EMPRESAS_REQUEST,
-   FETCH_EMPRESAS_SUCCESS,
-   FETCH_EMPRESAS_ERROR,
-   REGISTER_DELEGADO_REQUEST,
-  REGISTER_DELEGADO_SUCCESS,
-  REGISTER_DELEGADO_ERROR,
-  CREATE_EMPRESA_SUCCESS,
-    
+    REGISTER_USER_THIRD_PARTY_REQUEST,
+    REGISTER_USER_THIRD_PARTY_SUCCESS,
+    REGISTER_USER_THIRD_PARTY_ERROR,
+    REINTENTAR_REGISTRO_REQUEST, 
+    REINTENTAR_REGISTRO_SUCCESS, 
+    REINTENTAR_REGISTRO_ERROR,
+    FETCH_EMPRESAS_REQUEST,
+    FETCH_EMPRESAS_SUCCESS,
+    FETCH_EMPRESAS_ERROR,
+    REGISTER_DELEGADO_REQUEST,
+    REGISTER_DELEGADO_SUCCESS,
+    REGISTER_DELEGADO_ERROR,
 } from './actionTypes';
 
 
@@ -100,8 +75,6 @@ import {
  * @param {string|null} rolEmpresa - Rol actual en la empresa (delegado/responsable o null)
  */
 
-// Define getToken at the top of your file
-const getToken = () => localStorage.getItem('token');
 
 // Obtener usuarios
 export const fetchUsuarios = () => async (dispatch) => {
@@ -131,11 +104,6 @@ export const fetchUsuarios = () => async (dispatch) => {
 
 
 
-// Definición de la función getCurrentUserId
-const getCurrentUserId = () => {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-    return currentUser ? currentUser.id : null;
-};
 
 
 
@@ -751,7 +719,8 @@ export const registerUsuarioPorTercero = (usuarioData) => async (dispatch) => {
       error: error.message,
     });
 
-    throw new Error(error.response?.data?.message || "Error en el registro de usuario.");
+    const backendError = error.response?.data?.message || error.response?.data?.error || "Error en el registro de usuario.";
+    throw new Error(backendError);
   }
 };
 
@@ -768,7 +737,7 @@ export const registerDelegado = (delegadoData) => async (dispatch) => {
       tipo: 'fisica', // 🔒 Siempre física
     };
 
-    console.log('📤 Enviando datos del delegado:', payload); // 🔍 DEBUG
+    // console.log('📤 Enviando datos del delegado:', payload); // 🔍 DEBUG
 
     const response = await api.post('/usuarios/registrar-delegado', payload, {
       headers: {
@@ -777,7 +746,7 @@ export const registerDelegado = (delegadoData) => async (dispatch) => {
       },
     });
 
-    console.log('✅ Respuesta de registro delegado:', response.data); // 🔍 DEBUG
+    // console.log('✅ Respuesta de registro delegado:', response.data); // 🔍 DEBUG
 
     if (response.data?.usuario) {
       dispatch({
@@ -1011,7 +980,7 @@ export const fetchDelegados = (empresaUuid) => async (dispatch) => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    console.log('[✅ API] Delegados recibidos:', res.data.delegados);
+    // console.log('[✅ API] Delegados recibidos:', res.data.delegados);
 
     dispatch({ type: 'FETCH_DELEGADOS_SUCCESS', payload: res.data.delegados });
   } catch (error) {
@@ -1035,6 +1004,7 @@ export const fetchMiEmpresaYDelegados = () => async (dispatch) => {
 
     const empresa = empresaRes.data.empresa;
 
+  
     if (!empresa || !empresa.uuid) {
       throw new Error('Empresa no válida o sin UUID.');
     }

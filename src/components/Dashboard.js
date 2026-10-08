@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaSignOutAlt, FaHome, FaUser, FaEnvelope, FaBoxOpen } from 'react-icons/fa';
+import { FaSignOutAlt, FaHome, FaUser, FaEnvelope, FaBoxOpen, FaExchangeAlt } from 'react-icons/fa';
 import { useSelector, useDispatch } from 'react-redux';
 import searchItems from '../redux/actions/search';
 import {  } from '../redux/actions/usuarios';
@@ -38,7 +38,7 @@ useEffect(() => {
   if (!userData?.uuid) return;
 
   dispatch(getUnreadMessages(userData.uuid)).then((unread) => {
-    console.log("📬 Mensajes no leídos recibidos:", unread); // Ahora sí: debe ser array
+    // console.log("📬 Mensajes no leídos recibidos:", unread); // Ahora sí: debe ser array
   });
 
   messagesIntervalRef.current = setInterval(() => {
@@ -85,11 +85,11 @@ const handleInboxClick = async () => {
   if (!userData?.uuid) return;
 
   try {
-    console.log("📩 Ejecutando flujo de Inbox...");
+    // console.log("📩 Ejecutando flujo de Inbox...");
 
     // 🔹 1. Asignar globales no leídos al admin
     const assignRes = await dispatch(assignUnreadToAdmin(userData.uuid));
-    console.log("🧩 Resultado assignUnreadToAdmin:", assignRes);
+    // console.log("🧩 Resultado assignUnreadToAdmin:", assignRes);
 
     // 🔹 2. Marcar mensajes del admin como leídos
     await dispatch(markMessagesAsRead(userData.uuid));
@@ -110,59 +110,85 @@ const handleInboxClick = async () => {
 
 
     return (
-        <div className="p-6 bg-gray-100 min-h-screen flex flex-col">
-            <header className="bg-blue-600 text-white p-4 flex justify-between items-center">
-                <img src={logoSrc} alt="Logo" className="h-10 w-auto" />
-                <h1 className="text-2xl font-bold">
-                    Bienvenido/a, {user ? `${user.nombre} ${user.apellido}` : 'Invitado'}
-                </h1>
+        <div className="bg-background min-h-screen flex flex-col font-inter">
+            {/* Header Superior - Calidad Premium */}
+            <header className="bg-primary text-white px-8 py-5 flex justify-between items-center shadow-md">
+                <div className="flex items-center gap-4">
+                    <img src={logoSrc} alt="Logo" className="h-12 w-auto bg-white/10 rounded p-1" />
+                    <div>
+                        <h1 className="text-2xl font-bold font-montserrat tracking-tight">
+                            Bienvenido/a, {user ? `${user.nombre} ${user.apellido}` : 'Invitado'}
+                        </h1>
+                        <p className="text-inverse-primary text-sm font-medium mt-0.5">
+                            Panel de Administración Central
+                        </p>
+                    </div>
+                </div>
                 <div className="flex items-center space-x-4">
-                    <button onClick={() => navigate('/home')} className="px-3 py-2 bg-blue-700 text-white rounded hover:bg-blue-800">
-                        <FaHome className="w-5 h-5" />
-                    </button>
-                    <button onClick={handleLogout} className="px-3 py-2 bg-red-700 text-white rounded hover:bg-red-800">
+                    <button onClick={handleLogout} className="flex items-center justify-center p-3 bg-error text-white rounded-lg hover:bg-error/90 transition-all shadow-sm">
                         <FaSignOutAlt className="w-5 h-5" />
                     </button>
                 </div>
             </header>
 
-            <main className="mt-6 flex-grow overflow-x-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Link to="/admin/usuarios" className="group bg-blue-100 rounded-lg p-6 flex flex-col items-center">
-                        <FaUser className="text-blue-500 text-5xl" />
-                        <p className="text-xl font-semibold text-gray-900">Usuarios</p>
+            {/* Contenido Principal - Grid de Tarjetas Mejoradas */}
+            <main className="flex-grow p-8 max-w-7xl mx-auto w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Tarjeta Usuarios */}
+                    <Link to="/admin/usuarios" className="group bg-surface-container-lowest rounded-2xl p-8 flex flex-col items-center justify-center border border-outline-variant shadow-level-2 hover:shadow-level-3 transition-all hover:-translate-y-1">
+                        <div className="bg-primary-container p-6 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                            <FaUser className="text-on-primary-container text-5xl" />
+                        </div>
+                        <p className="text-2xl font-bold text-primary font-montserrat">Usuarios</p>
+                        <p className="text-on-surface-variant text-sm mt-2 text-center">Gestión y aprobación de cuentas</p>
                     </Link>
-                    <Link to="/lista-bienes" className="group bg-green-100 rounded-lg p-6 flex flex-col items-center">
-  <FaBoxOpen className="text-green-500 text-5xl" />
-  <p className="text-xl font-semibold text-gray-900">Bienes Muebles</p>
-</Link>
+
+                    {/* Tarjeta Bienes Muebles */}
+                    <Link to="/lista-bienes" className="group bg-surface-container-lowest rounded-2xl p-8 flex flex-col items-center justify-center border border-outline-variant shadow-level-2 hover:shadow-level-3 transition-all hover:-translate-y-1">
+                        <div className="bg-secondary-container p-6 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                            <FaBoxOpen className="text-on-secondary-container text-5xl" />
+                        </div>
+                        <p className="text-2xl font-bold text-primary font-montserrat">Bienes Muebles</p>
+                        <p className="text-on-surface-variant text-sm mt-2 text-center">Control de inventario general</p>
+                    </Link>
+
+                    {/* Tarjeta Transacciones Globales */}
+                    <Link to="/admin/transacciones" className="group bg-surface-container-lowest rounded-2xl p-8 flex flex-col items-center justify-center border border-outline-variant shadow-level-2 hover:shadow-level-3 transition-all hover:-translate-y-1">
+                        <div className="bg-tertiary-container p-6 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                            <FaExchangeAlt className="text-on-tertiary-container text-5xl" />
+                        </div>
+                        <p className="text-2xl font-bold text-primary font-montserrat">Operaciones</p>
+                        <p className="text-on-surface-variant text-sm mt-2 text-center">Registro de compras y ventas</p>
+                    </Link>
                     
-                  <Link to="/inbox" onClick={handleInboxClick} className="group bg-indigo-100 rounded-lg p-6 flex flex-col items-center relative">
-  <div className="relative">
-    <FaEnvelope className="text-indigo-500 text-5xl" />
-    {unreadMessages > 0 && (
-      <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] min-w-[20px] h-[20px] px-1 py-0.5 flex items-center justify-center rounded-full shadow-lg animate-ping z-10">
-
-        {unreadMessages}
-      </span>
-    )}
-  </div>
-  <p className="text-xl font-semibold text-gray-900">Bandeja de Mensajes</p>
-</Link>
-
-
-                    
+                    {/* Tarjeta Mensajes */}
+                    <Link to="/inbox" onClick={handleInboxClick} className="group bg-surface-container-lowest rounded-2xl p-8 flex flex-col items-center justify-center border border-outline-variant shadow-level-2 hover:shadow-level-3 transition-all hover:-translate-y-1 relative">
+                        <div className="relative bg-surface-container-high p-6 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                            <FaEnvelope className="text-primary text-5xl" />
+                            {unreadMessages > 0 && (
+                                <span className="absolute 0 right-0 bg-error text-white text-xs font-bold w-8 h-8 flex items-center justify-center rounded-full shadow-lg border-2 border-white animate-pulse">
+                                    {unreadMessages}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-2xl font-bold text-primary font-montserrat">Bandeja de Mensajes</p>
+                        <p className="text-on-surface-variant text-sm mt-2 text-center">Alertas y trazabilidad</p>
+                    </Link>
                 </div>
-                {user?.tipo === 'juridica' && !user?.delegadoDe && (
-  <div className="mt-10">
-    <h2 className="text-xl font-bold text-gray-800 mb-4">Gestión de Delegados</h2>
-    <EmpresasRegistradas
-      empresas={[user]} // Solo su propia empresa
-      refreshEmpresas={() => {}} // Podés usar un fetch aquí si implementás edición
-    />
-  </div>
-)}
 
+                {/* Gestión de Delegados */}
+                {user?.tipo === 'juridica' && !user?.delegadoDe && (
+                    <div className="mt-12 bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant shadow-level-2">
+                        <div className="border-b border-outline-variant pb-4 mb-6">
+                            <h2 className="text-2xl font-bold text-primary font-montserrat">Gestión de Delegados</h2>
+                            <p className="text-on-surface-variant text-sm mt-1">Administra los permisos de los delegados asociados a tu empresa.</p>
+                        </div>
+                        <EmpresasRegistradas
+                            empresas={[user]} 
+                            refreshEmpresas={() => {}} 
+                        />
+                    </div>
+                )}
             </main>
         </div>
     );

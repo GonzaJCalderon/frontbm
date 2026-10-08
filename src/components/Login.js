@@ -33,18 +33,18 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
   try {
     const resultAction = await dispatch(login({ email, password }));
 
-    console.log("result directo:", typeof resultAction);
+    // console.log("result directo:", typeof resultAction);
 
     if (resultAction.type === 'auth/login/fulfilled') {
       const { usuario, token, refreshToken } = resultAction.payload;
 
-      console.log("Voy a guardar token en localStorage:", token);
+      // console.log("Voy a guardar token en localStorage:", token);
 
       // 🚨 Guarda siempre como "authToken"
       localStorage.setItem('authToken', token);
       sessionStorage.setItem('authToken', token);
 
-      console.log("se guardó en localStorage:", localStorage.getItem("authToken"));
+      // console.log("se guardó en localStorage:", localStorage.getItem("authToken"));
 
       // ✅ Guarda refreshToken y datos del usuario (sin cambios)
       localStorage.setItem('refreshToken', refreshToken);
@@ -68,10 +68,10 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
         rolEmpresa: usuario.rolEmpresa || null,
       }));
 
-      console.log('🧠 Rol del usuario:', usuario.rolDefinitivo);
-      console.log('📛 Tipo de usuario:', usuario.tipo);
-      console.log('🏢 Empresa asociada:', usuario.empresaUuid);
-      console.log('🧾 Datos completos del usuario:', usuario);
+      // console.log('🧠 Rol del usuario:', usuario.rolDefinitivo);
+      // console.log('📛 Tipo de usuario:', usuario.tipo);
+      // console.log('🏢 Empresa asociada:', usuario.empresaUuid);
+      // console.log('🧾 Datos completos del usuario:', usuario);
 
       if (usuario.rolDefinitivo === 'admin' || usuario.rolDefinitivo === 'moderador') {
         navigate('/admin/dashboard');
@@ -99,8 +99,8 @@ const Login = ({ onRegisterClick, onForgotPasswordClick }) => {
 
     return (
         <div className="font-sans">
-            <div className="grid lg:grid-cols-3 md:grid-cols-2 items-center gap-4 h-full min-h-screen">
-                <div className="max-md:order-1 lg:col-span-2 md:h-screen w-full bg-[#000842] md:rounded-tr-xl md:rounded-br-xl lg:p-12 p-8 flex justify-center items-center">
+            <div className="grid lg:grid-cols-3 md:grid-cols-2 items-center gap-4 h-full w-full">
+                <div className="max-md:order-1 lg:col-span-2 w-full bg-[#000842] md:rounded-tr-xl md:rounded-br-xl lg:p-12 p-8 flex justify-center items-center">
                     <img
                         src={loginImage}
                         className="lg:w-[70%] w-full h-auto object-contain mx-auto"

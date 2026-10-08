@@ -9,7 +9,7 @@ import {
    approveUser, 
    registrarUsuarioYAsignarRol,
   checkExistingUser } from '../redux/actions/usuarios';
-import { fetchBienes, fetchBienesPorPropietario  } from '../redux/actions/bienes';
+import { fetchBienesPorPropietario  } from '../redux/actions/bienes';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../redux/axiosConfig';
 import { notification, Button, Table, Modal, Input, Spin, Divider,Form, Select } from 'antd';
@@ -42,11 +42,8 @@ const shouldReload = location.state?.reload === true;
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserName, setCurrentUserName] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
-  const [selectedUserBienes, setSelectedUserBienes] = useState(null);
-  const [currentUsuario, setCurrentUsuario] = useState(null);
   const [filters, setFilters] = useState({});
   const [isLoadingAction, setIsLoadingAction] = useState(false);
-  const [bienes, setBienes] = useState([]);
   const [isAddUserModalVisible, setIsAddUserModalVisible] = useState(false);
 const [addUserForm] = Form.useForm();
 const [validandoRenaper, setValidandoRenaper] = useState(false);
@@ -60,7 +57,7 @@ const [datosRenaperCargados, setDatosRenaperCargados] = useState(false);
 
 
   const userData = JSON.parse(localStorage.getItem('userData')) || {};
-  console.log('🔐 Usuario desde localStorage:', userData);
+  // console.log('🔐 Usuario desde localStorage:', userData);
   
   const userRol = (userData?.rol || '').toLowerCase(); // Siempre seguro
   const isAdmin = userRol === 'admin';
@@ -197,7 +194,7 @@ useEffect(() => {
   setRenaperError('');
   try {
     const { data } = await api.get(`/renaper/${dni}`);
-    console.log('📦 Datos RENAPER:', data);
+    // console.log('📦 Datos RENAPER:', data);
 
     if (data.resultado === 0 && data.persona && !data.persona.fallecido) {
       const persona = data.persona;
@@ -286,7 +283,7 @@ const normalizarDepartamento = (localidad) => {
   };
 
   const handleViewBienes = (usuario) => {
-  console.log("👤 Usuario seleccionado:", usuario);
+  // console.log("👤 Usuario seleccionado:", usuario);
 
   // Detectar si pertenece a una empresa válida
   const esDelegadoResponsable = ['delegado', 'responsable'].includes(
@@ -316,7 +313,7 @@ const normalizarDepartamento = (localidad) => {
     return;
   }
 
-  console.log("🏷️ UUID final para obtener bienes:", propietarioUuid);
+  // console.log("🏷️ UUID final para obtener bienes:", propietarioUuid);
 
   dispatch(fetchBienesPorPropietario(propietarioUuid))
     .then((response) => {
@@ -355,12 +352,14 @@ const normalizarDepartamento = (localidad) => {
       title: 'Nombre',
       dataIndex: 'nombre',
       key: 'nombre',
+      className: 'font-medium',
     },
     {
       title: 'Apellido',
       dataIndex: 'apellido',
       key: 'apellido',
       render: (text) => text || 'No disponible',
+      className: 'font-medium',
     },
     {
       title: 'DNI',
@@ -372,19 +371,24 @@ const normalizarDepartamento = (localidad) => {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      className: 'text-outline',
     },
-
     {
       title: 'Rol en Empresa',
       key: 'rolEmpresa',
       render: (usuario) =>
-        usuario.rolEmpresa
-          ? usuario.rolEmpresa.charAt(0).toUpperCase() + usuario.rolEmpresa.slice(1)
-          : usuario.tipo === 'juridica'
-          ? 'Responsable'
-          : 'Sin rol',
+        usuario.rolEmpresa ? (
+          <span className="px-2 py-1 bg-surface-container-high text-on-surface-variant text-xs font-semibold rounded-full border border-outline-variant">
+            {usuario.rolEmpresa.charAt(0).toUpperCase() + usuario.rolEmpresa.slice(1)}
+          </span>
+        ) : usuario.tipo === 'juridica' ? (
+          <span className="px-2 py-1 bg-primary-container text-primary text-xs font-semibold rounded-full">
+            Responsable
+          </span>
+        ) : (
+          <span className="text-outline text-sm">Sin rol</span>
+        ),
     },
-    
     {
       title: 'Empresa',
       key: 'empresa',
@@ -397,97 +401,85 @@ const normalizarDepartamento = (localidad) => {
       dataIndex: 'aprobadoPor',
       key: 'aprobadoPor',
       render: (aprobadoPor) => aprobadoPor || 'No especificado',
+      className: 'text-sm text-outline',
     },
     {
       title: 'Fecha de Aprobación',
       dataIndex: 'fechaAprobacion',
       key: 'fechaAprobacion',
       render: (fechaAprobacion) => (fechaAprobacion ? new Date(fechaAprobacion).toLocaleString() : 'No disponible'),
+      className: 'text-sm text-outline',
     },
     {
       title: 'Acciones',
       key: 'acciones',
-      render: (text, usuario) => (
+      render: (_, usuario) => (
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="small"
+          <button
             onClick={() => handleViewDetails(usuario.uuid)}
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded shadow"
+            className="px-3 py-1 bg-surface-container hover:bg-surface-container-high text-primary text-xs font-semibold rounded transition-colors border border-outline-variant"
           >
             Ver Detalles
-          </Button>
-          <Button
-  size="small"
-  onClick={() => {
-    const esDelegadoResponsable = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase());
-    const targetUuid = esDelegadoResponsable && usuario.empresa?.uuid
-      ? usuario.empresa.uuid
-      : usuario.uuid;
-
-    navigate(`/admin/operaciones/${targetUuid}`, {
-      state: { usuario },
-    });
-  }}
-  className="bg-green-500 hover:bg-green-600 text-white rounded shadow"
->
-  Operaciones
-</Button>
-
-
-
-
+          </button>
+          <button
+            onClick={() => {
+              const esDelegadoResponsable = ['delegado', 'responsable'].includes(usuario.rolEmpresa?.toLowerCase());
+              const targetUuid = esDelegadoResponsable && usuario.empresa?.uuid
+                ? usuario.empresa.uuid
+                : usuario.uuid;
+          
+              navigate(`/admin/operaciones/${targetUuid}`, {
+                state: { usuario },
+              });
+            }}
+            className="px-3 py-1 bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-white text-xs font-semibold rounded transition-colors"
+          >
+            Operaciones
+          </button>
     
-          <Button
-            size="small"
+          <button
             onClick={() => handleViewBienes(usuario)}
-            className="bg-purple-500 hover:bg-purple-600 text-white rounded shadow"
+            className="px-3 py-1 bg-surface-container hover:bg-surface-container-high text-primary text-xs font-semibold rounded transition-colors border border-outline-variant"
           >
             Bienes
-          </Button>
+          </button>
     
-          <Button
-            size="small"
+          <button
             onClick={() => navigate(`/admin/historial-cambios/${usuario.uuid}`)}
-            className="bg-sky-500 hover:bg-sky-600 text-white rounded shadow"
+            className="px-3 py-1 bg-surface-container hover:bg-surface-container-high text-primary text-xs font-semibold rounded transition-colors border border-outline-variant"
           >
             Historial
-          </Button>
+          </button>
     
           {isAdmin && (
-  <>
-    <Divider type="horizontal" className="my-2" />
-    <Button
-      size="small"
-      onClick={() => navigate(`/usuarios/${usuario.uuid}/edit`)}
-      className="bg-yellow-500 hover:bg-yellow-600 text-white rounded shadow"
-    >
-      Editar
-    </Button>
-    <Button
-      size="small"
-      onClick={() => handleReject(usuario)}
-      className="bg-orange-500 hover:bg-orange-600 text-white rounded shadow"
-    >
-      Rechazar
-    </Button>
-{isAdmin &&
-  usuario.uuid !== userData.uuid && // 💥 No se puede autoeliminar
-  !['admin', 'moderador'].includes((usuario.rolDefinitivo || '').toLowerCase()) && (
-    <Button
-      size="small"
-      onClick={() => handleDelete(usuario)}
-      className="bg-red-500 hover:bg-red-600 text-white rounded shadow"
-    >
-      Eliminar
-    </Button>
-)}
-  </>
-)}
-
+            <>
+              <Divider type="vertical" className="h-6 mx-1 bg-outline-variant" />
+              <button
+                onClick={() => navigate(`/usuarios/${usuario.uuid}/edit`)}
+                className="px-3 py-1 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-semibold rounded transition-colors border border-outline-variant"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => handleReject(usuario)}
+                className="px-3 py-1 bg-error-container hover:bg-error text-error hover:text-white text-xs font-semibold rounded transition-colors"
+              >
+                Rechazar
+              </button>
+              {usuario.uuid !== userData.uuid && // No se puede autoeliminar
+              !['admin', 'moderador'].includes((usuario.rolDefinitivo || '').toLowerCase()) && (
+                <button
+                  onClick={() => handleDelete(usuario)}
+                  className="px-3 py-1 bg-error hover:bg-red-700 text-white text-xs font-semibold rounded shadow-sm transition-colors"
+                >
+                  Eliminar
+                </button>
+              )}
+            </>
+          )}
         </div>
       ),
-    }
-    ,
+    },
   ];
 
 
